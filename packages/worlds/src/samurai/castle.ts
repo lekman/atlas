@@ -4,8 +4,47 @@
  * still SVG map draw the same building.
  */
 import type { Point } from "../camera";
-import { samuraiDecoration as decoration } from "./palette";
+import {
+  samuraiDecoration as decoration,
+  samuraiNightDecoration as night,
+} from "./palette";
 import { SvgPen, type Pen } from "./pen";
+
+/** The colours the keep is drawn in: by day in ink on paper, or by moonlight. */
+export interface CastleColours {
+  stone: string;
+  plaster: string;
+  /** Roofs and outlines. */
+  sumi: string;
+  windows: string;
+  finials: string;
+  timber: string;
+  courses: string;
+  /** A moonlit edge along each roof, so a dark roof reads on a dark ground. */
+  rim?: string;
+}
+
+export const dayCastle: CastleColours = {
+  stone: decoration.stone,
+  plaster: decoration.plaster,
+  sumi: decoration.sumi,
+  windows: decoration.sumi,
+  finials: decoration.gold,
+  timber: "rgba(30,27,23,0.75)",
+  courses: "rgba(30,27,23,0.28)",
+};
+
+/** By moonlight: pale walls, dark roofs with a silver edge, every window lit. */
+export const nightCastle: CastleColours = {
+  stone: night.stone,
+  plaster: night.plaster,
+  sumi: night.sumi,
+  windows: night.lantern,
+  finials: night.silver,
+  timber: "rgba(7,8,13,0.8)",
+  courses: "rgba(195,203,217,0.2)",
+  rim: "rgba(195,203,217,0.55)",
+};
 
 /** Height of the keep above and below its centre, in world units. */
 export const castleExtent = { top: 96, bottom: 38, halfWidth: 60 } as const;
@@ -108,6 +147,18 @@ export function traceWindows(pen: Pen, centre: Point): void {
   }
 }
 
+/** The gate in the foot of the base, and where its two lanterns hang. */
+export const gate = { half: 8, top: 22, lanterns: 16, lanternY: 23 } as const;
+
+export function traceGate(pen: Pen, centre: Point): void {
+  const { x, y } = centre;
+  pen.moveTo(x - gate.half, y + 38);
+  pen.lineTo(x - gate.half, y + gate.top + 4);
+  pen.quadraticCurveTo(x, y + gate.top - 3, x + gate.half, y + gate.top + 4);
+  pen.lineTo(x + gate.half, y + 38);
+  pen.closePath();
+}
+
 /** The two gold finials at the ends of the top ridge. */
 export function finials(centre: Point): Point[] {
   const top = tiers[2];
@@ -125,13 +176,14 @@ export function drawCastle(
   context: CanvasRenderingContext2D,
   centre: Point,
   line: number,
+  colours: CastleColours = dayCastle,
 ): void {
   context.lineJoin = "round";
-  context.strokeStyle = decoration.sumi;
+  context.strokeStyle = colours.sumi;
 
   context.beginPath();
   traceBase(context, centre);
-  context.fillStyle = decoration.stone;
+  context.fillStyle = colours.stone;
   context.fill();
   context.lineWidth = line * 1.4;
   context.stroke();
@@ -140,7 +192,7 @@ export function drawCastle(
   context.beginPath();
   traceBase(context, centre);
   context.clip();
-  context.strokeStyle = "rgba(30,27,23,0.28)";
+  context.strokeStyle = colours.courses;
   context.lineWidth = line * 0.8;
   for (let course = 0; course < 4; course++) {
     const y = centre.y + 6 + course * 8.5;
@@ -157,12 +209,12 @@ export function drawCastle(
   tiers.forEach((tier, index) => {
     context.beginPath();
     traceWall(context, centre, tier);
-    context.fillStyle = decoration.plaster;
+    context.fillStyle = colours.plaster;
     context.fill();
     context.lineWidth = line;
     context.stroke();
     // A dark band of timber at the foot of each wall.
-    context.fillStyle = "rgba(30,27,23,0.75)";
+    context.fillStyle = colours.timber;
     context.fillRect(
       centre.x - tier.wall.half,
       centre.y + tier.wall.bottom - 4,
@@ -171,12 +223,18 @@ export function drawCastle(
     );
     context.beginPath();
     traceRoof(context, centre, tier);
-    context.fillStyle = decoration.sumi;
+    context.fillStyle = colours.sumi;
     context.fill();
+    if (colours.rim) {
+      context.strokeStyle = colours.rim;
+      context.lineWidth = line * 0.9;
+      context.stroke();
+      context.strokeStyle = colours.sumi;
+    }
     if (index === 1) {
       context.beginPath();
       traceGable(context, centre);
-      context.fillStyle = decoration.plaster;
+      context.fillStyle = colours.plaster;
       context.fill();
       context.lineWidth = line * 0.9;
       context.stroke();
@@ -184,10 +242,17 @@ export function drawCastle(
   });
   context.beginPath();
   traceWindows(context, centre);
-  context.fillStyle = decoration.sumi;
+  context.fillStyle = colours.windows;
   context.fill();
+  if (colours.rim) {
+    // By night the gate stands open and dark between its lanterns.
+    context.beginPath();
+    traceGate(context, centre);
+    context.fillStyle = colours.sumi;
+    context.fill();
+  }
 
-  context.fillStyle = decoration.gold;
+  context.fillStyle = colours.finials;
   for (const point of finials(centre)) {
     context.beginPath();
     context.arc(point.x, point.y, 2.6, 0, Math.PI * 2);
@@ -196,33 +261,49 @@ export function drawCastle(
 }
 
 /** The same keep as SVG markup, for the still map. */
-export function castleSvg(centre: Point, scale = 1): string {
+export function castleSvg(
+  centre: Point,
+  scale = 1,
+  colours: CastleColours = dayCastle,
+): string {
   const pen = new SvgPen();
   const origin = { x: 0, y: 0 };
   const parts: string[] = [];
+  const rim = colours.rim
+    ? ` stroke="${colours.rim}" stroke-width="1.4" stroke-linejoin="round"`
+    : "";
   traceBase(pen, origin);
   parts.push(
-    `<path d="${pen.take()}" fill="${decoration.stone}" stroke="${decoration.sumi}" stroke-width="2.4"/>`,
+    `<path d="${pen.take()}" fill="${colours.stone}" stroke="${colours.sumi}" stroke-width="2.4"/>`,
   );
   tiers.forEach((tier, index) => {
     traceWall(pen, origin, tier);
     parts.push(
-      `<path d="${pen.take()}" fill="${decoration.plaster}" stroke="${decoration.sumi}" stroke-width="1.6"/>`,
+      `<path d="${pen.take()}" fill="${colours.plaster}" stroke="${colours.sumi}" stroke-width="1.6"/>`,
     );
     traceRoof(pen, origin, tier);
-    parts.push(`<path d="${pen.take()}" fill="${decoration.sumi}"/>`);
+    parts.push(`<path d="${pen.take()}" fill="${colours.sumi}"${rim}/>`);
     if (index === 1) {
       traceGable(pen, origin);
       parts.push(
-        `<path d="${pen.take()}" fill="${decoration.plaster}" stroke="${decoration.sumi}" stroke-width="1.4"/>`,
+        `<path d="${pen.take()}" fill="${colours.plaster}" stroke="${colours.sumi}" stroke-width="1.4"/>`,
       );
     }
   });
   traceWindows(pen, origin);
-  parts.push(`<path d="${pen.take()}" fill="${decoration.sumi}"/>`);
+  parts.push(`<path d="${pen.take()}" fill="${colours.windows}"/>`);
+  if (colours.rim) {
+    traceGate(pen, origin);
+    parts.push(`<path d="${pen.take()}" fill="${colours.sumi}"/>`);
+    for (const side of [-1, 1])
+      parts.push(
+        `<circle cx="${side * gate.lanterns}" cy="${gate.lanternY}" r="11" fill="${night.lantern}" fill-opacity="0.22"/>`,
+        `<ellipse cx="${side * gate.lanterns}" cy="${gate.lanternY}" rx="3.4" ry="4.4" fill="${night.lantern}"/>`,
+      );
+  }
   for (const point of finials(origin))
     parts.push(
-      `<circle cx="${point.x.toFixed(1)}" cy="${point.y.toFixed(1)}" r="2.6" fill="${decoration.gold}"/>`,
+      `<circle cx="${point.x.toFixed(1)}" cy="${point.y.toFixed(1)}" r="2.6" fill="${colours.finials}"/>`,
     );
   return `<g transform="translate(${centre.x} ${centre.y}) scale(${scale})">${parts.join("")}</g>`;
 }
