@@ -109,16 +109,162 @@ export const Requirement = z.object({
 });
 export type Requirement = z.infer<typeof Requirement>;
 
+/** A calendar date, `2026-10-18`. Days are the unit of planning. */
+export const IsoDate = z.iso.date();
+export type IsoDate = z.infer<typeof IsoDate>;
+
+export const priorities = ["high", "normal", "low"] as const;
+export const Priority = z.enum(priorities);
+export type Priority = z.infer<typeof Priority>;
+
+export const trackerSystems = ["jira", "monday", "github", "other"] as const;
+/**
+ * Where a task is tracked outside Atlas. The key is the task's identity
+ * when it has one; the importer never invents a key.
+ */
+export const TrackerReference = z.object({
+  system: z.enum(trackerSystems),
+  key: z.string().min(1),
+  url: z.url(),
+});
+export type TrackerReference = z.infer<typeof TrackerReference>;
+
+/** T-shirt sizes. The weight of each is in `effortWeights`. */
+export const efforts = ["XS", "S", "M", "L", "XL"] as const;
+export const Effort = z.enum(efforts);
+export type Effort = z.infer<typeof Effort>;
+
+/** Business value, on a short Fibonacci scale so a guess cannot be precise. */
+export const taskValues = [1, 2, 3, 5, 8, 13] as const;
+export const TaskValue = z.literal(taskValues);
+export type TaskValue = z.infer<typeof TaskValue>;
+
+/** One line of a task's past: when it was added, and each move. */
+export const TaskHistoryEntry = z.object({
+  kind: z.enum(["added", "moved"]),
+  on: IsoDate,
+  /** For a move, the day it was scheduled for before. */
+  from: IsoDate.optional(),
+});
+export type TaskHistoryEntry = z.infer<typeof TaskHistoryEntry>;
+
 export const backlogStates = ["todo", "doing", "review", "done"] as const;
+/**
+ * A backlog item, which the day plan calls a task. Every planning field is
+ * optional, so the items the map already draws stay valid.
+ */
 export const BacklogItem = z.object({
   ...governed,
   clientId: Identifier,
   requirementId: Identifier.optional(),
   title: z.string().min(1),
+  /** The prose after the title: what the task is, in a sentence or two. */
+  summary: z.string().optional(),
   state: z.enum(backlogStates),
-  priority: z.enum(["high", "normal"]),
+  /** As imported, or as set by hand. Effort and value replace it once both are set. */
+  priority: Priority,
+  tracker: TrackerReference.optional(),
+  effort: Effort.optional(),
+  value: TaskValue.optional(),
+  /** The day it is planned for. Absent means unscheduled. */
+  scheduledFor: IsoDate.optional(),
+  blocked: z.boolean().optional(),
+  /** The day it was ticked off. */
+  doneOn: IsoDate.optional(),
+  /** The details document that explains it. */
+  detailsId: Identifier.optional(),
+  history: z.array(TaskHistoryEntry).optional(),
 });
 export type BacklogItem = z.infer<typeof BacklogItem>;
+
+/**
+ * What a client's day opens with: an overview of where things stand, or
+ * the intention for the day, and what to keep an eye on.
+ */
+export const DayNote = z.object({
+  clientId: Identifier,
+  on: IsoDate,
+  kind: z.enum(["overview", "intention"]),
+  text: z.string().min(1),
+  /** One line on what to watch today. */
+  watch: z.string().optional(),
+});
+export type DayNote = z.infer<typeof DayNote>;
+
+/**
+ * A longer note a task links to, imported from the vault so it reads on
+ * any device. It keeps its client's classification and its source path.
+ */
+export const DetailsDocument = z.object({
+  ...governed,
+  clientId: Identifier,
+  title: z.string().min(1),
+  /** The note as written. Rendered through `parseMarkdown`, never as HTML. */
+  markdown: z.string(),
+  /** Where the note lives in the vault, for Open in Obsidian. */
+  sourcePath: z.string().min(1),
+  updatedOn: IsoDate,
+});
+export type DetailsDocument = z.infer<typeof DetailsDocument>;
+
+const clockTime = z
+  .string()
+  .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "use a 24-hour time, 09:15");
+
+/** A meeting on a client's day. Read only, and never scored. */
+export const CalendarEntry = z.object({
+  clientId: Identifier,
+  on: IsoDate,
+  start: clockTime,
+  end: clockTime,
+  title: z.string().min(1),
+});
+export type CalendarEntry = z.infer<typeof CalendarEntry>;
+
+export const bands = ["today", "tomorrow", "future", "unscheduled"] as const;
+export const Band = z.enum(bands);
+export type Band = z.infer<typeof Band>;
+
+/**
+ * What a dry run of the dashboard import found, before anything is written.
+ * A line that looks like a credential is named by its number only: its
+ * text never leaves the importer.
+ */
+export const ImportReport = z.object({
+  /** Where the dashboard was read from. */
+  sourcePath: z.string().min(1),
+  /** The day the dry run was made. */
+  readOn: IsoDate,
+  counts: z.array(
+    z.object({
+      clientId: Identifier,
+      band: Band,
+      tasks: z.number().int().nonnegative(),
+    }),
+  ),
+  unplaced: z.array(
+    z.object({
+      line: z.number().int().positive(),
+      reason: z.string().min(1),
+      excerpt: z.string(),
+    }),
+  ),
+  heldBack: z.array(z.number().int().positive()),
+  waitingForSize: z.array(
+    z.object({ clientId: Identifier, title: z.string().min(1) }),
+  ),
+});
+export type ImportReport = z.infer<typeof ImportReport>;
+
+/** A day's plan: the tasks, the notes and meetings, and the documents they link to. */
+export const DayPlan = z.object({
+  today: IsoDate,
+  items: z.array(BacklogItem),
+  notes: z.array(DayNote),
+  calendar: z.array(CalendarEntry),
+  documents: z.array(DetailsDocument),
+});
+export type DayPlan = z.infer<typeof DayPlan>;
 
 export const Question = z.object({
   ...governed,

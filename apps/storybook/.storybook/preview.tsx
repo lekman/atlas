@@ -59,6 +59,7 @@ const preview: Preview = {
         order: [
           "Introduction",
           "Pages",
+          ["Atlas", "Day Plan"],
           "Worlds",
           [
             "Astronomer",
@@ -76,6 +77,10 @@ const preview: Preview = {
             "Inspector",
             "Log Panel",
             "HUD Readout",
+            "Day List",
+            "Details Reader",
+            "Effort and Value Picker",
+            "Import Report",
           ],
         ],
       },
