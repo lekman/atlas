@@ -1,0 +1,4 @@
+#!/bin/sh
+# A commit message travels further than a file: pull request titles,
+# notifications and release notes. Only a history rewrite can take it back.
+bash scripts/check-no-client-content.sh --message "$1"

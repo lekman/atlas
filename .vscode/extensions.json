@@ -1,0 +1,13 @@
+{
+  "recommendations": [
+    "anthropic.claude-code",
+    "oven.bun-vscode",
+    "editorconfig.editorconfig",
+    "esbenp.prettier-vscode",
+    "ms-playwright.playwright",
+    "task.vscode-task",
+    "trunk.io",
+    "vitest.explorer",
+    "yoavbls.pretty-ts-errors"
+  ]
+}

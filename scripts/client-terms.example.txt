@@ -1,0 +1,29 @@
+# Terms that must never appear in this public repository.
+#
+# One POSIX extended-regex per line. Matched case-insensitively. Blank lines
+# and lines starting with # are ignored.
+#
+# Copy to scripts/client-terms.txt (task client-content:init does it) and fill
+# in the real values. That file is GITIGNORED on purpose: a committed list of
+# client names is the leak the check exists to prevent.
+#
+# What belongs here: anything that identifies an engagement.
+#   - client and employer names, and their common short forms
+#   - their repository names
+#   - their tracker project keys
+#   - product, service and internal system names
+#   - people's names at those clients
+#   - counterpart organisations named in meeting titles
+#
+# CI reads the same list from the CLIENT_TERMS repository secret. Keep the two
+# in step: a term missing here is a term the hook lets through.
+#
+# The sample data in packages/fixtures uses invented names (Halcyon Labs,
+# Kestrel Freight, Larchwood Studio, Meridian Bank). Never add those here.
+#
+# Examples, replace with your own:
+
+# acme-corporation
+# \bACME\b
+# acme-platform
+# PROJ-[0-9]+

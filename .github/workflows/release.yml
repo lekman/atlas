@@ -1,0 +1,25 @@
+# Release Please: opens and updates a release pull request from conventional
+# commits; merging it tags the release and writes the changelog.
+name: Release Please
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write # tags and the changelog
+      pull-requests: write # the release pull request
+    steps:
+      - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          config-file: release/release-please-config.json
+          manifest-file: release/.release-please-manifest.json

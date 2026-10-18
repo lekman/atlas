@@ -1,0 +1,111 @@
+# Continuous Integration. Self-contained, on GitHub-hosted runners: this
+# repository is public, so hosted minutes are free and no self-hosted runner
+# ever executes a fork's code.
+name: Continuous Integration
+
+on:
+  pull_request:
+    # Stacked pull requests target a feature branch, not main. Without these
+    # patterns a pull request in a stack gets no CI until the stack reaches
+    # main, and the missing run looks like a passing one.
+    branches: [main, "feat/**", "feature/**", "fix/**"]
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Lint, typecheck, unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.3.14
+
+      - name: Install (frozen lockfile)
+        run: bun install --frozen-lockfile
+
+      - name: Typecheck every workspace
+        run: bun run typecheck
+
+      - name: Unit tests with coverage
+        run: bun run test:coverage
+
+      - name: Keep the coverage report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: unit-coverage
+          path: coverage/
+          retention-days: 14
+
+  stories:
+    name: Story tests and Storybook build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.3.14
+
+      - name: Install (frozen lockfile)
+        run: bun install --frozen-lockfile
+
+      # Every story renders in Chromium, runs its play function and is
+      # checked with axe. The script installs the browser and its libraries.
+      - name: Story tests
+        run: bun run test:stories
+
+      - name: Build Storybook
+        run: bun run build-storybook
+
+      - name: Keep the built Storybook
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: storybook
+          path: apps/storybook/storybook-static/
+          retention-days: 7
+
+  trunk:
+    name: Trunk check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      checks: write # inline annotations
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: trunk-io/trunk-action@e1234e67a86010d61ddac8d8ebf4b783e2ffd2fa # v2.0.0
+        with:
+          # On a pull request, only what the change touched; on main, all.
+          check-mode: ${{ github.event_name == 'push' && 'all' || '' }}
+
+  # The single required check for branch protection. Green only when every
+  # job above succeeded. Keep the required-check list pinned to this name.
+  quality-gate:
+    name: Quality Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    needs: [quality, stories, trunk]
+    if: always()
+    steps:
+      - name: Evaluate the results
+        shell: bash
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          for result in $RESULTS; do
+            [ "$result" = "success" ] || { echo "A required job ended with: $result"; exit 1; }
+          done

@@ -1,0 +1,11 @@
+[test]
+coverage = true
+coverageSkipTestFiles = true
+# The Storybook app runs its stories through Vitest in a real browser, so its
+# files are not bun tests. Everything else in the workspace is.
+coveragePathIgnorePatterns = ["apps/storybook/**"]
+
+# Hoisted, because Storybook and Vite resolve their addons from the
+# repository root and miss packages an isolated layout keeps per workspace.
+[install]
+linker = "hoisted"

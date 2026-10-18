@@ -1,0 +1,19 @@
+extends: default
+
+rules:
+  # prettier outputs 1 space before inline comments; yamllint default requires 2
+  comments:
+    min-spaces-from-content: 1
+
+  # GitHub Actions workflows commonly exceed 80 chars; treat as warning
+  line-length:
+    max: 120
+    level: warning
+
+  # GitHub Actions workflows do not use document start markers
+  document-start: disable
+
+  # GitHub Actions uses on: truthy keys (true/false style)
+  truthy:
+    allowed-values: ["true", "false"]
+    check-keys: false

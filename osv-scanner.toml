@@ -1,0 +1,12 @@
+# Dependency vulnerabilities that stay unfixed, with the reasoning.
+#
+# Only add an entry when the dependency cannot be upgraded AND our code cannot
+# reach the vulnerable path. Upgrading is always the first option.
+#
+# Every entry needs a reason and a review date. An entry past its review date
+# is a bug, not a decision.
+#
+# [[IgnoredVulns]]
+# id = "GHSA-xxxx-xxxx-xxxx"
+# ignoreUntil = 2026-12-01
+# reason = "Only reachable through the CLI parser, which we do not call."

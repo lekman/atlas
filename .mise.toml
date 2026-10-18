@@ -1,0 +1,10 @@
+[tools]
+bun = "1.3"
+node = "22"
+"aqua:go-task/task" = "3.49"
+# Trunk drives lint, format and the security scanners, and both husky hooks
+# call it. Pinned here so `mise install` is all a new contributor needs.
+trunk = "1.3"
+
+[settings]
+lockfile = true

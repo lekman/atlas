@@ -1,0 +1,8 @@
+# Findings that gitleaks reports but which are not real secrets.
+#
+# One fingerprint per line, with a comment above it saying why it is safe.
+# Get the fingerprint from the gitleaks JSON report, or run:
+#   trunk check --all --filter=gitleaks
+#
+# An entry without a reason will be questioned in review. A real secret is
+# never suppressed here: rotate it, then remove it from history.

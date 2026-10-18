@@ -1,0 +1,23 @@
+# Keep text files as LF in the working tree on every OS so Prettier and
+# Trunk match Linux CI. Git's core.autocrlf=true on Windows otherwise
+# checks out CRLF, which Prettier rejects while git status stays clean.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.zip binary
+*.gz binary
+*.whl binary
+
+# cmd.exe historically expects CRLF in batch files.
+*.bat text eol=crlf
+*.cmd text eol=crlf

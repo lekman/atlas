@@ -1,0 +1,38 @@
+# Dependabot edits package.json but cannot write a Bun lockfile, so its pull
+# requests need `bun install` run on the branch before CI's frozen install
+# accepts them.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: sunday
+    commit-message:
+      # Conventional prefix so Release Please files these under Fixes.
+      prefix: fix(dependabot)
+    groups:
+      storybook:
+        patterns: ["storybook", "@storybook/*"]
+      vitest:
+        patterns: ["vitest", "@vitest/*"]
+      fonts:
+        patterns: ["@fontsource/*"]
+    ignore:
+      # Zod is held at 3.25 on purpose: it ships the v4 API under `zod/v4`
+      # while staying the version the MCP SDK resolves for its own types.
+      # See .claude/rules/stack.md. Minors and patches still flow.
+      - dependency-name: zod
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: sunday
+    groups:
+      # One pull request for all actions: the churn is what gets them ignored.
+      all-actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: fix(dependabot)

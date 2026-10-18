@@ -1,0 +1,23 @@
+{
+  "name": "@atlas/fixtures",
+  "version": "0.0.0",
+  "description": "The invented sample dataset and a scripted day of events. Never real data",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "bun test tests/"
+  },
+  "dependencies": {
+    "@atlas/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3",
+    "typescript": "^6.0"
+  }
+}

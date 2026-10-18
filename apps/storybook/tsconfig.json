@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx"
+  },
+  "include": [
+    ".storybook/**/*",
+    "scripts/**/*",
+    "vitest.config.ts",
+    "vitest.shims.d.ts",
+    "../../packages/ui/src/css.d.ts"
+  ]
+}

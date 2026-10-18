@@ -1,0 +1,40 @@
+{
+  "name": "@lekman/atlas",
+  "version": "0.0.0",
+  "type": "module",
+  "private": true,
+  "description": "A live map of agents, clients and work, drawn as a world you choose",
+  "license": "MIT",
+  "author": "Tobias Lekman",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lekman/atlas.git"
+  },
+  "packageManager": "bun@1.3.14",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "turbo build",
+    "lint": "trunk check --ci",
+    "format": "trunk fmt",
+    "typecheck": "turbo typecheck",
+    "test": "bun test",
+    "test:coverage": "mkdir -p coverage && bun test --coverage --coverage-reporter=lcov --coverage-dir=coverage --reporter=junit --reporter-outfile=coverage/junit.xml",
+    "test:stories": "bun run --cwd apps/storybook test",
+    "storybook": "bun run --cwd apps/storybook storybook",
+    "build-storybook": "bun run --cwd apps/storybook build-storybook",
+    "client-content": "bash scripts/check-no-client-content.sh",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3",
+    "husky": "^9.1",
+    "turbo": "^2.9.4",
+    "typescript": "^6.0"
+  },
+  "engines": {
+    "bun": ">=1.3"
+  }
+}

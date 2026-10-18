@@ -1,0 +1,16 @@
+#!/bin/sh
+# Full gate: everything pre-commit runs, plus the unit tests, every story as a
+# browser test, a repository-wide security scan and the client-content check
+# over the whole history. This is the last check before a public remote sees
+# the branch.
+. ./.husky/ensure-toolchain.sh
+
+trunk check --ci
+bun run typecheck
+bun test
+# Stories run through Vitest in Chromium, which `bun test` does not discover.
+# Without this line they only ever run in CI.
+bun run test:stories
+trunk check --all --ci --filter=gitleaks,trufflehog,osv-scanner,checkov
+bash scripts/check-no-client-content.sh --history
+bash scripts/check-no-client-content.sh --messages

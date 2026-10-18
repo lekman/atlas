@@ -1,0 +1,63 @@
+# This repository is public. A client name, an employer's name, a person at
+# either, a tracker key or a meeting title must never reach it. The term list
+# is not in the repository (that would be the leak); CI restores it from the
+# CLIENT_TERMS secret and fails closed when the secret is missing.
+name: Client Content
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    name: No client-identifying content
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Dependabot PRs never receive repo secrets (GitHub's design, not this
+    # repo's), so CLIENT_TERMS is always absent there. The fail-closed
+    # behavior below still applies to every other actor, including forks.
+    if: github.actor != 'dependabot[bot]'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # Full history. Both checks read every commit, and a shallow clone
+          # would pass by having almost nothing to read — a zero meaning "did
+          # not look" rather than "found nothing".
+          fetch-depth: 0
+
+      # scripts/client-terms.txt is gitignored: a committed list of client
+      # names is the leak the check exists to prevent. So CI has no terms
+      # unless they are supplied, and a missing secret must FAIL rather than
+      # skip. The local hooks catch a leak first; this catches a fresh clone
+      # with no term list, and anything a hook did not see.
+      - name: Restore the term list from secrets
+        env:
+          CLIENT_TERMS: ${{ secrets.CLIENT_TERMS }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CLIENT_TERMS:-}" ]; then
+            echo "::error::CLIENT_TERMS is not set. This check cannot run, and must not pass by default."
+            exit 1
+          fi
+          # No echo, no set -x: the value never reaches the log.
+          printf '%s\n' "$CLIENT_TERMS" > scripts/client-terms.txt
+          echo "term list restored ($(grep -cvE '^[[:space:]]*(#|$)' scripts/client-terms.txt) patterns)"
+
+      # --quiet throughout: this repository is public, so its build logs are
+      # too. Reporting the matched string would publish the thing the check
+      # exists to keep out.
+      - name: Scan committed file content
+        run: bash scripts/check-no-client-content.sh --history --quiet
+
+      - name: Scan commit messages
+        run: bash scripts/check-no-client-content.sh --messages --quiet
+
+      - name: Explain a failure without repeating it
+        if: failure()
+        run: |
+          echo "::notice::Client-identifying content found. Run 'scripts/check-no-client-content.sh --history' and '--messages' locally to see what and where."

@@ -1,0 +1,16 @@
+#!/bin/sh
+# Fast gate: identity, client content in the staged files, then lint and
+# typecheck. Keep this quick; the slower checks live in pre-push.
+
+# Identity first, because it costs milliseconds and everything after it costs
+# a minute. A commit with the wrong author email has to be rewritten.
+./.husky/check-commit-identity.sh
+
+# This repository is public. A client name in a staged file is blocked here,
+# before it exists in history, where removing it means a rewrite.
+bash scripts/check-no-client-content.sh --staged
+
+. ./.husky/ensure-toolchain.sh
+
+trunk check --ci
+bun run typecheck

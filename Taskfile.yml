@@ -1,0 +1,94 @@
+version: "3"
+
+tasks:
+  setup:
+    desc: One-time project setup (tools, dependencies, hooks, browser for story tests)
+    cmds:
+      - mise install
+      - bun install --frozen-lockfile
+      - bunx husky
+      - bun apps/storybook/scripts/ensure-browser.ts
+      - task: client-content:init
+
+  install:
+    desc: Install dependencies
+    cmds:
+      - bun install --frozen-lockfile
+
+  lint:
+    desc: Lint and format-check through Trunk
+    cmds:
+      - bun run lint
+
+  format:
+    desc: Format code
+    cmds:
+      - bun run format
+
+  typecheck:
+    desc: Type check every workspace
+    cmds:
+      - bun run typecheck
+
+  test:
+    desc: Unit tests (bun test)
+    cmds:
+      - bun test
+
+  test:stories:
+    desc: Every story as a browser test, with accessibility checks
+    cmds:
+      - bun run test:stories
+
+  test:coverage:
+    desc: Unit tests with coverage
+    cmds:
+      - bun run test:coverage
+
+  storybook:
+    desc: Run Storybook on http://localhost:6006
+    cmds:
+      - bun run storybook
+
+  build:
+    desc: Build every workspace, including the static Storybook
+    cmds:
+      - bun run build
+
+  quality:
+    desc: Lint, typecheck, unit tests, story tests and the client-content check
+    cmds:
+      - task: lint
+      - task: typecheck
+      - task: test
+      - task: test:stories
+      - task: client-content
+
+  security:
+    desc: Secrets, dependency CVEs and workflow configuration, across the whole repository
+    cmds:
+      - trunk check --all --ci --filter=gitleaks,trufflehog,osv-scanner,checkov
+
+  client-content:
+    desc: Fail if client-identifying content is in the working tree
+    cmds:
+      - bash scripts/check-no-client-content.sh
+
+  client-content:history:
+    desc: Fail if client-identifying content is anywhere in history or commit messages
+    cmds:
+      - bash scripts/check-no-client-content.sh --history
+      - bash scripts/check-no-client-content.sh --messages
+
+  client-content:init:
+    desc: Create your local term list from the example, if you have none yet
+    status:
+      - test -f scripts/client-terms.txt
+    cmds:
+      - cp scripts/client-terms.example.txt scripts/client-terms.txt
+      - echo "Add your client names to scripts/client-terms.txt. It is gitignored."
+
+  hooks:verify:
+    desc: Confirm husky owns the git hooks
+    cmds:
+      - test "$(git config core.hooksPath)" = ".husky/_" || (echo "core.hooksPath is '$(git config core.hooksPath)'. Run bun install to restore it." && exit 1)

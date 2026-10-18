@@ -1,0 +1,21 @@
+node_modules/
+dist/
+coverage/
+storybook-static/
+.turbo/
+.tmp/
+*.log
+*.tsbuildinfo
+.DS_Store
+.env
+.env.*
+!.env.example
+
+# The list of client names the content check looks for. Committing it would be
+# the leak the check exists to prevent. Start from client-terms.example.txt.
+scripts/client-terms.txt
+
+# Local database and backups, once the server exists. Never in a public repo.
+*.db
+*.db-wal
+*.db-shm

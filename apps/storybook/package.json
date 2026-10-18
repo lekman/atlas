@@ -1,0 +1,39 @@
+{
+  "name": "@atlas/storybook",
+  "version": "0.0.0",
+  "description": "The Atlas Storybook: every story from @atlas/ui, run as a browser test and published to GitHub Pages",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "storybook": "bun scripts/free-port.ts 6006 && storybook dev -p 6006",
+    "build-storybook": "storybook build -o storybook-static",
+    "build": "storybook build -o storybook-static",
+    "test": "bun scripts/ensure-browser.ts && mkdir -p coverage && vitest run --reporter=default --reporter=junit --outputFile.junit=coverage/junit.xml",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@atlas/core": "workspace:*",
+    "@atlas/fixtures": "workspace:*",
+    "@atlas/ui": "workspace:*",
+    "@atlas/worlds": "workspace:*",
+    "@storybook/addon-a11y": "^10.6.0",
+    "@storybook/addon-docs": "^10.6.0",
+    "@storybook/addon-vitest": "^10.6.0",
+    "@storybook/react-vite": "^10.6.0",
+    "@types/bun": "^1.3",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
+    "@vitejs/plugin-react": "^6.1.1",
+    "@vitest/browser-playwright": "^4.1.11",
+    "@vitest/coverage-v8": "^4.1.11",
+    "playwright": "^1.63.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "storybook": "^10.6.0",
+    "typescript": "^6.0",
+    "vite": "^8.2.2",
+    "vitest": "^4.1.11"
+  }
+}
