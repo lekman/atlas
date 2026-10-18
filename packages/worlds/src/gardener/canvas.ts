@@ -4,6 +4,10 @@
  * are seed rows with their row markers, backlog items are plants that grow
  * from seed to bloom, agents are bees. Open questions are dandelion clocks,
  * decisions are trellises. Home is The Homestead.
+ *
+ * The night garden is the same plan after dark: a blue-green lawn under the
+ * moon, lanterns along the paths and at each bed's entrance, lit windows at
+ * the Homestead, fireflies over the beds and moonflowers where work is done.
  */
 import { externalSourceNames, type Agent } from "@atlas/core";
 
@@ -31,6 +35,7 @@ import { bedRadius, bedSize, traceBed, yardSize } from "./beds";
 import {
   drawHedgeAndTrees,
   drawLawn,
+  drawPathLanterns,
   drawPaths,
   drawPond,
   gardenOf,
@@ -38,10 +43,14 @@ import {
 } from "./garden";
 import { drawHomestead, drawYard } from "./homestead";
 import {
-  gardenerPalette as palette,
-  gardenerTypefaces as type,
-  washes,
-} from "./palette";
+  fireflies,
+  lanternBody,
+  lanternPool,
+  moonlight,
+  moonlitRims,
+  type Lantern,
+} from "./night";
+import { gardenLook, gardenerTypefaces as type } from "./palette";
 import { drawPlant } from "./plants";
 import {
   gardenerStatusNames,
@@ -60,6 +69,7 @@ function lettering(
   options: LabelOptions,
 ): void {
   const { context } = paint;
+  const { palette } = gardenLook(paint.lighting);
   context.save();
   context.globalAlpha *= options.alpha ?? 1;
   context.font = `${options.italic ? "italic " : ""}${pixels(paint, options.size ?? 11)}px ${options.font}`;
@@ -127,8 +137,9 @@ function blotsFor(id: string): Blot[] {
 /** A watercolour bed: soil wash, pooled edge, raked rows and a clipped box edging. */
 function drawBed(paint: PaintContext, id: string, centre: Point) {
   const { context } = paint;
+  const { washes, night } = gardenLook(paint.lighting);
   traceBed(context, id, centre, bedSize, 6);
-  context.fillStyle = withAlpha(washes.soil, 0.36);
+  context.fillStyle = withAlpha(washes.soil, night ? 0.5 : 0.36);
   context.fill();
   context.save();
   context.clip();
@@ -146,7 +157,7 @@ function drawBed(paint: PaintContext, id: string, centre: Point) {
     const angle = ((hashString(id) % 60) - 30) * (Math.PI / 180) + Math.PI / 4;
     const cos = Math.cos(angle);
     const sin = Math.sin(angle);
-    context.strokeStyle = withAlpha(washes.soilDeep, 0.13);
+    context.strokeStyle = withAlpha(washes.soilDeep, night ? 0.1 : 0.13);
     context.lineWidth = pixels(paint, 0.8);
     context.beginPath();
     for (let offset = -bedSize * 1.5; offset < bedSize * 1.5; offset += 24) {
@@ -164,7 +175,7 @@ function drawBed(paint: PaintContext, id: string, centre: Point) {
   context.restore();
   // Pigment pools at the edge of a wash.
   traceBed(context, id, centre, bedSize, 4);
-  context.strokeStyle = withAlpha(washes.soilDeep, 0.28);
+  context.strokeStyle = withAlpha(washes.soilDeep, night ? 0.16 : 0.28);
   context.lineWidth = 7;
   context.stroke();
 
@@ -180,7 +191,9 @@ function drawBed(paint: PaintContext, id: string, centre: Point) {
   context.strokeStyle = withAlpha(washes.hedgeDeep, 0.6);
   context.lineWidth = pixels(paint, 0.8);
   context.stroke();
-  if (paint.camera.scale > 0.3) {
+  if (night) {
+    moonlitRims(paint, shrubs, washes.hedgeLight, 0.36);
+  } else if (paint.camera.scale > 0.3) {
     context.fillStyle = withAlpha(washes.hedgeLight, 0.6);
     context.beginPath();
     for (const shrub of shrubs) {
@@ -219,18 +232,24 @@ function edgingFor(id: string, centre: Point) {
   return found;
 }
 
-/** A straw skep at the heart of each bed, where idle bees rest. */
-function drawSkep(paint: PaintContext, centre: Point) {
+/**
+ * A straw skep at the heart of each bed, where idle bees rest. At night the
+ * hive sleeps: its straw goes dim and, while bees rest in it, a few slow
+ * letters Z rise from it.
+ */
+function drawSkep(paint: PaintContext, centre: Point, sleepers: number) {
   const { context } = paint;
-  context.fillStyle = "rgba(60,50,30,0.15)";
+  const { palette, washes, night, shadow } = gardenLook(paint.lighting);
+  context.fillStyle = night ? shadow : "rgba(60,50,30,0.15)";
   context.beginPath();
   context.arc(centre.x + 4, centre.y + 5, 22, 0, Math.PI * 2);
   context.fill();
+  const band = night ? "#8f8466" : "#e5d5aa";
   for (const [radius, fill] of [
     [22, washes.straw],
-    [16, "#e5d5aa"],
+    [16, band],
     [10, washes.straw],
-    [5, "#e5d5aa"],
+    [5, band],
   ] as const) {
     context.fillStyle = fill;
     context.beginPath();
@@ -240,10 +259,37 @@ function drawSkep(paint: PaintContext, centre: Point) {
     context.lineWidth = pixels(paint, 0.9);
     context.stroke();
   }
-  context.fillStyle = "#3a2c18";
+  context.fillStyle = night ? "#0a0806" : "#3a2c18";
   context.beginPath();
   context.ellipse(centre.x, centre.y + 21, 5, 2.2, 0, 0, Math.PI * 2);
   context.fill();
+  if (night && sleepers > 0 && isFull(paint) && paint.camera.scale > 0.28) {
+    const rise = paint.reducedMotion ? 0.5 : (paint.time * 0.12) % 1;
+    for (const [index, size] of [9, 11.5, 14].entries()) {
+      const age = (rise + index / 3) % 1;
+      lettering(
+        paint,
+        "z",
+        centre.x + pixels(paint, 14 + age * 14),
+        centre.y - pixels(paint, 10 + age * 26),
+        {
+          size,
+          font: type.display,
+          colour: palette.mute,
+          alpha: Math.sin(age * Math.PI) * 0.9,
+        },
+      );
+    }
+  }
+}
+
+function sleepersOf(paint: PaintContext, clientId: string): number {
+  const { groups, agents } = paint.scene.dataset;
+  return agents.filter(
+    (agent) =>
+      agent.status === "idle" &&
+      groups.find((group) => group.id === agent.groupId)?.clientId === clientId,
+  ).length;
 }
 
 function agentsOf(paint: PaintContext, clientId: string): number {
@@ -258,6 +304,83 @@ function agentsOf(paint: PaintContext, clientId: string): number {
  * A name board on the edge of a bed or the yard, the way a plan labels its
  * beds; in full detail, the number of bees under it.
  */
+interface Board {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+  middle: number;
+  /** Lettering size, in screen pixels. */
+  size: number;
+}
+
+/** Where a name board sits, in world units at the current zoom. */
+function boardFor(
+  paint: PaintContext,
+  centre: Point,
+  edge: number,
+  name: string,
+  hang: boolean,
+): Board {
+  const { context } = paint;
+  const full = isFull(paint);
+  const size = full
+    ? Math.max(12.5, Math.min(19, (19 * paint.camera.scale) / 0.4))
+    : 11.5;
+  context.save();
+  context.font = `${pixels(paint, size)}px ${type.display}`;
+  const width = context.measureText(name).width + pixels(paint, full ? 26 : 14);
+  context.restore();
+  const height = pixels(paint, size * 1.7);
+  // A hanging board sits just outside the edge instead of across it.
+  const middle = hang ? edge + height / 2 + pixels(paint, 4) : edge;
+  return {
+    left: centre.x - width / 2,
+    top: middle - height / 2,
+    width,
+    height,
+    middle,
+    size,
+  };
+}
+
+/**
+ * Lanterns that would stand under a name board step along their path, away
+ * from it, so a board never hides a lamp. `direction` is a unit vector.
+ */
+function clearOf(
+  paint: PaintContext,
+  lanterns: readonly Lantern[],
+  board: Board,
+  direction: Point,
+): Lantern[] {
+  // The board, the bee count under it in full detail, and a little room.
+  const margin = pixels(paint, 10);
+  const below = isFull(paint) ? pixels(paint, 20) : 0;
+  const inside = (point: Point) =>
+    point.x > board.left - margin &&
+    point.x < board.left + board.width + margin &&
+    point.y > board.top - margin &&
+    point.y < board.top + board.height + below + margin;
+  return lanterns.map((lantern) => {
+    const moved = { ...lantern };
+    for (let step = 0; step < 60 && inside(moved); step++) {
+      moved.x += direction.x * 12;
+      moved.y += direction.y * 12;
+    }
+    return moved;
+  });
+}
+
+function drawLanterns(
+  paint: PaintContext,
+  lanterns: readonly Lantern[],
+  reach: number,
+) {
+  for (const lantern of lanterns) lanternPool(paint, lantern, reach);
+  for (const lantern of lanterns) lanternBody(paint, lantern);
+}
+
 function placeName(
   paint: PaintContext,
   centre: Point,
@@ -268,28 +391,27 @@ function placeName(
   hang = false,
 ) {
   const { context } = paint;
+  const { palette, board, shadow, night } = gardenLook(paint.lighting);
   const full = isFull(paint);
-  const size = full
-    ? Math.max(12.5, Math.min(19, (19 * paint.camera.scale) / 0.4))
-    : 11.5;
+  const { left, top, width, height, middle, size } = boardFor(
+    paint,
+    centre,
+    edge,
+    name,
+    hang,
+  );
   context.save();
   context.font = `${pixels(paint, size)}px ${type.display}`;
-  const width = context.measureText(name).width + pixels(paint, full ? 26 : 14);
-  const height = pixels(paint, size * 1.7);
-  const left = centre.x - width / 2;
-  // A hanging board sits just outside the edge instead of across it.
-  const middle = hang ? edge + height / 2 + pixels(paint, 4) : edge;
-  const top = middle - height / 2;
-  context.fillStyle = "rgba(60,50,30,0.18)";
+  context.fillStyle = shadow;
   context.fillRect(
     left + pixels(paint, 2),
     top + pixels(paint, 2),
     width,
     height,
   );
-  context.fillStyle = withAlpha(washes.paperLight, 0.96);
+  context.fillStyle = withAlpha(board, 0.96);
   context.fillRect(left, top, width, height);
-  context.strokeStyle = withAlpha(palette.ink, 0.7);
+  context.strokeStyle = withAlpha(palette.ink, night ? 0.5 : 0.7);
   context.lineWidth = pixels(paint, 1);
   context.strokeRect(left, top, width, height);
   if (full) {
@@ -337,6 +459,7 @@ function drawBee(
   resting: boolean,
 ) {
   const { context } = paint;
+  const { palette, night } = gardenLook(paint.lighting);
   const glow = context.createRadialGradient(
     position.x,
     position.y,
@@ -358,8 +481,10 @@ function drawBee(
   const line = pixels(paint, 0.9);
   // Wings, angled back from the thorax.
   const spread = resting ? 0.35 : 0.95 + flutter;
-  context.fillStyle = "rgba(255,255,255,0.82)";
-  context.strokeStyle = withAlpha(palette.ink, 0.75);
+  context.fillStyle = night
+    ? "rgba(220,234,236,0.5)"
+    : "rgba(255,255,255,0.82)";
+  context.strokeStyle = withAlpha(palette.ink, night ? 0.55 : 0.75);
   context.lineWidth = line;
   for (const side of [-1, 1]) {
     context.save();
@@ -387,36 +512,46 @@ function drawBee(
   }
   context.stroke();
   context.restore();
-  context.strokeStyle = palette.ink;
+  // By day an ink outline; at night a dark one, so the body's colour stays pure.
+  const outline = night ? palette.ground : palette.ink;
+  context.strokeStyle = outline;
   context.lineWidth = line;
   context.beginPath();
   context.ellipse(-size * 0.1, 0, size * 0.95, size * 0.62, 0, 0, Math.PI * 2);
   context.stroke();
-  context.fillStyle = palette.ink;
+  context.fillStyle = outline;
   context.beginPath();
   context.arc(size * 0.98, 0, size * 0.36, 0, Math.PI * 2);
   context.fill();
+  if (night) {
+    context.strokeStyle = withAlpha(palette.ink, 0.6);
+    context.stroke();
+  }
   context.restore();
 }
 
 export const gardenerPainter: WorldPainter = {
   background(paint) {
     const { context, width, height, scene, time, reducedMotion } = paint;
+    const { palette, night } = gardenLook(paint.lighting);
     setScreenTransform(paint);
     context.fillStyle = palette.ground;
     context.fillRect(0, 0, width, height);
-    const vignette = context.createRadialGradient(
-      width / 2,
-      height / 2,
-      Math.min(width, height) * 0.35,
-      width / 2,
-      height / 2,
-      Math.max(width, height) * 0.78,
-    );
-    vignette.addColorStop(0, "rgba(255,252,240,0)");
-    vignette.addColorStop(1, "rgba(160,140,90,0.14)");
-    context.fillStyle = vignette;
-    context.fillRect(0, 0, width, height);
+    if (night) moonlight(paint);
+    else {
+      const vignette = context.createRadialGradient(
+        width / 2,
+        height / 2,
+        Math.min(width, height) * 0.35,
+        width / 2,
+        height / 2,
+        Math.max(width, height) * 0.78,
+      );
+      vignette.addColorStop(0, "rgba(255,252,240,0)");
+      vignette.addColorStop(1, "rgba(160,140,90,0.14)");
+      context.fillStyle = vignette;
+      context.fillRect(0, 0, width, height);
+    }
 
     setWorldTransform(paint);
     const garden = gardenOf(scene.layout);
@@ -424,10 +559,13 @@ export const gardenerPainter: WorldPainter = {
     drawPaths(paint, garden);
     if (garden.pond) drawPond(paint, garden.pond, time, reducedMotion);
     drawHedgeAndTrees(paint, garden);
+    if (night) drawPathLanterns(paint, garden);
   },
 
   overlay(paint) {
     const { context, width, height } = paint;
+    const { lighting } = paint;
+    const { palette, board } = gardenLook(lighting);
     // A plan's border: a fine double rule.
     context.strokeStyle = withAlpha(palette.ink, 0.45);
     context.lineWidth = 1;
@@ -441,7 +579,7 @@ export const gardenerPainter: WorldPainter = {
     const boxHeight = 100;
     const left = width - 24 - boxWidth;
     const top = height - 24 - boxHeight;
-    context.fillStyle = withAlpha(washes.paperLight, 0.94);
+    context.fillStyle = withAlpha(board, 0.94);
     context.fillRect(left, top, boxWidth, boxHeight);
     context.strokeStyle = withAlpha(palette.ink, 0.6);
     context.lineWidth = 1;
@@ -487,7 +625,7 @@ export const gardenerPainter: WorldPainter = {
     (["todo", "doing", "review", "done"] as const).forEach((state, index) => {
       const x = left + 34 + index * 55;
       const y = top + 54;
-      drawPlant(context, x, y, state, 0.9, 1, 0);
+      drawPlant(context, x, y, state, 0.9, 1, 0, lighting);
       screenText(
         context,
         growthStages[state],
@@ -510,29 +648,54 @@ export const gardenerPainter: WorldPainter = {
   },
 
   home(paint, home) {
+    const { palette, night } = gardenLook(paint.lighting);
     const centre = paint.scene.layout.clients.get(home.id) ?? { x: 0, y: 0 };
     drawYard(paint, home.id, centre);
     drawHomestead(paint, centre);
     // On the yard's south edge, by the gate: home's loose work grows to the north.
     const bottom = centre.y + bedRadius(home.id, Math.PI / 2, yardSize, 0, 6);
+    const hang = paint.scene.layout.orientation === "landscape";
+    const name = gardenerVocabulary.homeName;
+    if (night) {
+      // A pair of lanterns at each gap in the fence where a path goes out.
+      const board = boardFor(paint, centre, bottom, name, hang);
+      for (const gate of gardenOf(paint.scene.layout).gates) {
+        const length = Math.hypot(gate.x - centre.x, gate.y - centre.y) || 1;
+        const outward = {
+          x: (gate.x - centre.x) / length,
+          y: (gate.y - centre.y) / length,
+        };
+        drawLanterns(paint, clearOf(paint, [gate], board, outward), 84);
+      }
+    }
     placeName(
       paint,
       centre,
       bottom,
-      gardenerVocabulary.homeName,
+      name,
       palette.accent,
       `Home garden · ${home.name}`,
-      paint.scene.layout.orientation === "landscape",
+      hang,
     );
   },
 
   client(paint, client) {
     const centre = paint.scene.layout.clients.get(client.id);
     if (!centre) return;
+    const { palette, night } = gardenLook(paint.lighting);
     drawBed(paint, client.id, centre);
-    drawSkep(paint, centre);
-    const bees = agentsOf(paint, client.id);
     const top = centre.y - bedRadius(client.id, -Math.PI / 2, bedSize, 8);
+    if (night) {
+      const entrance = gardenOf(paint.scene.layout).entrances.get(client.id);
+      const board = boardFor(paint, centre, top, client.name, false);
+      const length = Math.hypot(centre.x, centre.y) || 1;
+      // Home is at the origin: a lamp under the board steps towards it.
+      const homeward = { x: -centre.x / length, y: -centre.y / length };
+      drawLanterns(paint, clearOf(paint, entrance ?? [], board, homeward), 110);
+      if (isFull(paint)) fireflies(paint, client.id, centre, bedSize);
+    }
+    drawSkep(paint, centre, night ? sleepersOf(paint, client.id) : 0);
+    const bees = agentsOf(paint, client.id);
     placeName(
       paint,
       centre,
@@ -547,6 +710,7 @@ export const gardenerPainter: WorldPainter = {
     const { context } = paint;
     const point = paint.scene.layout.fixed.get(requirement.id);
     if (!point) return;
+    const { palette, washes, night, shadow } = gardenLook(paint.lighting);
     const done = requirement.state === "done";
     context.save();
     context.globalAlpha = done ? 0.5 : 1;
@@ -564,10 +728,12 @@ export const gardenerPainter: WorldPainter = {
     // The row marker: a cream label pushed into the soil.
     context.translate(point.x, point.y);
     context.rotate(-0.12);
-    context.fillStyle = "rgba(60,50,30,0.18)";
+    context.fillStyle = shadow;
     context.fillRect(-5, -9, 13, 22);
     context.fillStyle = washes.paperLight;
-    context.strokeStyle = palette.ink;
+    // A moonlit marker keeps a dark edge, as a cream one keeps an ink edge.
+    const edge = night ? palette.ground : palette.ink;
+    context.strokeStyle = edge;
     context.lineWidth = pixels(paint, 1);
     context.beginPath();
     context.moveTo(-7, -12);
@@ -578,7 +744,7 @@ export const gardenerPainter: WorldPainter = {
     context.closePath();
     context.fill();
     context.stroke();
-    context.strokeStyle = withAlpha(palette.ink, 0.55);
+    context.strokeStyle = withAlpha(edge, 0.55);
     context.beginPath();
     context.moveTo(-4, -6);
     context.lineTo(4, -6);
@@ -603,6 +769,7 @@ export const gardenerPainter: WorldPainter = {
       ? scene.layout.fixed.get(item.requirementId)
       : undefined;
     if (!from) return;
+    const { washes } = gardenLook(paint.lighting);
     const to = itemPosition(
       scene.layout,
       item,
@@ -626,6 +793,7 @@ export const gardenerPainter: WorldPainter = {
       paint.time,
       paint.reducedMotion,
     );
+    const { palette } = gardenLook(paint.lighting);
     const high = item.priority === "high";
     const twist = (hashString(item.id) % 628) / 100;
     // Plants stay large enough to tell apart at the overview zoom.
@@ -641,6 +809,7 @@ export const gardenerPainter: WorldPainter = {
       unit,
       pixels(paint, 0.9),
       twist,
+      paint.lighting,
     );
     context.restore();
     if (high) {
@@ -686,6 +855,7 @@ export const gardenerPainter: WorldPainter = {
       time,
       reducedMotion,
     );
+    const { palette, washes, night } = gardenLook(paint.lighting);
     const blown = 1 - fade;
     context.save();
     context.globalAlpha = fade;
@@ -695,7 +865,10 @@ export const gardenerPainter: WorldPainter = {
         x: point.x + (blocked.x - point.x) * 0.55,
         y: point.y + (blocked.y - point.y) * 0.55,
       };
-      context.strokeStyle = withAlpha(washes.leafDeep, 0.7);
+      context.strokeStyle = withAlpha(
+        night ? washes.leaf : washes.leafDeep,
+        0.7,
+      );
       context.lineWidth = pixels(paint, 1.2);
       context.beginPath();
       context.moveTo(base.x, base.y);
@@ -775,6 +948,7 @@ export const gardenerPainter: WorldPainter = {
   decision(paint, decision, appear) {
     const { context, scene } = paint;
     const point = decisionPosition(scene.layout, scene.dataset, decision);
+    const { palette, washes } = gardenLook(paint.lighting);
     const made = decision.state === "made";
     const grow = 0.4 + 0.6 * appear;
     context.save();
@@ -959,6 +1133,7 @@ export const gardenerPainter: WorldPainter = {
       context.stroke();
     }
     if (!isFull(paint)) return;
+    const { palette } = gardenLook(paint.lighting);
     lettering(
       paint,
       agent.name,
@@ -979,6 +1154,7 @@ export const gardenerPainter: WorldPainter = {
 
   effect(paint, effect, progress) {
     const { context, scene, time, reducedMotion } = paint;
+    const { palette, washes } = gardenLook(paint.lighting);
     const fadeOut = Math.min(1, (1 - progress) * 2);
     if (effect.kind === "message") {
       const from = scene.motions.get(effect.from)?.position;

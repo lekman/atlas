@@ -1,7 +1,11 @@
 import type { World } from "../types";
 import { gardenerPainter } from "./canvas";
 import { gardenerPhrases, gardenerReadout, gardenerStillMap } from "./language";
-import { gardenerPalette, gardenerTypefaces } from "./palette";
+import {
+  gardenerNightPalette,
+  gardenerPalette,
+  gardenerTypefaces,
+} from "./palette";
 import { gardenerStatusNames, gardenerVocabulary } from "./vocabulary";
 import { gardenerVoices } from "./voices";
 
@@ -13,6 +17,12 @@ export const gardener: World = {
   vocabulary: gardenerVocabulary,
   statusNames: gardenerStatusNames,
   palette: gardenerPalette,
+  night: {
+    name: "Night garden",
+    description:
+      "The garden by moonlight: lanterns along the paths and at every bed, lit windows at the Homestead, fireflies over the beds and moonflowers where work is done.",
+    palette: gardenerNightPalette,
+  },
   typefaces: gardenerTypefaces,
   painter: gardenerPainter,
   voices: gardenerVoices,

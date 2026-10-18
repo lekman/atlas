@@ -9,8 +9,15 @@ import type { Layout } from "../layout";
 import { pixels, withAlpha } from "../paint";
 import { seededRandom } from "../random";
 import type { PaintContext } from "../types";
-import { bedSize } from "./beds";
-import { washes } from "./palette";
+import { bedRadius, bedSize, yardSize } from "./beds";
+import {
+  lanternBody,
+  lanternPool,
+  moonInWater,
+  moonlitRims,
+  type Lantern,
+} from "./night";
+import { gardenLook } from "./palette";
 
 interface Blot {
   x: number;
@@ -41,6 +48,12 @@ export interface Garden {
   trees: Shrub[];
   paths: GravelPath[];
   pond: Point | null;
+  /** Night only: lanterns along the gravel paths and at the gate in the hedge. */
+  pathLanterns: Lantern[];
+  /** Night only: the pairs of lanterns where paths leave the Homestead's yard. */
+  gates: Lantern[];
+  /** Night only: the pair of lanterns at each bed's entrance, by client id. */
+  entrances: Map<string, Lantern[]>;
 }
 
 const pathWidth = 58;
@@ -113,6 +126,12 @@ export function gardenOf(layout: Layout): Garden {
   }
   if (layout.orientation === "landscape")
     addPath({ x: home.x, y: hedgeLine.bottom }, home);
+  const { pathLanterns, gates, entrances } = placeLanterns(
+    layout,
+    homeEntry?.[0] ?? "",
+    home,
+    hedgeLine,
+  );
 
   const hedge: Shrub[] = [];
   const step = 19;
@@ -167,9 +186,94 @@ export function gardenOf(layout: Layout): Garden {
       ? pondPoint
       : null;
 
-  const garden = { hedgeLine, blots, tufts, hedge, trees, paths, pond };
+  const garden = {
+    hedgeLine,
+    blots,
+    tufts,
+    hedge,
+    trees,
+    paths,
+    pond,
+    pathLanterns,
+    gates,
+    entrances,
+  };
   cache.set(layout, garden);
   return garden;
+}
+
+/**
+ * Where the lanterns stand: in pairs where each gravel path leaves the
+ * Homestead's yard and where it meets a bed's box edging, and singly along
+ * any long stretch between, alternating sides. In landscape a pair also marks
+ * the gate in the hedge. A random of their own keeps the day's seeded drawing
+ * exactly as it was.
+ */
+function placeLanterns(
+  layout: Layout,
+  homeId: string,
+  home: Point,
+  hedgeLine: Bounds,
+): {
+  pathLanterns: Lantern[];
+  gates: Lantern[];
+  entrances: Map<string, Lantern[]>;
+} {
+  const random = seededRandom(5309);
+  const beside = pathWidth / 2 + 16;
+  const lantern = (x: number, y: number): Lantern => ({
+    x,
+    y,
+    seed: random() * 10,
+  });
+  const pathLanterns: Lantern[] = [];
+  const gates: Lantern[] = [];
+  const entrances = new Map<string, Lantern[]>();
+  for (const [id, centre] of layout.clients) {
+    if (id === homeId) continue;
+    const angle = Math.atan2(centre.y - home.y, centre.x - home.x);
+    const length = Math.hypot(centre.x - home.x, centre.y - home.y);
+    const along = { x: Math.cos(angle), y: Math.sin(angle) };
+    const across = { x: -along.y, y: along.x };
+    const at = (distance: number, side: number) =>
+      lantern(
+        home.x + along.x * distance + across.x * side * beside,
+        home.y + along.y * distance + across.y * side * beside,
+      );
+    const bedEdge = length - bedRadius(id, angle + Math.PI, bedSize, 8) - 34;
+    entrances.set(id, [at(bedEdge, -1), at(bedEdge, 1)]);
+    const gate = bedRadius(homeId, angle, yardSize, 0, 6) - 26;
+    gates.push(at(gate, -1), at(gate, 1));
+    const start = gate + 260;
+    const end = bedEdge - 220;
+    if (end > start) {
+      const count = Math.round((end - start) / 280);
+      for (let index = 0; index <= count; index++) {
+        const distance =
+          count === 0
+            ? (start + end) / 2
+            : start + ((end - start) * index) / count;
+        pathLanterns.push(at(distance, index % 2 ? 1 : -1));
+      }
+    }
+  }
+  if (layout.orientation === "landscape") {
+    const gate = hedgeLine.bottom - 44;
+    for (const side of [-1, 1])
+      pathLanterns.push(lantern(home.x + side * beside, gate));
+    const yardEdge = home.y + bedRadius(homeId, Math.PI / 2, yardSize, 0, 6);
+    for (const side of [-1, 1])
+      gates.push(lantern(home.x + side * beside, yardEdge - 26));
+    if (gate - yardEdge > 300)
+      pathLanterns.push(lantern(home.x + beside, (gate + yardEdge) / 2));
+  }
+  return { pathLanterns, gates, entrances };
+}
+
+/** The lanterns along the paths: pools first, so no pool lights another's lamp. */
+export function drawPathLanterns(paint: PaintContext, garden: Garden): void {
+  for (const lantern of garden.pathLanterns) lanternPool(paint, lantern);
+  for (const lantern of garden.pathLanterns) lanternBody(paint, lantern);
 }
 
 /** A watercolour bloom: soft in the middle, pigment gathered towards its rim. */
@@ -195,6 +299,7 @@ export function softBlot(
 export function drawLawn(paint: PaintContext, garden: Garden): void {
   const { context } = paint;
   const { hedgeLine } = garden;
+  const { washes, night } = gardenLook(paint.lighting);
   context.save();
   context.beginPath();
   context.rect(
@@ -204,7 +309,7 @@ export function drawLawn(paint: PaintContext, garden: Garden): void {
     hedgeLine.bottom - hedgeLine.top,
   );
   context.clip();
-  context.fillStyle = withAlpha(washes.lawn, 0.2);
+  context.fillStyle = withAlpha(washes.lawn, night ? 0.32 : 0.2);
   context.fillRect(
     hedgeLine.left,
     hedgeLine.top,
@@ -218,10 +323,13 @@ export function drawLawn(paint: PaintContext, garden: Garden): void {
       blot.y,
       blot.radius,
       blot.deep ? washes.lawnDeep : washes.lawn,
-      blot.alpha,
+      night ? blot.alpha * 2.2 : blot.alpha,
     );
   if (paint.camera.scale > 0.3) {
-    context.strokeStyle = withAlpha(washes.lawnDeep, 0.38);
+    // At night the grass blades are what the moon catches.
+    context.strokeStyle = night
+      ? withAlpha(washes.lawn, 0.55)
+      : withAlpha(washes.lawnDeep, 0.38);
     context.lineWidth = pixels(paint, 0.8);
     context.beginPath();
     for (const tuft of garden.tufts) {
@@ -237,6 +345,7 @@ export function drawLawn(paint: PaintContext, garden: Garden): void {
 
 export function drawPaths(paint: PaintContext, garden: Garden): void {
   const { context } = paint;
+  const { washes } = gardenLook(paint.lighting);
   context.save();
   context.lineCap = "butt";
   for (const path of garden.paths) {
@@ -278,6 +387,7 @@ function drawShrubs(
   highlight: boolean,
 ) {
   const { context } = paint;
+  const { washes, night } = gardenLook(paint.lighting);
   context.fillStyle = fill;
   context.beginPath();
   for (const shrub of shrubs) {
@@ -288,7 +398,10 @@ function drawShrubs(
   context.strokeStyle = withAlpha(washes.hedgeDeep, 0.75);
   context.lineWidth = pixels(paint, 1);
   context.stroke();
-  if (highlight) {
+  if (night) {
+    // A dark silhouette, edged by the moon.
+    moonlitRims(paint, shrubs, washes.hedgeLight, highlight ? 0.42 : 0.3);
+  } else if (highlight) {
     context.fillStyle = withAlpha(washes.hedgeLight, 0.55);
     context.beginPath();
     for (const shrub of shrubs) {
@@ -304,11 +417,17 @@ function drawShrubs(
 
 export function drawHedgeAndTrees(paint: PaintContext, garden: Garden): void {
   const { context } = paint;
+  const { washes, night } = gardenLook(paint.lighting);
   const detailed = paint.camera.scale > 0.2;
-  drawShrubs(paint, garden.hedge, withAlpha(washes.hedge, 0.9), detailed);
+  drawShrubs(
+    paint,
+    garden.hedge,
+    withAlpha(washes.hedge, night ? 0.97 : 0.9),
+    detailed,
+  );
   for (const tree of garden.trees) {
     // A tree in plan: a broad scalloped canopy and the dot of its trunk.
-    context.fillStyle = withAlpha(washes.hedge, 0.42);
+    context.fillStyle = withAlpha(washes.hedge, night ? 0.85 : 0.42);
     context.strokeStyle = withAlpha(washes.hedgeDeep, 0.7);
     context.lineWidth = pixels(paint, 1.1);
     context.beginPath();
@@ -331,16 +450,25 @@ export function drawHedgeAndTrees(paint: PaintContext, garden: Garden): void {
     }
     context.fill();
     context.stroke();
-    context.fillStyle = withAlpha(washes.hedgeLight, 0.4);
-    context.beginPath();
-    context.arc(
-      tree.x - tree.radius * 0.25,
-      tree.y - tree.radius * 0.25,
-      tree.radius * 0.55,
-      0,
-      Math.PI * 2,
-    );
-    context.fill();
+    if (night) {
+      moonlitRims(
+        paint,
+        [{ x: tree.x, y: tree.y, radius: tree.radius * 1.12 }],
+        washes.hedgeLight,
+        0.3,
+      );
+    } else {
+      context.fillStyle = withAlpha(washes.hedgeLight, 0.4);
+      context.beginPath();
+      context.arc(
+        tree.x - tree.radius * 0.25,
+        tree.y - tree.radius * 0.25,
+        tree.radius * 0.55,
+        0,
+        Math.PI * 2,
+      );
+      context.fill();
+    }
     context.fillStyle = washes.wood;
     context.beginPath();
     context.arc(tree.x, tree.y, 4, 0, Math.PI * 2);
@@ -355,6 +483,7 @@ export function drawPond(
   reducedMotion: boolean,
 ): void {
   const { context } = paint;
+  const { washes, night } = gardenLook(paint.lighting);
   const trace = (grow: number) => {
     context.beginPath();
     for (let step = 0; step <= 64; step++) {
@@ -383,6 +512,13 @@ export function drawPond(
   trace(-16);
   context.fillStyle = withAlpha(washes.water, 0.35);
   context.fill();
+  if (night) {
+    context.save();
+    trace(-2);
+    context.clip();
+    moonInWater(paint, { x: centre.x + 42, y: centre.y + 4 }, 11);
+    context.restore();
+  }
   // Lily pads, turning very slowly on the surface.
   const turn = reducedMotion ? 0 : time * 0.05;
   for (const [dx, dy, radius] of [
@@ -392,7 +528,7 @@ export function drawPond(
   ] as const) {
     const x = centre.x + dx;
     const y = centre.y + dy;
-    context.fillStyle = withAlpha(washes.leaf, 0.85);
+    context.fillStyle = withAlpha(washes.leaf, night ? 0.75 : 0.85);
     context.beginPath();
     context.moveTo(x, y);
     context.arc(
