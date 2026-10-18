@@ -7,9 +7,7 @@
 import type { Point } from "../camera";
 import type { PaintContext } from "../types";
 import { roundedRectangle } from "./buildings";
-import { doctorPalette as palette, doctorShades as shade } from "./palette";
-
-const accent = (alpha: number) => `rgba(${shade.accent},${alpha})`;
+import { toneOf } from "./palette";
 
 /**
  * An ambulance from above. Its light bar flashes white and the accent in
@@ -22,6 +20,7 @@ export function drawAmbulance(
   length: number,
   options: { alpha: number; flashing: boolean },
 ): void {
+  const { shade, accent } = toneOf(paint.lighting);
   const { context } = paint;
   const width = length * 0.46;
   const half = { x: length / 2, y: width / 2 };
@@ -59,14 +58,14 @@ export function drawAmbulance(
     },
     width * 0.3,
   );
-  context.fillStyle = shade.kerb;
+  context.fillStyle = shade.rim;
   context.fill();
   roundedRectangle(
     context,
     { left: -half.x, right: half.x, top: -half.y, bottom: half.y },
     width * 0.24,
   );
-  context.fillStyle = shade.paper;
+  context.fillStyle = shade.vehicle;
   context.fill();
 
   // Chevrons across the rear doors, and a band along each side.
@@ -88,7 +87,7 @@ export function drawAmbulance(
   context.restore();
 
   // The cab: a windscreen at the front.
-  context.fillStyle = "#26314a";
+  context.fillStyle = shade.glass;
   context.beginPath();
   context.moveTo(half.x - length * 0.2, -half.y * 0.78);
   context.lineTo(half.x - length * 0.07, -half.y * 0.66);
@@ -131,6 +130,7 @@ export function drawHelicopter(
   length: number,
   options: { airborne: number; rotor: number; alpha: number },
 ): void {
+  const { shade, accent } = toneOf(paint.lighting);
   const { context } = paint;
   const lift = options.airborne;
   context.save();
@@ -160,8 +160,10 @@ export function drawHelicopter(
   context.rotate(heading);
   context.scale(scale, scale);
 
-  // Tail boom, fin and tail rotor.
-  context.fillStyle = shade.paper;
+  // Tail boom, fin and tail rotor, with a rim so it reads on a pale roof.
+  context.fillStyle = shade.rim;
+  context.fillRect(-length * 0.83, -length * 0.05, length * 0.58, length * 0.1);
+  context.fillStyle = shade.vehicle;
   context.fillRect(
     -length * 0.82,
     -length * 0.035,
@@ -180,11 +182,11 @@ export function drawHelicopter(
   }
   context.stroke();
   // The cabin, a band of the accent, and its glass.
-  context.fillStyle = shade.kerb;
+  context.fillStyle = shade.rim;
   context.beginPath();
   context.ellipse(0, 0, length * 0.34, length * 0.18, 0, 0, Math.PI * 2);
   context.fill();
-  context.fillStyle = shade.paper;
+  context.fillStyle = shade.vehicle;
   context.beginPath();
   context.ellipse(0, 0, length * 0.32, length * 0.16, 0, 0, Math.PI * 2);
   context.fill();
@@ -193,7 +195,7 @@ export function drawHelicopter(
   context.fillStyle = accent(0.85);
   context.fillRect(-length * 0.32, -length * 0.03, length * 0.4, length * 0.06);
   context.restore();
-  context.fillStyle = "#26314a";
+  context.fillStyle = shade.glass;
   context.beginPath();
   context.ellipse(
     length * 0.18,
@@ -208,11 +210,13 @@ export function drawHelicopter(
 
   // The rotor: a faint disc while it turns, and three blades.
   const radius = length * 0.62;
-  context.fillStyle = "rgba(220,228,245,0.08)";
+  context.fillStyle = shade.lit
+    ? "rgba(220,228,245,0.08)"
+    : "rgba(40,48,70,0.06)";
   context.beginPath();
   context.arc(0, 0, radius, 0, Math.PI * 2);
   context.fill();
-  context.strokeStyle = "rgba(220,228,245,0.75)";
+  context.strokeStyle = shade.rotor;
   context.lineWidth = length * 0.035;
   context.lineCap = "round";
   context.beginPath();
@@ -222,7 +226,7 @@ export function drawHelicopter(
     context.lineTo(Math.cos(angle) * radius, Math.sin(angle) * radius);
   }
   context.stroke();
-  context.fillStyle = palette.ground;
+  context.fillStyle = shade.rim;
   context.beginPath();
   context.arc(0, 0, length * 0.05, 0, Math.PI * 2);
   context.fill();
@@ -237,6 +241,7 @@ export function drawTrolley(
   length: number,
   alpha: number,
 ): void {
+  const { shade, accent } = toneOf(paint.lighting);
   const { context } = paint;
   const width = length * 0.56;
   context.save();
@@ -264,7 +269,7 @@ export function drawTrolley(
     },
     length * 0.08,
   );
-  context.fillStyle = shade.paper;
+  context.fillStyle = shade.vehicle;
   context.fill();
   context.strokeStyle = accent(0.9);
   context.lineWidth = length * 0.07;

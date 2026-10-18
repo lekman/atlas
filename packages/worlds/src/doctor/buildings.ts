@@ -15,7 +15,7 @@ import type { Layout } from "../layout";
 import { pixels, withAlpha } from "../paint";
 import { hashString, seededRandom } from "../random";
 import type { PaintContext } from "../types";
-import { doctorPalette as palette, doctorShades as shade } from "./palette";
+import { toneOf } from "./palette";
 import {
   blockInset,
   driveWidth,
@@ -236,10 +236,8 @@ export function roundedRectangle(
   context.closePath();
 }
 
-const accent = (alpha: number) => `rgba(${shade.accent},${alpha})`;
-const warm = (alpha: number) => `rgba(${shade.warm},${alpha})`;
-
 export function drawTrees(paint: PaintContext, trees: Tree[]): void {
+  const { shade } = toneOf(paint.lighting);
   const { context } = paint;
   context.fillStyle = shade.tree;
   context.beginPath();
@@ -248,7 +246,7 @@ export function drawTrees(paint: PaintContext, trees: Tree[]): void {
     context.arc(tree.x, tree.y, tree.radius, 0, Math.PI * 2);
   }
   context.fill();
-  context.fillStyle = "rgba(160,200,190,0.05)";
+  context.fillStyle = shade.treeLight;
   context.beginPath();
   for (const tree of trees) {
     const r = tree.radius * 0.45;
@@ -269,6 +267,7 @@ export function drawTrees(paint: PaintContext, trees: Tree[]): void {
 
 /** The grounds of a hospital or The Practice: lawn, trees, drive, car park. */
 export function drawGrounds(paint: PaintContext, plan: HospitalPlan): void {
+  const { shade, accent, warm } = toneOf(paint.lighting);
   const { context } = paint;
   const { grounds } = plan;
   roundedRectangle(context, grounds, 10);
@@ -301,6 +300,7 @@ export function drawGrounds(paint: PaintContext, plan: HospitalPlan): void {
 }
 
 function drawCarPark(paint: PaintContext, area: Rectangle, id: string): void {
+  const { shade, warm } = toneOf(paint.lighting);
   const { context } = paint;
   roundedRectangle(context, area, 6);
   context.fillStyle = shade.street;
@@ -350,9 +350,7 @@ function drawCarPark(paint: PaintContext, area: Rectangle, id: string): void {
             bottom: area.top + along + 6,
           };
       roundedRectangle(context, car, 3);
-      context.fillStyle = ["#3a4256", "#4a5064", "#2f394e"][
-        Math.floor(random() * 3)
-      ] as string;
+      context.fillStyle = shade.cars[Math.floor(random() * 3)] ?? shade.street;
       context.fill();
     }
   }
@@ -365,6 +363,7 @@ export function drawLink(
   to: Point,
   width: number,
 ): void {
+  const { shade, accent } = toneOf(paint.lighting);
   const { context } = paint;
   context.lineCap = "butt";
   context.strokeStyle = accent(0.5);
@@ -409,6 +408,7 @@ export function drawMainBlock(
   centre: Point,
   half: { width: number; height: number },
 ): void {
+  const { shade, accent } = toneOf(paint.lighting);
   const { context } = paint;
   const box = {
     left: centre.x - half.width,
@@ -436,7 +436,7 @@ export function drawMainBlock(
   context.lineWidth = pixels(paint, 1);
   context.stroke();
   // Roof plant in two corners.
-  context.fillStyle = "#273350";
+  context.fillStyle = shade.roofPlant;
   for (const [x, y] of [
     [box.left + 14, box.top + 14],
     [box.right - 34, box.bottom - 30],
@@ -447,17 +447,18 @@ export function drawMainBlock(
 
 /** The helipad on the roof: a ring and a plain H, nothing else. */
 export function drawHelipad(paint: PaintContext, centre: Point): void {
+  const { shade, accent } = toneOf(paint.lighting);
   const { context } = paint;
   context.fillStyle = shade.helipad;
   context.beginPath();
   context.arc(centre.x, centre.y, helipadRadius, 0, Math.PI * 2);
   context.fill();
-  context.strokeStyle = withAlpha(palette.ink, 0.6);
+  context.strokeStyle = withAlpha(shade.helipadMark, 0.7);
   context.lineWidth = Math.max(2.2, pixels(paint, 1.2));
   context.beginPath();
   context.arc(centre.x, centre.y, helipadRadius - 4, 0, Math.PI * 2);
   context.stroke();
-  context.fillStyle = withAlpha(palette.ink, 0.78);
+  context.fillStyle = withAlpha(shade.helipadMark, 0.85);
   const h = 13;
   const stroke = 4;
   context.fillRect(centre.x - h * 0.62, centre.y - h, stroke, h * 2);
@@ -486,6 +487,7 @@ export function drawHelipad(paint: PaintContext, centre: Point): void {
 
 /** The ambulance bay: a canopy across the end of the drive, with chevrons. */
 export function drawBay(paint: PaintContext, spoke: Spoke): void {
+  const { shade, accent } = toneOf(paint.lighting);
   const { context } = paint;
   const [bay, end] = spoke.drive;
   const angle = Math.atan2(end.y - bay.y, end.x - bay.x);
@@ -525,6 +527,7 @@ export function drawDepartment(
   size: { along: number; across: number; corner: number },
   done: boolean,
 ): void {
+  const { shade, accent } = toneOf(paint.lighting);
   const { context } = paint;
   turnedRectangle(
     context,

@@ -45,11 +45,7 @@ import {
   turnedRectangle,
   type HospitalPlan,
 } from "./buildings";
-import {
-  doctorPalette as palette,
-  doctorShades as shade,
-  doctorTypefaces as type,
-} from "./palette";
+import { doctorTypefaces as type, toneOf } from "./palette";
 import {
   blockInset,
   mainRoadWidth,
@@ -66,8 +62,6 @@ import { drawAmbulance, drawHelicopter, drawTrolley } from "./vehicles";
 import { doctorStatusNames, doctorVocabulary } from "./vocabulary";
 
 const isFull = (paint: PaintContext) => paint.detail === "full";
-const accent = (alpha: number) => `rgba(${shade.accent},${alpha})`;
-const warm = (alpha: number) => `rgba(${shade.warm},${alpha})`;
 
 function plansOf(paint: PaintContext): StreetPlan {
   return streetPlan(paint.scene.layout, homeIdOf(paint.scene.dataset));
@@ -96,6 +90,7 @@ const easeInOut = (t: number) =>
 const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
 
 function drawTown(paint: PaintContext, plan: StreetPlan, seen: Rectangle) {
+  const { shade, warm } = toneOf(paint.lighting);
   const { context, camera } = paint;
   const visible = plan.town.filter((block) => overlaps(block.area, seen));
 
@@ -129,7 +124,7 @@ function drawTown(paint: PaintContext, plan: StreetPlan, seen: Rectangle) {
   context.stroke();
 
   // A scatter of lit windows, dim and warm.
-  if (camera.scale > 0.14) {
+  if (shade.lit && camera.scale > 0.14) {
     context.fillStyle = warm(0.32);
     context.beginPath();
     for (const block of visible)
@@ -157,6 +152,7 @@ function drawTown(paint: PaintContext, plan: StreetPlan, seen: Rectangle) {
 }
 
 function drawRiver(paint: PaintContext, plan: StreetPlan) {
+  const { shade } = toneOf(paint.lighting);
   const { river } = plan;
   if (!river) return;
   const { context } = paint;
@@ -188,6 +184,7 @@ function drawRiver(paint: PaintContext, plan: StreetPlan) {
 }
 
 function drawStreets(paint: PaintContext, plan: StreetPlan, seen: Rectangle) {
+  const { shade, warm } = toneOf(paint.lighting);
   const { context } = paint;
   const near = (a: Point, b: Point) =>
     overlaps(
@@ -201,6 +198,23 @@ function drawStreets(paint: PaintContext, plan: StreetPlan, seen: Rectangle) {
     );
   context.lineCap = "square";
   context.lineJoin = "miter";
+  const streetPath = () => {
+    context.beginPath();
+    for (const edge of plan.edges) {
+      if (edge.drive) continue;
+      const a = plan.nodes[edge.a];
+      const b = plan.nodes[edge.b];
+      if (!a || !b || !near(a, b)) continue;
+      context.moveTo(a.x, a.y);
+      context.lineTo(b.x, b.y);
+    }
+  };
+  if (shade.streetEdge !== shade.street) {
+    context.strokeStyle = shade.streetEdge;
+    context.lineWidth = streetWidth + pixels(paint, 2);
+    streetPath();
+    context.stroke();
+  }
   context.strokeStyle = shade.street;
   context.lineWidth = streetWidth;
   context.beginPath();
@@ -249,6 +263,18 @@ function drawStreets(paint: PaintContext, plan: StreetPlan, seen: Rectangle) {
 
   // Main roads: wider, a little lighter, with a faint centre line.
   context.lineCap = "square";
+  if (shade.mainRoadEdge !== shade.mainRoad) {
+    context.strokeStyle = shade.mainRoadEdge;
+    context.lineWidth = mainRoadWidth + pixels(paint, 2.5);
+    context.beginPath();
+    for (const road of plan.mainRoads)
+      road.forEach((point, index) =>
+        index === 0
+          ? context.moveTo(point.x, point.y)
+          : context.lineTo(point.x, point.y),
+      );
+    context.stroke();
+  }
   context.strokeStyle = shade.mainRoad;
   context.lineWidth = mainRoadWidth;
   context.beginPath();
@@ -273,7 +299,8 @@ function drawStreets(paint: PaintContext, plan: StreetPlan, seen: Rectangle) {
   context.stroke();
   context.setLineDash([]);
 
-  // Street lights along the main roads, glowing faintly.
+  // Street lights along the main roads, glowing faintly after dark.
+  if (!shade.lit) return;
   const lights = plan.lights.filter(
     (light) =>
       light.x > seen.left &&
@@ -320,6 +347,7 @@ function tick(
 
 /** The admissions annex: where admissions without a department wait. */
 function drawAdmissions(paint: PaintContext, area: Rectangle, home: boolean) {
+  const { palette, shade, accent } = toneOf(paint.lighting);
   const { context } = paint;
   roundedRectangle(
     context,
@@ -358,6 +386,7 @@ function drawAdmissions(paint: PaintContext, area: Rectangle, home: boolean) {
 
 /** The Practice: a small clinic with a hipped roof, a lit window and a door light. */
 function drawPractice(paint: PaintContext, plan: HospitalPlan) {
+  const { shade, accent, warm } = toneOf(paint.lighting);
   const { context, reducedMotion, time } = paint;
   const { x, y } = plan.centre;
   const half = practiceBlock;
@@ -369,6 +398,9 @@ function drawPractice(paint: PaintContext, plan: HospitalPlan) {
   };
   // The door faces the car park.
   const door = { x: box.right, y: y + 14 };
+  // At night the door lamp glows warm; by day a small violet lamp marks
+  // the door instead. Each breathes slowly, and holds still on request.
+  const breath = reducedMotion ? 0.5 : 0.5 + 0.5 * Math.sin(time * 0.8);
   const pool = context.createRadialGradient(
     door.x,
     door.y,
@@ -377,9 +409,12 @@ function drawPractice(paint: PaintContext, plan: HospitalPlan) {
     door.y,
     46,
   );
-  const doorGlow = reducedMotion ? 0.3 : 0.27 + 0.05 * Math.sin(time * 0.7);
-  pool.addColorStop(0, warm(doorGlow));
-  pool.addColorStop(1, warm(0));
+  const glow = shade.lit ? warm : accent;
+  pool.addColorStop(
+    0,
+    glow(shade.lit ? 0.24 + 0.08 * breath : 0.12 + 0.12 * breath),
+  );
+  pool.addColorStop(1, glow(0));
   context.fillStyle = pool;
   context.beginPath();
   context.arc(door.x, door.y, 46, 0, Math.PI * 2);
@@ -406,21 +441,15 @@ function drawPractice(paint: PaintContext, plan: HospitalPlan) {
   context.lineTo(box.right - 3, box.bottom - 3);
   context.stroke();
 
-  // Windows along the front, one of them softly brightening and dimming.
+  // Windows along the front. After dark two are lit, one of them softly
+  // brightening and dimming; by day they are glass.
   const windows = [-0.62, -0.22, 0.22, 0.62];
   windows.forEach((at, index) => {
-    const lit =
-      index === 1
-        ? reducedMotion
-          ? 0.75
-          : 0.55 + 0.35 * (0.5 + 0.5 * Math.sin(time * 0.8))
-        : index === 3
-          ? 0.6
-          : 0.16;
-    context.fillStyle = warm(lit);
+    const lit = index === 1 ? 0.55 + 0.35 * breath : index === 3 ? 0.6 : 0.16;
+    context.fillStyle = shade.lit ? warm(lit) : shade.glass;
     context.fillRect(x + at * half.width - 7, box.bottom - 3, 14, 5);
   });
-  context.fillStyle = warm(0.9);
+  context.fillStyle = shade.lit ? warm(0.9) : accent(0.55 + 0.4 * breath);
   context.fillRect(door.x - 2, door.y - 9, 5, 18);
 }
 
@@ -431,6 +460,7 @@ function drawBed(
   state: string,
   high: boolean,
 ) {
+  const { shade } = toneOf(paint.lighting);
   const { context } = paint;
   const length = Math.max(22, pixels(paint, 11));
   const width = length * 0.6;
@@ -442,9 +472,9 @@ function drawBed(
   if (state === "done") context.globalAlpha *= 0.45;
   const frame = { left: -half.x, right: half.x, top: -half.y, bottom: half.y };
   roundedRectangle(context, frame, width * 0.18);
-  context.fillStyle = shade.kerb;
+  context.fillStyle = shade.bedBase;
   context.fill();
-  context.strokeStyle = shade.paper;
+  context.strokeStyle = shade.bedFrame;
   context.lineWidth = line;
   context.stroke();
   // The pillow at the head, towards the department's desk.
@@ -456,10 +486,10 @@ function drawBed(
   };
   roundedRectangle(context, pillow, width * 0.12);
   if (state === "todo") {
-    context.strokeStyle = withAlpha(shade.paper, 0.75);
+    context.strokeStyle = withAlpha(shade.bedFrame, 0.75);
     context.stroke();
   } else {
-    context.fillStyle = shade.paper;
+    context.fillStyle = shade.bedCover;
     context.fill();
   }
   const blanket = {
@@ -468,7 +498,7 @@ function drawBed(
     top: -half.y + line,
     bottom: half.y - line,
   };
-  context.fillStyle = shade.paper;
+  context.fillStyle = shade.bedCover;
   switch (state) {
     case "doing":
       // In use: the blanket up over the bed.
@@ -478,7 +508,7 @@ function drawBed(
         blanket.right - blanket.left,
         blanket.bottom - blanket.top,
       );
-      context.fillStyle = shade.kerb;
+      context.fillStyle = shade.bedBase;
       context.fillRect(
         blanket.left + length * 0.08,
         blanket.top,
@@ -503,7 +533,7 @@ function drawBed(
         blanket.right - blanket.left,
         blanket.bottom - blanket.top,
       );
-      context.strokeStyle = shade.kerb;
+      context.strokeStyle = shade.bedBase;
       context.lineWidth = line;
       context.beginPath();
       context.moveTo(blanket.left + length * 0.1, blanket.top);
@@ -527,7 +557,7 @@ function drawBed(
       },
       width * 0.3,
     );
-    context.strokeStyle = shade.paper;
+    context.strokeStyle = shade.bedFrame;
     context.lineWidth = line;
     context.stroke();
   }
@@ -567,6 +597,7 @@ function polyline(context: CanvasRenderingContext2D, points: Point[]) {
 
 export const doctorPainter: WorldPainter = {
   background(paint) {
+    const { palette } = toneOf(paint.lighting);
     const { context, width, height } = paint;
     setScreenTransform(paint);
     context.fillStyle = palette.ground;
@@ -601,6 +632,7 @@ export const doctorPainter: WorldPainter = {
   },
 
   requirement(paint, requirement) {
+    const { palette, shade, accent } = toneOf(paint.lighting);
     const { context, scene } = paint;
     const point = scene.layout.fixed.get(requirement.id);
     const centre = scene.layout.clients.get(requirement.clientId);
@@ -638,7 +670,7 @@ export const doctorPainter: WorldPainter = {
       label(paint, requirement.title, x, y, {
         size: 10,
         font: type.mono,
-        colour: done ? palette.mute : "#c9d2e6",
+        colour: done ? palette.mute : shade.labelDepartment,
         align: cos > 0.45 ? "left" : cos < -0.45 ? "right" : "center",
         baseline: sin > 0.45 ? "top" : sin < -0.45 ? "bottom" : "middle",
       });
@@ -646,6 +678,7 @@ export const doctorPainter: WorldPainter = {
   },
 
   link(paint, item) {
+    const { accent } = toneOf(paint.lighting);
     const { context, scene } = paint;
     const from = item.requirementId
       ? scene.layout.fixed.get(item.requirementId)
@@ -666,6 +699,7 @@ export const doctorPainter: WorldPainter = {
   },
 
   item(paint, item) {
+    const { shade } = toneOf(paint.lighting);
     const { scene } = paint;
     const point = itemPosition(
       scene.layout,
@@ -682,12 +716,13 @@ export const doctorPainter: WorldPainter = {
       label(paint, item.title, point.x + pixels(paint, 16), point.y, {
         size: 10,
         font: type.mono,
-        colour: "#b9c4da",
+        colour: shade.labelItem,
       });
     }
   },
 
   question(paint, question, fade) {
+    const { palette, shade } = toneOf(paint.lighting);
     const { context, scene, time, reducedMotion } = paint;
     const point = questionPosition(
       scene.layout,
@@ -727,7 +762,7 @@ export const doctorPainter: WorldPainter = {
       context.lineTo(5, -14);
     };
     tube();
-    context.fillStyle = "rgba(6,10,20,0.85)";
+    context.fillStyle = shade.tube;
     context.fill();
     context.save();
     context.clip();
@@ -783,6 +818,7 @@ export const doctorPainter: WorldPainter = {
   },
 
   decision(paint, decision, appear) {
+    const { shade, accent } = toneOf(paint.lighting);
     const { context, scene } = paint;
     const point = decisionPosition(scene.layout, scene.dataset, decision);
     const made = decision.state === "made";
@@ -811,9 +847,9 @@ export const doctorPainter: WorldPainter = {
       context.stroke();
       context.setLineDash([]);
     }
-    context.fillStyle = "#56628a";
+    context.fillStyle = shade.chartClip;
     context.fillRect(-4.5, -13, 9, 3.5);
-    context.strokeStyle = made ? "rgba(40,52,84,0.5)" : accent(0.4);
+    context.strokeStyle = made ? shade.chartLines : accent(0.4);
     context.lineWidth = 0.9;
     for (const line of [-5, -1.5, 2]) {
       context.beginPath();
@@ -823,7 +859,7 @@ export const doctorPainter: WorldPainter = {
     }
     if (made) {
       // The signature, written as the decision appears.
-      context.strokeStyle = "#3b2f7a";
+      context.strokeStyle = shade.signature;
       context.lineWidth = 1.2;
       context.beginPath();
       const steps = Math.max(1, Math.round(20 * appear));
@@ -846,7 +882,7 @@ export const doctorPainter: WorldPainter = {
         {
           size: 9.5,
           font: type.mono,
-          colour: "#d3daea",
+          colour: shade.labelDecision,
           alpha: appear,
         },
       );
@@ -854,6 +890,7 @@ export const doctorPainter: WorldPainter = {
   },
 
   agent(paint, agent, motion, colour) {
+    const { palette } = toneOf(paint.lighting);
     const { context } = paint;
     const { position, trail } = motion;
 
@@ -975,6 +1012,7 @@ export const doctorPainter: WorldPainter = {
   },
 
   effect(paint, effect, progress) {
+    const { palette, shade, accent } = toneOf(paint.lighting);
     const { context, scene, time, reducedMotion } = paint;
     const fadeOut = Math.min(1, (1 - progress) * 5);
     if (effect.kind === "message") {
@@ -1016,7 +1054,7 @@ export const doctorPainter: WorldPainter = {
             {
               size: 10,
               font: type.mono,
-              colour: "#e2d4ff",
+              colour: shade.labelEffect,
               align: "center",
               alpha: fadeOut,
             },
@@ -1076,7 +1114,7 @@ export const doctorPainter: WorldPainter = {
           {
             size: 10,
             font: type.mono,
-            colour: "#e2d4ff",
+            colour: shade.labelEffect,
             align: "center",
             alpha: fadeOut,
           },
@@ -1141,7 +1179,7 @@ export const doctorPainter: WorldPainter = {
         paint,
         position,
         heading,
-        Math.max(54, pixels(paint, 28)),
+        Math.max(64, pixels(paint, 34)),
         {
           airborne,
           rotor: reducedMotion ? 0.4 : time * 15,
@@ -1157,7 +1195,7 @@ export const doctorPainter: WorldPainter = {
           {
             size: 10,
             font: type.mono,
-            colour: "#e2d4ff",
+            colour: shade.labelEffect,
             alpha: fadeOut,
           },
         );
@@ -1186,6 +1224,7 @@ export const doctorPainter: WorldPainter = {
   },
 
   overlay(paint) {
+    const { palette, shade, accent } = toneOf(paint.lighting);
     const { context, width, height, scene, camera } = paint;
     // Night falls a little darker towards the edges, never over the centre.
     const edge = context.createRadialGradient(
@@ -1196,8 +1235,8 @@ export const doctorPainter: WorldPainter = {
       height / 2,
       Math.max(width, height) * 0.8,
     );
-    edge.addColorStop(0, "rgba(3,6,14,0)");
-    edge.addColorStop(1, "rgba(3,6,14,0.4)");
+    edge.addColorStop(0, `rgba(${shade.vignette},0)`);
+    edge.addColorStop(1, `rgba(${shade.vignette},${shade.vignetteAlpha})`);
     context.fillStyle = edge;
     context.fillRect(0, 0, width, height);
 
@@ -1237,9 +1276,9 @@ export const doctorPainter: WorldPainter = {
           align: "center",
           maxWidth: room,
           plate: shade.signPlate,
-          edge: "rgba(255,255,255,0.8)",
-          nameColour: "#ffffff",
-          detailColour: "#dfe6f7",
+          edge: shade.signEdge,
+          nameColour: shade.signName,
+          detailColour: shade.signDetail,
           nameSize,
           font: type.display,
           detailFont: type.mono,
@@ -1254,20 +1293,24 @@ export const doctorPainter: WorldPainter = {
       ).length;
       const left = plan.centre.x < -1;
       const right = plan.centre.x > 1;
+      // The corner readout floats over the top right of the screen, so a
+      // hospital up there signs the side of its grounds nearer the centre.
+      const below = right && plan.centre.y < -1;
+      const height = nameSize * 1.75;
       drawSign(paint, {
         x: left
           ? topLeft.x + 6
           : right
             ? bottomRight.x - 6
             : (topLeft.x + bottomRight.x) / 2,
-        y: topLeft.y + 5,
+        y: below ? bottomRight.y - height - 5 : topLeft.y + 5,
         name: client.name,
         detail: full
           ? `${staff.length} ${doctorVocabulary.agents} · ${onRounds} ${doctorStatusNames.running}`
           : undefined,
         align: left ? "left" : right ? "right" : "center",
         maxWidth: room,
-        plate: "rgba(14,21,38,0.92)",
+        plate: shade.plate,
         edge: accent(0.75),
         nameColour: palette.ink,
         detailColour: palette.mute,

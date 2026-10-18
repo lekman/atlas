@@ -11,14 +11,14 @@ the others has its own page with its palette, typefaces and design choices:
 [Woodsman](worlds/woodsman.md), [Gardener](worlds/gardener.md),
 [Samurai](worlds/samurai.md) and [Doctor](worlds/doctor.md).
 
-| World      | Home                      | Map                                                     |
-| ---------- | ------------------------- | ------------------------------------------------------- |
-| Astronomer | **Terra**, drawn as Earth | Star chart, grid, range rings, HUD                      |
-| Mariner    | **Turtle Bay**            | Engraved sea chart, soundings, compass rose             |
-| Woodsman   | **Base Camp**             | Trail map, contour lines, rivers                        |
-| Gardener   | **The Homestead**         | Planting plan inside a hedge                            |
-| Samurai    | **The Castle**            | Ink-wash campaign scroll                                |
-| Doctor     | **The Practice**          | Medical district at night: hospitals, roads, ambulances |
+| World      | Home                      | Map                                            |
+| ---------- | ------------------------- | ---------------------------------------------- |
+| Astronomer | **Terra**, drawn as Earth | Star chart, grid, range rings, HUD             |
+| Mariner    | **Turtle Bay**            | Engraved sea chart, soundings, compass rose    |
+| Woodsman   | **Base Camp**             | Trail map, contour lines, rivers               |
+| Gardener   | **The Homestead**         | Planting plan inside a hedge                   |
+| Samurai    | **The Castle**            | Ink-wash campaign scroll                       |
+| Doctor     | **The Practice**          | Medical district: hospitals, roads, ambulances |
 
 ### Records
 
@@ -72,14 +72,14 @@ Lighting follows the device by default, so Atlas goes dark when the Mac or
 the iPhone does; the world picker can fix Day or Night instead. Each world
 draws its night in its own way.
 
-| World      | At night                                                 |
-| ---------- | -------------------------------------------------------- |
-| Astronomer | Always dark                                              |
-| Mariner    | Planned: a dark blue chart, every lighthouse lit         |
-| Woodsman   | No night mode yet                                        |
-| Gardener   | Planned: the night garden, lit by lanterns               |
-| Samurai    | Planned: a night campaign scroll, in the ninja's colours |
-| Doctor     | Planned: the hospital district at night                  |
+| World      | At night                                                                                      |
+| ---------- | --------------------------------------------------------------------------------------------- |
+| Astronomer | Always dark                                                                                   |
+| Mariner    | Planned: a dark blue chart, every lighthouse lit                                              |
+| Woodsman   | No night mode yet                                                                             |
+| Gardener   | Planned: the night garden, lit by lanterns                                                    |
+| Samurai    | Planned: a night campaign scroll, in the ninja's colours                                      |
+| Doctor     | Night shift: lit windows, street lights along the main roads, ambulance lights in the streets |
 
 ## Sound
 

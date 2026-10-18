@@ -1,7 +1,7 @@
 # Doctor
 
-A medical district at night, seen from above, drawn like a wayfinding map.
-Each client is a hospital on its own city block: a main building with a
+A medical district seen from above, drawn like a wayfinding map, by day
+or, on the night shift, after dark. Each client is a hospital on its own city block: a main building with a
 helipad on its roof, wings out to its departments, an ambulance bay and a
 car park. Home is The Practice, a small clinic inside a ring road at the
 centre of town. Main roads run from the ring out to every hospital; a grid
@@ -15,7 +15,7 @@ changing a shape or a word.
 
 | Record         | Doctor              | Drawn as                                                                      |
 | -------------- | ------------------- | ----------------------------------------------------------------------------- |
-| Map            | Medical district    | A town plan at night: street grid, city blocks with lit windows, river, parks |
+| Map            | Medical district    | A town plan from above: street grid, city blocks, river, parks                |
 | Home           | **The Practice**    | A small clinic with a hipped roof, its own car park and a blue-and-white sign |
 | Client         | Hospital            | A building complex on its own block, with a helipad, ambulance bay, car park  |
 | Requirement    | Department          | An annex at the end of a wing, with a desk at its centre; a tick when done    |
@@ -97,10 +97,51 @@ All cues are short, quiet and played once.
 | Needs you      | A three-note public-address chime, rising, C, E and G      |
 | Blocked        | A low double tone, falling, filtered and quiet             |
 
+## Day and Night
+
+Day is the district in daylight: pale grey blocks, white streets with the
+main roads cased in violet, roofs, trees in leaf, a blue river. Windows are
+unlit and the street lights are off; ambulances still run the streets and
+the helicopter still lands. The Practice marks its door with a small violet
+lamp that breathes slowly.
+
+Night is the **Night shift**: the same district after dark. The ground
+turns deep navy, a scatter of windows is lit in a dim warm white, street
+lights glow along the main roads, and an ambulance's light bar throws a
+soft glow on the street around it. At The Practice the door lamp glows warm
+and one window slowly brightens and dims.
+
+Both are drawn by the same painter, which reads `paint.lighting`; the still
+SVG map takes the lighting too.
+
 ## Palette
 
+Contrast is the WCAG ratio against the ground and against the panel as it
+shows over the ground.
+
+### Day
+
+The panel colour is `rgba(250, 251, 253, 0.96)`, which over the ground
+comes to `#f9fafd`.
+
+| Role     | Colour    | Hue | Against ground | Against panel |
+| -------- | --------- | --- | -------------- | ------------- |
+| Ground   | `#e9ecf1` |     |                |               |
+| Ink      | `#1b2131` |     | 13.55          | 15.38         |
+| Mute     | `#4f586b` |     | 6.03           | 6.84          |
+| Accent   | `#6a3db5` | 263 | 6.02           | 6.83          |
+| Running  | `#1f7034` | 136 | 5.18           | 5.87          |
+| Watching | `#1b5da3` | 211 | 5.65           | 6.41          |
+| Waiting  | `#8a5000` | 35  | 5.49           | 6.23          |
+| Blocked  | `#b3232f` | 355 | 5.54           | 6.29          |
+| Error    | `#b3232f` | 355 | 5.54           | 6.29          |
+| Idle     | `#5d656e` | 212 | 4.99           | 5.66          |
+| Sample   | `#6a3db5` | 263 | 6.02           | 6.83          |
+
+### Night Shift
+
 The panel colour is `rgba(14, 21, 38, 0.94)`, which over the ground comes
-to `#0e1526`. Contrast is the WCAG ratio against each.
+to `#0e1526`.
 
 | Role     | Colour    | Hue | Against ground | Against panel |
 | -------- | --------- | --- | -------------- | ------------- |
@@ -116,12 +157,13 @@ to `#0e1526`. Contrast is the WCAG ratio against each.
 | Idle     | `#94a1a7` | 199 | 7.10           | 6.86          |
 | Sample   | `#dccbff` | 260 | 12.58          | 12.16         |
 
-The accent is a soft violet, well clear of every status hue: it outlines
-the hospitals, lights the helipads and flashes on the ambulances. The rest
-of the town's decoration (lit windows, street lights, road markings) is a
-dim warm white. Parks and the river are dark enough that their tint never
-reads as a status. The Practice's sign is a deep blue plate with white
-letters, far darker than the blue of "monitoring".
+The accent is violet in both, well clear of every status hue: it outlines
+the hospitals, lights the helipads and flashes on the ambulances. At night
+the rest of the town's decoration (lit windows, street lights, road
+markings) is a dim warm white; by day the markings are grey and nothing is
+lit. Parks, trees and the river are muted fills, never small bright marks,
+so their tint never reads as a status. The Practice's sign is a deep blue
+plate with white letters, far darker than either blue of "monitoring".
 
 ## Typefaces
 
@@ -137,14 +179,17 @@ on Google Fonts and are served from `@fontsource`.
 
 ## Design Choices
 
-- **A town, not a diagram.** Blocks, streets, a river with bridges and lit
-  windows make the map read as a district at the overview zoom, before any
-  label is legible. The town is kept dim so it never competes with the work.
+- **A town, not a diagram.** Blocks, streets, a river with bridges and, at
+  night, lit windows make the map read as a district at the overview zoom,
+  before any label is legible. The town is kept quiet, a step back from the
+  hospitals, so it never competes with the work.
 - **Signs stay readable.** Each hospital's name sits on a plate just inside
   the top of its grounds, towards the outer side, in the band the layout
-  leaves clear. The plate is drawn last so nothing covers it, and it never
-  grows wider than the grounds: the detail goes first, then the letters
-  shrink. The compact map shows names only.
+  leaves clear. A hospital in the top right signs the bottom of its grounds
+  instead, so the corner readout never covers its name, and The Practice's
+  sign hangs over the ring road at its front. The plate is drawn last so
+  nothing covers it, and it never grows wider than the grounds: the detail
+  goes first, then the letters shrink. The compact map shows names only.
 - **Vehicles follow roads.** An ambulance never cuts across a block. That
   is what makes a message read as a journey between two places.
 - **Status stays shared.** The badge colour is the shared Atlas status hue,

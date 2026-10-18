@@ -1,7 +1,13 @@
 import type { Point } from "../camera";
-import type { Phrases, Readout, ReadoutInput, StillMap } from "../types";
+import type {
+  Lighting,
+  Phrases,
+  Readout,
+  ReadoutInput,
+  StillMap,
+} from "../types";
 import { helipadRadius, mainBlock, practiceBlock } from "./buildings";
-import { doctorPalette as palette, doctorShades as shade } from "./palette";
+import { toneOf, type Tone } from "./palette";
 import {
   bayDistance,
   driveWidth,
@@ -25,7 +31,7 @@ export const doctorPhrases: Phrases = {
 
 export function doctorReadout(input: ReadoutInput): Readout {
   return {
-    title: "Medical district, by night",
+    title: "Medical district",
     lines: [
       `${input.clients} hospitals · ${input.agents} staff · ${input.active} on rounds or monitoring`,
       `Dispatch board ${input.time} · zoom ${input.scale.toFixed(2)}`,
@@ -33,8 +39,6 @@ export function doctorReadout(input: ReadoutInput): Readout {
     attention: `${input.needsYou} need your sign-off · ${input.openQuestions} test results pending`,
   };
 }
-
-const accent = palette.accent;
 
 function path(points: Point[]): string {
   return points
@@ -49,25 +53,36 @@ function road(points: Point[], width: number, colour: string): string {
   return `<path d="${path(points)}" fill="none" stroke="${colour}" stroke-width="${width}" stroke-linecap="square" stroke-linejoin="miter"/>`;
 }
 
+/** A main road with its casing, which shows by day. */
+function mainRoad(tone: Tone, points: Point[]): string {
+  const { shade } = tone;
+  return (
+    road(points, mainRoadWidth + 6, shade.mainRoadEdge) +
+    road(points, mainRoadWidth, shade.mainRoad)
+  );
+}
+
 function block(
+  tone: Tone,
   centre: Point,
   half: { width: number; height: number },
   radius: number,
 ): string {
-  return `<rect x="${centre.x - half.width}" y="${centre.y - half.height}" width="${half.width * 2}" height="${half.height * 2}" rx="${radius}" fill="${shade.roof}" stroke="${accent}" stroke-opacity="0.75" stroke-width="4"/>`;
+  return `<rect x="${centre.x - half.width}" y="${centre.y - half.height}" width="${half.width * 2}" height="${half.height * 2}" rx="${radius}" fill="${tone.shade.roof}" stroke="${tone.palette.accent}" stroke-opacity="0.75" stroke-width="4"/>`;
 }
 
 /** The plain H of a helipad: three bars, never a cross. */
-function helipad(centre: Point): string {
+function helipad(tone: Tone, centre: Point): string {
   const { x, y } = centre;
+  const mark = tone.shade.helipadMark;
   return (
-    `<circle cx="${x}" cy="${y}" r="${helipadRadius}" fill="${shade.helipad}" stroke="${palette.ink}" stroke-opacity="0.6" stroke-width="4"/>` +
-    `<path d="M${x - 8} ${y - 13}V${y + 13}M${x + 8} ${y - 13}V${y + 13}M${x - 8} ${y}H${x + 8}" stroke="${palette.ink}" stroke-opacity="0.8" stroke-width="4" fill="none"/>`
+    `<circle cx="${x}" cy="${y}" r="${helipadRadius}" fill="${tone.shade.helipad}" stroke="${mark}" stroke-opacity="0.7" stroke-width="4"/>` +
+    `<path d="M${x - 8} ${y - 13}V${y + 13}M${x + 8} ${y - 13}V${y + 13}M${x - 8} ${y}H${x + 8}" stroke="${mark}" stroke-opacity="0.85" stroke-width="4" fill="none"/>`
   );
 }
 
-function grounds(centre: Point, reach: number): string {
-  return `<rect x="${centre.x - reach}" y="${centre.y - reach}" width="${reach * 2}" height="${reach * 2}" rx="14" fill="${shade.grounds}" stroke="${accent}" stroke-opacity="0.3" stroke-width="3"/>`;
+function grounds(tone: Tone, centre: Point, reach: number): string {
+  return `<rect x="${centre.x - reach}" y="${centre.y - reach}" width="${reach * 2}" height="${reach * 2}" rx="14" fill="${tone.shade.grounds}" stroke="${tone.palette.accent}" stroke-opacity="0.3" stroke-width="3"/>`;
 }
 
 /**
@@ -75,19 +90,23 @@ function grounds(centre: Point, reach: number): string {
  * The Practice, and each hospital's spoke, worked out from its centre.
  */
 export const doctorStillMap: StillMap = {
-  home: (centre) => {
+  home: (centre, _homeId, lighting?: Lighting) => {
+    const tone = toneOf(lighting);
+    const { shade } = tone;
     const spoke = spokeOf(centre, true);
     const [bay, end] = spoke.drive;
     return (
-      grounds(centre, 350) +
-      road(ringRoad(), mainRoadWidth, shade.mainRoad) +
+      grounds(tone, centre, 350) +
+      mainRoad(tone, ringRoad()) +
       road([bay, end], driveWidth, shade.street) +
-      `<rect x="${bay.x - 64}" y="${bay.y - 50}" width="142" height="100" rx="6" fill="${shade.street}"/>` +
-      block(centre, practiceBlock, 8) +
+      `<rect x="${bay.x - 64}" y="${bay.y - 50}" width="142" height="100" rx="6" fill="${shade.street}" stroke="${shade.streetEdge}" stroke-width="2"/>` +
+      block(tone, centre, practiceBlock, 8) +
       `<rect x="${centre.x - 92}" y="${centre.y + 70}" width="184" height="40" rx="6" fill="${shade.signPlate}" stroke="#ffffff" stroke-opacity="0.8" stroke-width="2"/>`
     );
   },
-  client: (centre) => {
+  client: (centre, _clientId, lighting?: Lighting) => {
+    const tone = toneOf(lighting);
+    const { shade, palette } = tone;
     const spoke = spokeOf(centre, false);
     const [bay, end] = spoke.drive;
     const outward = outwardOf(centre, false);
@@ -98,19 +117,19 @@ export const doctorStillMap: StillMap = {
         const y = centre.y + Math.sin(angle) * bayDistance;
         return (
           `<path d="M${centre.x} ${centre.y}L${x.toFixed(1)} ${y.toFixed(1)}" stroke="${shade.roof}" stroke-width="34"/>` +
-          `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="74" fill="${shade.floor}" stroke="${accent}" stroke-opacity="0.7" stroke-width="4"/>`
+          `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="74" fill="${shade.floor}" stroke="${palette.accent}" stroke-opacity="0.7" stroke-width="4"/>`
         );
       })
       .join("");
     return (
-      grounds(centre, hospitalReach) +
-      road(spoke.road, mainRoadWidth, shade.mainRoad) +
+      grounds(tone, centre, hospitalReach) +
+      mainRoad(tone, spoke.road) +
       road([bay, end], driveWidth, shade.street) +
       `<path d="M${centre.x} ${centre.y}L${bay.x.toFixed(1)} ${bay.y.toFixed(1)}" stroke="${shade.roof}" stroke-width="18"/>` +
       wings +
-      block(centre, mainBlock, 12) +
-      helipad(centre) +
-      `<rect x="${(bay.x - 30).toFixed(1)}" y="${(bay.y - 30).toFixed(1)}" width="60" height="60" rx="6" fill="${shade.street}" stroke="${accent}" stroke-opacity="0.6" stroke-width="3"/>`
+      block(tone, centre, mainBlock, 12) +
+      helipad(tone, centre) +
+      `<rect x="${(bay.x - 30).toFixed(1)}" y="${(bay.y - 30).toFixed(1)}" width="60" height="60" rx="6" fill="${shade.street}" stroke="${palette.accent}" stroke-opacity="0.6" stroke-width="3"/>`
     );
   },
   labelOffset: -hospitalReach - 24,
