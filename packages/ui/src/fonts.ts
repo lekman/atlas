@@ -19,3 +19,7 @@ import "@fontsource/eb-garamond/400-italic.css";
 import "@fontsource/barlow-condensed/600.css";
 import "@fontsource/bitter/400.css";
 import "@fontsource/bitter/400-italic.css";
+// Gardener
+import "@fontsource/architects-daughter/400.css";
+import "@fontsource/fraunces/400.css";
+import "@fontsource/fraunces/400-italic.css";
