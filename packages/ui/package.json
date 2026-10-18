@@ -31,7 +31,9 @@
     "@fontsource/fraunces": "^5.2.0",
     "@fontsource/ibm-plex-mono": "^5.2.0",
     "@fontsource/im-fell-english": "^5.2.0",
-    "@fontsource/im-fell-english-sc": "^5.2.0"
+    "@fontsource/im-fell-english-sc": "^5.2.0",
+    "@fontsource/shippori-mincho": "^5.2.0",
+    "@fontsource/zen-kaku-gothic-new": "^5.2.0"
   },
   "peerDependencies": {
     "react": "^19.2.0",

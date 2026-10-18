@@ -3,13 +3,6 @@ import type { PlannedWorld } from "./types";
 /** Worlds designed but not built yet. The picker lists them as planned. */
 export const plannedWorlds: PlannedWorld[] = [
   {
-    id: "samurai",
-    name: "Samurai",
-    description:
-      "Ink-wash campaign scrolls. Clans, retainers and sealed decisions.",
-    homeName: "The Castle",
-  },
-  {
     id: "doctor",
     name: "Doctor",
     description:
