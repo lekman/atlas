@@ -24,6 +24,8 @@
     "@atlas/core": "workspace:*",
     "@atlas/worlds": "workspace:*",
     "@fontsource/architects-daughter": "^5.2.0",
+    "@fontsource/atkinson-hyperlegible-mono": "^5.2.0",
+    "@fontsource/atkinson-hyperlegible-next": "^5.2.0",
     "@fontsource/barlow-condensed": "^5.2.0",
     "@fontsource/bitter": "^5.2.0",
     "@fontsource/chakra-petch": "^5.2.0",

@@ -1,12 +1,7 @@
 import type { PlannedWorld } from "./types";
 
-/** Worlds designed but not built yet. The picker lists them as planned. */
-export const plannedWorlds: PlannedWorld[] = [
-  {
-    id: "doctor",
-    name: "Doctor",
-    description:
-      "Ward boards and vitals monitors. Rounds, lab results and diagnoses.",
-    homeName: "The Nurses' Station",
-  },
-];
+/**
+ * Worlds designed but not built yet. The picker lists them as planned. Every
+ * world designed so far is built; a new idea starts here.
+ */
+export const plannedWorlds: PlannedWorld[] = [];
