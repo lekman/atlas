@@ -9,7 +9,7 @@ export const doctor: World = {
   id: "doctor",
   name: "Doctor",
   description:
-    "A ward board on monitor glass. Clients are wards, agents are staff on rounds, home is the Nurses’ Station.",
+    "A medical district at night, seen from above. Clients are hospitals joined by roads, agents are staff on rounds, messages go by ambulance, home is The Practice.",
   vocabulary: doctorVocabulary,
   statusNames: doctorStatusNames,
   palette: doctorPalette,
