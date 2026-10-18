@@ -7,10 +7,14 @@
 
 trunk check --ci
 bun run typecheck
-bun test
+bun run test
 # Stories run through Vitest in Chromium, which `bun test` does not discover.
 # Without this line they only ever run in CI.
 bun run test:stories
 trunk check --all --ci --filter=gitleaks,trufflehog,osv-scanner,checkov
+# Trunk scans the files as they stand; this scans every commit, so a secret
+# added and removed again is still caught before it is published.
+gitleaks git --redact --no-banner .
 bash scripts/check-no-client-content.sh --history
-bash scripts/check-no-client-content.sh --messages
+# Every ref, not only the branch checked out: a push can carry others.
+bash scripts/check-no-client-content.sh --messages --all

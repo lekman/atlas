@@ -1,7 +1,8 @@
 #!/usr/bin/env bun
 // PreToolUse(Bash) guard: an agent must not circumvent the commit hooks.
 // It may propose changing them, but a human approves the change (see
-// security/isolated). Keep this small — one file, a few patterns, no framework.
+// .claude/rules/security-gates.md). Keep this small: one file, a few
+// patterns, no framework.
 
 /** Returns a reason if the shell command tries to bypass git hooks, else null. */
 export function findBypass(command: string): string | null {
@@ -9,16 +10,24 @@ export function findBypass(command: string): string | null {
   // does not get blamed on a `commit` in another. Quoted text is stripped so a
   // `-n` or `--no-verify` inside a commit message is ignored.
   for (const raw of command.split(/&&|\|\||[;|\n]/)) {
-    const seg = raw.replace(/'[^']*'/g, " ").replace(/"[^"]*"/g, " ");
-    if (/(^|\s)--no-verify(\s|=|$)/.test(seg))
+    // Quoted text handed to another shell is a command, not a message:
+    // `sh -c 'git commit --no-verify'` is checked as the command it runs.
+    if (/\b(sh|bash|zsh|dash)\s+-\w*c\b|\beval\b|\bxargs\b/.test(raw)) {
+      for (const [, single, double] of raw.matchAll(/'([^']*)'|"([^"]*)"/g)) {
+        const inner = findBypass(single ?? double ?? "");
+        if (inner) return inner;
+      }
+    }
+    const segment = raw.replace(/'[^']*'/g, " ").replace(/"[^"]*"/g, " ");
+    if (/(^|\s)--no-verify(\s|=|$)/.test(segment))
       return "`--no-verify` skips git hooks";
-    if (/\bcommit\b/.test(seg) && /(^|\s)-n(\s|$)/.test(seg))
+    if (/\bcommit\b/.test(segment) && /(^|\s)-n(\s|$)/.test(segment))
       return "`git commit -n` skips git hooks";
-    if (/core\.hooksPath/.test(seg))
+    if (/core\.hooksPath/.test(segment))
       return "overriding `core.hooksPath` bypasses git hooks";
     if (
       /(^|\s)(HUSKY|HUSKY_SKIP_HOOKS|PRE_COMMIT_ALLOW_NO_CONFIG|LEFTHOOK)=/.test(
-        seg,
+        segment,
       )
     )
       return "a hook-skip env var disables git hooks";

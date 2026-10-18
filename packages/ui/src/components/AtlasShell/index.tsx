@@ -54,11 +54,15 @@ function useDeviceIsDark(): boolean {
 }
 
 export interface AtlasShellProps {
+  /** The agents, clients and work to draw. */
   dataset: Dataset;
+  /** Events to replay on a loop, for stories and demonstrations. */
   script?: ScriptStep[];
   /** Seconds between scripted events. */
   interval?: number;
+  /** The world to open in. Otherwise the remembered one, or Astronomer. */
   initialWorld?: WorldId;
+  /** Compact, the sidebar pane, unless the page opens straight to full. */
   initialMode?: AtlasMode;
   /**
    * Day, night, or follow the device. Automatic by default, so Atlas goes
@@ -85,10 +89,47 @@ interface Preferences {
   sound?: Pick<SoundSettings, "volume" | "categories">;
 }
 
+/**
+ * What this browser remembered, keeping only fields of the right shape.
+ * Storage is outside the app's control, so nothing read from it is trusted:
+ * a stray or edited value is dropped rather than spread into state.
+ */
 function readPreferences(): Preferences {
   try {
     const raw = window.localStorage.getItem(storageKey);
-    return raw ? (JSON.parse(raw) as Preferences) : {};
+    const stored: unknown = raw ? JSON.parse(raw) : {};
+    if (typeof stored !== "object" || stored === null) return {};
+    const { world, lighting, sound } = stored as Record<string, unknown>;
+    const preferences: Preferences = {};
+    if (isWorldId(world)) preferences.world = world;
+    if (lightingPreferences.includes(lighting as LightingPreference))
+      preferences.lighting = lighting as LightingPreference;
+    if (typeof sound === "object" && sound !== null) {
+      const { volume, categories } = sound as Record<string, unknown>;
+      const known = defaultSoundSettings.categories;
+      if (
+        typeof volume === "number" &&
+        volume >= 0 &&
+        volume <= 1 &&
+        typeof categories === "object" &&
+        categories !== null &&
+        Object.keys(known).every(
+          (key) =>
+            typeof (categories as Record<string, unknown>)[key] === "boolean",
+        )
+      ) {
+        preferences.sound = {
+          volume,
+          categories: Object.fromEntries(
+            Object.keys(known).map((key) => [
+              key,
+              (categories as Record<string, boolean>)[key],
+            ]),
+          ) as SoundSettings["categories"],
+        };
+      }
+    }
+    return preferences;
   } catch {
     return {};
   }

@@ -10,6 +10,13 @@ storybook-static/
 .env
 .env.*
 !.env.example
+*.pem
+*.key
+
+# Personal settings for Claude Code and mise, never shared.
+.claude/settings.local.json
+CLAUDE.local.md
+.mise.local.toml
 
 # The list of client names the content check looks for. Committing it would be
 # the leak the check exists to prevent. Start from client-terms.example.txt.

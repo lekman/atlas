@@ -25,5 +25,8 @@ jobs:
         with:
           fail-on-severity: moderate
           comment-summary-in-pr: on-failure
-          # Copyleft licences would bind what others build on Atlas.
-          deny-licenses: GPL-2.0, GPL-3.0, AGPL-3.0, LGPL-2.1, LGPL-3.0, SSPL-1.0
+          # Permissive licences only: a copyleft dependency would bind what
+          # others build on Atlas. OFL is the fonts' licence.
+          allow-licenses: >-
+            MIT, MIT-0, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, 0BSD,
+            OFL-1.1, CC0-1.0, CC-BY-4.0, BlueOak-1.0.0, Unlicense, Python-2.0

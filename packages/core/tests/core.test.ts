@@ -270,6 +270,18 @@ describe("boundaries", () => {
     ).toThrow(/contains email/);
   });
 
+  it("refuses a state that holds personal data", () => {
+    expect(() =>
+      exportCard({ ...request, state: "call +44 20 7946 0958" }, home),
+    ).toThrow(/state .* contains phone/);
+  });
+
+  it("refuses an over-long field before looking inside it", () => {
+    expect(() =>
+      exportCard({ ...request, state: "x".repeat(41) }, home),
+    ).toThrow();
+  });
+
   it("refuses extra fields on a card", () => {
     expect(() =>
       exportCard({ ...request, body: "the whole email" } as CardRequest, home),

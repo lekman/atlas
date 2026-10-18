@@ -33,9 +33,9 @@ tasks:
       - bun run typecheck
 
   test:
-    desc: Unit tests (bun test)
+    desc: Unit tests, the agent hook guard's tests and the client-content check's tests
     cmds:
-      - bun test
+      - bun run test
 
   test:stories:
     desc: Every story as a browser test, with accessibility checks

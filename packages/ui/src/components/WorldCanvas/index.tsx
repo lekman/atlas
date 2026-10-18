@@ -23,11 +23,15 @@ import {
 import { useEffect, useRef } from "react";
 
 export interface WorldCanvasProps {
+  /** The dataset, its layout and what is moving; stepped every frame. */
   scene: Scene;
+  /** Whose painter draws the map. */
   world: World;
+  /** Compact draws names only and holds the camera still. */
   detail: "compact" | "full";
   /** Day or night; a world without a night mode draws its day. */
   lighting?: Lighting;
+  /** The record ringed as selected, if any. */
   selectedId: string | null;
   /** A tap: the record under the pointer, or null for empty space. */
   onSelect(id: string | null): void;
@@ -38,6 +42,7 @@ export interface WorldCanvasProps {
   onOpenSystem?(clientId: string): void;
   /** Fly in to this client's system. Change `zoomRequest` to ask again. */
   zoomClientId?: string | null;
+  /** Any new value repeats the flight to `zoomClientId`. */
   zoomRequest?: number;
   /** Fly to this record when it changes. */
   focusId?: string | null;

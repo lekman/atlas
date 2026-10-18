@@ -24,12 +24,19 @@ same sentence about Halcyon Labs.
 
 ## How It Is Enforced
 
-| Where      | What runs                                                                                                            |
-| ---------- | -------------------------------------------------------------------------------------------------------------------- |
-| pre-commit | `scripts/check-no-client-content.sh --staged`                                                                        |
-| commit-msg | the same script on the message                                                                                       |
-| pre-push   | the same script over all history and all commit messages                                                             |
-| CI         | `Client Content`, with the term list restored from the `CLIENT_TERMS` secret, quiet so the log never repeats a match |
+| Where      | What runs                                                                                      |
+| ---------- | ---------------------------------------------------------------------------------------------- |
+| pre-commit | `scripts/check-no-client-content.sh --staged`: content and names, text and binary, renames too |
+| commit-msg | the same script on the message                                                                 |
+| pre-push   | the same script over all history, and all messages with their authors on every ref             |
+| CI         | `Client Content`: history, messages, and a pull request's title, branch and description        |
+| Pages      | the same workflow, before anything is published                                                |
+
+CI restores the term list from the `CLIENT_TERMS` secret, fails when the
+list is missing or empty, and runs quiet so a public log never repeats a
+match. A term that is not a valid extended regex fails the check everywhere.
+`scripts/check-no-client-content.test.sh` proves each of these against a
+planted term, and runs with the unit tests.
 
 The term list lives in `scripts/client-terms.txt`, which is gitignored. Run
 `task client-content:init` once, then add your clients' names, short forms,

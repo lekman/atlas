@@ -370,7 +370,9 @@
 }
 .atlas-link {
   display: block;
-  padding: 1px 0;
+  /* WCAG 2.2 target size: 24 pixels at least, or axe fails the story. */
+  min-height: 24px;
+  padding: 2px 0;
   border: 0;
   background: none;
   text-align: left;

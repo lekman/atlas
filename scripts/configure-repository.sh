@@ -36,6 +36,11 @@ api -X PUT "repos/$repository/automated-security-fixes"
 echo "Private vulnerability reporting"
 api -X PUT "repos/$repository/private-vulnerability-reporting"
 
+echo "Workflow token: read-only by default; Release Please may open its pull request"
+api -X PUT "repos/$repository/actions/permissions/workflow" \
+  -f default_workflow_permissions=read \
+  -F can_approve_pull_request_reviews=true
+
 echo "GitHub Pages from the workflow"
 if ! api "repos/$repository/pages" 2>/dev/null; then
   api -X POST "repos/$repository/pages" -f build_type=workflow
@@ -76,7 +81,10 @@ gh api --silent -X "$method" "$path" --input - <<'JSON'
       "type": "required_status_checks",
       "parameters": {
         "strict_required_status_checks_policy": false,
-        "required_status_checks": [{ "context": "Quality Gate" }]
+        "required_status_checks": [
+          { "context": "Quality Gate" },
+          { "context": "No client-identifying content" }
+        ]
       }
     }
   ]

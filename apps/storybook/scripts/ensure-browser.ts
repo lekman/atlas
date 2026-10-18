@@ -10,15 +10,15 @@
  * so it belongs on a build machine and not on an engineer's laptop. The
  * pre-push hook runs this, and a git hook that asks for a password is a
  * git hook people learn to bypass. So the libraries are installed only
- * where `CI` is set, which on the self-hosted runner it always is.
+ * where `CI` is set, which on a CI runner it always is.
  *
  * A second run is cheap: Playwright reports the browser as already
  * installed and exits.
  *
  * Playwright is run through `process.execPath`, the Bun binary already
- * running this file, rather than through a `bunx` on the path. The
- * self-hosted runner has no `bunx`, and spawning a command that is not
- * there fails with no output at all, which is how this cost a CI round.
+ * running this file, rather than through a `bunx` on the path. A runner
+ * without `bunx` fails to spawn it with no output at all, which is hard to
+ * tell apart from a pass.
  */
 import { spawnSync } from "node:child_process";
 

@@ -8,6 +8,14 @@ on:
   push:
     branches: [main]
   pull_request:
+    # Edited too: a title or description changed after opening is scanned
+    # again, and a squash merge turns the title into the commit message.
+    types: [opened, synchronize, reopened, edited]
+  # The Pages workflow runs this first, so nothing is published unchecked.
+  workflow_call:
+    secrets:
+      CLIENT_TERMS:
+        required: true
 
 permissions:
   contents: read
@@ -56,6 +64,18 @@ jobs:
 
       - name: Scan commit messages
         run: bash scripts/check-no-client-content.sh --messages --quiet
+
+      # Read through the environment, never written into the script, so a
+      # title cannot inject shell.
+      - name: Scan the pull request's title, branch and description
+        if: github.event_name == 'pull_request'
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+          BRANCH: ${{ github.head_ref }}
+          BODY: ${{ github.event.pull_request.body }}
+        run: |
+          printf '%s\n%s\n%s\n' "$TITLE" "$BRANCH" "$BODY" >"$RUNNER_TEMP/pull-request.txt"
+          bash scripts/check-no-client-content.sh --text "$RUNNER_TEMP/pull-request.txt" --quiet
 
       - name: Explain a failure without repeating it
         if: failure()

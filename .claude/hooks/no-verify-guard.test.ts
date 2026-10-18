@@ -31,3 +31,13 @@ test("ignores -n inside a commit message", () => {
 test("does not blame a chained push dry-run on the commit", () => {
   expect(findBypass("git commit -m x && git push -n")).toBeNull();
 });
+test("blocks a bypass run through another shell", () => {
+  expect(findBypass("sh -c 'git commit --no-verify -m x'")).toBeTruthy();
+  expect(findBypass('bash -lc "git push --no-verify"')).toBeTruthy();
+  expect(findBypass("eval 'git commit -n -m x'")).toBeTruthy();
+});
+test("still allows a message that mentions the flag in a normal commit", () => {
+  expect(
+    findBypass("git commit -m 'docs: never pass the -n flag to commit'"),
+  ).toBeNull();
+});

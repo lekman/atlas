@@ -1,5 +1,7 @@
 # Publishes the Storybook to GitHub Pages on every merge to main. Free for
-# public repositories. The stories use the invented dataset only.
+# public repositories. The stories use the invented dataset only, and the
+# client-content check runs first: nothing is published that it has not
+# passed.
 name: Storybook on Pages
 
 on:
@@ -19,8 +21,15 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  client-content:
+    name: Client content
+    uses: ./.github/workflows/client-content.yml
+    secrets:
+      CLIENT_TERMS: ${{ secrets.CLIENT_TERMS }}
+
   build:
     name: Build Storybook
+    needs: client-content
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:

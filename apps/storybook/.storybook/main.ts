@@ -10,13 +10,16 @@ function getAbsolutePath(value: string) {
   return dirname(fileURLToPath(import.meta.resolve(`${value}/package.json`)));
 }
 
-const config: StorybookConfig = {
+const configuration: StorybookConfig = {
   addons: [
     getAbsolutePath("@storybook/addon-docs"),
     getAbsolutePath("@storybook/addon-a11y"),
     getAbsolutePath("@storybook/addon-vitest"),
   ],
   framework: getAbsolutePath("@storybook/react-vite"),
+  // Storybook reports usage to its makers unless told not to. A tool built
+  // for privacy sends nothing it does not need to.
+  core: { disableTelemetry: true },
   // The stories live beside their components in the shared UI library. This
   // app only configures, tests and publishes them.
   stories: [
@@ -31,4 +34,4 @@ const config: StorybookConfig = {
   },
 };
 
-export default config;
+export default configuration;

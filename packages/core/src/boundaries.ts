@@ -49,11 +49,12 @@ export const BoundaryCard = z
     kind: z.enum(["task", "question", "decision"]),
     clientId: Identifier,
     title: z.string().min(1).max(120),
-    state: z.string().min(1),
+    /** A short status word or two, such as "in review". */
+    state: z.string().min(1).max(40),
     classification: Classification,
     sourceBoundary: Identifier,
     /** Opaque. Resolves to the original only inside the source boundary. */
-    sourceReference: z.string().min(1),
+    sourceReference: z.string().min(1).max(200),
   })
   .strict();
 export type BoundaryCard = z.infer<typeof BoundaryCard>;
@@ -95,13 +96,19 @@ export function exportCard(
       sourceBoundary: request.sourceBoundary,
     };
   }
-  const findings = findPersonalData(request.title);
-  if (findings.length > 0) {
-    throw new Error(
-      `card title for ${request.id} contains ${findings.map((finding) => finding.kind).join(", ")}; rewrite it inside the source boundary`,
-    );
+  // Both free-text fields: a state is short, but "waiting on +44 20..." is
+  // still personal data. Lengths are checked first by the schema, so the
+  // patterns never run on a long input.
+  const card = BoundaryCard.parse(request);
+  for (const field of ["title", "state"] as const) {
+    const findings = findPersonalData(card[field]);
+    if (findings.length > 0) {
+      throw new Error(
+        `card ${field} for ${request.id} contains ${findings.map((finding) => finding.kind).join(", ")}; rewrite it inside the source boundary`,
+      );
+    }
   }
-  return BoundaryCard.parse(request);
+  return card;
 }
 
 export interface PersonalDataFinding {

@@ -1,9 +1,8 @@
-# Dependabot edits package.json but cannot write a Bun lockfile, so its pull
-# requests need `bun install` run on the branch before CI's frozen install
-# accepts them.
+# The bun ecosystem updates package.json and bun.lock together, so CI's
+# frozen install accepts Dependabot's pull requests as they are.
 version: 2
 updates:
-  - package-ecosystem: npm
+  - package-ecosystem: bun
     directory: /
     schedule:
       interval: weekly
