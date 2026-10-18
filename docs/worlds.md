@@ -6,10 +6,11 @@ every world keeps are in [.claude/rules/worlds.md](../.claude/rules/worlds.md).
 
 ## Built
 
-Six worlds are built. Astronomer and Mariner are the first release; each of
-the others has its own page with its palette, typefaces and design choices:
-[Woodsman](worlds/woodsman.md), [Gardener](worlds/gardener.md),
-[Samurai](worlds/samurai.md) and [Doctor](worlds/doctor.md).
+Six worlds are built. Astronomer and Mariner are the first release. Most
+have a page of their own with the palette, typefaces, night and design
+choices: [Mariner](worlds/mariner.md), [Woodsman](worlds/woodsman.md),
+[Gardener](worlds/gardener.md), [Samurai](worlds/samurai.md) and
+[Doctor](worlds/doctor.md).
 
 | World      | Home                      | Map                                            |
 | ---------- | ------------------------- | ---------------------------------------------- |
@@ -75,10 +76,10 @@ draws its night in its own way.
 | World      | At night                                                                                      |
 | ---------- | --------------------------------------------------------------------------------------------- |
 | Astronomer | Always dark                                                                                   |
-| Mariner    | Planned: a dark blue chart, every lighthouse lit                                              |
+| Mariner    | Night watch: a navy chart by moonlight, every lighthouse lit and sweeping, masthead lights    |
 | Woodsman   | No night mode yet                                                                             |
-| Gardener   | Planned: the night garden, lit by lanterns                                                    |
-| Samurai    | Planned: a night campaign scroll, in the ninja's colours                                      |
+| Gardener   | Night garden: lanterns along the paths, lit cottage windows, fireflies, moonflowers           |
+| Samurai    | Ninja: the scroll by moonlight, lanterns at the castle and every clan, retainers in dark garb |
 | Doctor     | Night shift: lit windows, street lights along the main roads, ambulance lights in the streets |
 
 ## Sound

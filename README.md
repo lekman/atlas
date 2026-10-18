@@ -9,14 +9,14 @@ requirements, backlog items, open questions and decisions they connect to.
 It replaces a Markdown dashboard with a database you own, on a machine you
 own, reachable only inside your own private network.
 
-| World      | Home                | Clients      | Agents    | Open questions      | Decisions          |
-| ---------- | ------------------- | ------------ | --------- | ------------------- | ------------------ |
-| Astronomer | Terra               | star systems | probes    | comets              | charted stars      |
-| Mariner    | Turtle Bay          | islands      | vessels   | fog banks           | lighthouses        |
-| Woodsman   | Base Camp           | clearings    | scouts    | unmarked forks      | blazed trees       |
-| Gardener   | The Homestead       | beds         | bees      | dandelion clocks    | trellises          |
-| Samurai    | The Castle          | clans        | retainers | scouts' reports     | seals              |
-| Doctor | The Practice | hospitals | staff | pending test results | recorded diagnoses |
+| World      | Home          | Clients      | Agents    | Open questions       | Decisions          |
+| ---------- | ------------- | ------------ | --------- | -------------------- | ------------------ |
+| Astronomer | Terra         | star systems | probes    | comets               | charted stars      |
+| Mariner    | Turtle Bay    | islands      | vessels   | fog banks            | lighthouses        |
+| Woodsman   | Base Camp     | clearings    | scouts    | unmarked forks       | blazed trees       |
+| Gardener   | The Homestead | beds         | bees      | dandelion clocks     | trellises          |
+| Samurai    | The Castle    | clans        | retainers | scouts' reports      | seals              |
+| Doctor     | The Practice  | hospitals    | staff     | pending test results | recorded diagnoses |
 
 Astronomer and Mariner are the first release; the other four are built and
 in Storybook. See [Worlds](docs/worlds.md).

@@ -100,6 +100,8 @@ for (const world of Object.values(worlds)) {
         const text: Array<[string, string]> = [
           ["ink", palette.ink],
           ["mute", palette.mute],
+          // The still map writes the home's name in the accent.
+          ["accent", palette.accent],
           ...Object.entries(palette.status),
         ];
         for (const [name, colour] of text) {
