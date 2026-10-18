@@ -4,6 +4,7 @@ import { sampleDataset } from "@atlas/fixtures";
 
 import {
   computeLayout,
+  fitAroundPanels,
   fitCamera,
   focusOn,
   itemPosition,
@@ -158,6 +159,37 @@ describe("camera", () => {
     );
     expect(worldToScreen(camera, { x: -100, y: 0 }).x).toBeCloseTo(0);
     expect(worldToScreen(camera, { x: 100, y: 0 }).x).toBeCloseTo(400);
+  });
+
+  it("keeps the map clear of a panel in a corner", () => {
+    const bounds = { left: -100, top: -100, right: 100, bottom: 100 };
+    const panel = { left: 300, top: 0, right: 400, bottom: 120 };
+    const camera = fitAroundPanels(bounds, 400, 200, 0, [panel]);
+    const right = worldToScreen(camera, { x: 100, y: 100 });
+    const top = worldToScreen(camera, { x: 100, y: -100 });
+    const clear = right.x <= panel.left || top.y >= panel.bottom;
+    expect(clear).toBe(true);
+    // Cleared from the side: the square map was height-bound and stays so.
+    expect(camera.scale).toBeCloseTo(1);
+  });
+
+  it("lets a panel overlap rather than shrink the map too far", () => {
+    const bounds = { left: -100, top: -100, right: 100, bottom: 100 };
+    const plain = fitCamera(bounds, 200, 200, 0);
+    const around = fitAroundPanels(bounds, 200, 200, 0, [
+      { left: 0, top: 0, right: 200, bottom: 120 },
+    ]);
+    expect(around).toEqual(plain);
+  });
+
+  it("leaves the fit alone when no panel is in the way", () => {
+    const bounds = { left: -100, top: -50, right: 100, bottom: 50 };
+    const plain = fitCamera(bounds, 400, 200, 0);
+    const around = fitAroundPanels(bounds, 400, 200, 0, [
+      { left: 0, top: 0, right: 60, bottom: 40 },
+    ]);
+    expect(around.scale).toBeLessThanOrEqual(plain.scale);
+    expect(around.scale).toBeGreaterThan(0);
   });
 
   it("zooms about the pointer", () => {

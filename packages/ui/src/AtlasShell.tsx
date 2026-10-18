@@ -11,6 +11,7 @@ import {
   defaultSoundSettings,
   isWorldId,
   worlds,
+  type Bounds,
   type Camera,
   type SoundSettings,
   type WorldId,
@@ -107,6 +108,25 @@ export function AtlasShell(props: AtlasShellProps) {
   const [toast, setToast] = useState<string | null>(null);
   const shellRef = useRef<HTMLDivElement>(null);
   const world = worlds[worldId];
+
+  /** The corner readout and the log, measured against the map. */
+  const floatingPanels = (): Bounds[] => {
+    const shell = shellRef.current;
+    const canvas = shell?.querySelector("canvas");
+    if (!shell || !canvas) return [];
+    const origin = canvas.getBoundingClientRect();
+    return [...shell.querySelectorAll(".atlas-hud, .atlas-log-panel")].map(
+      (panel) => {
+        const box = panel.getBoundingClientRect();
+        return {
+          left: box.left - origin.left,
+          top: box.top - origin.top,
+          right: box.right - origin.left,
+          bottom: box.bottom - origin.top,
+        };
+      },
+    );
+  };
 
   const map = useAtlasMap({
     dataset: props.dataset,
@@ -263,6 +283,7 @@ export function AtlasShell(props: AtlasShellProps) {
         selectedId={selected}
         focusId={focus}
         label={label}
+        panels={floatingPanels}
         onCameraChange={setCamera}
         zoomClientId={zoom?.clientId ?? null}
         zoomRequest={zoom?.request ?? 0}

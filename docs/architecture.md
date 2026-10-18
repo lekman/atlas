@@ -26,17 +26,17 @@ flowchart LR
 
 ## What Exists Today
 
-| Package           | Status                                                     |
-| ----------------- | ---------------------------------------------------------- |
-| `@atlas/core`     | Built. Model, events, needs-you, boundary rules, tests     |
-| `@atlas/fixtures` | Built. Invented dataset and a scripted day                 |
-| `@atlas/worlds`   | Built. Astronomer and Mariner: layout, canvas, SVG, sounds |
-| `@atlas/ui`       | Built. Shell, live map, panels, stories                    |
-| `apps/storybook`  | Built. Story tests with axe; published to GitHub Pages     |
-| `apps/server`     | Next                                                       |
-| `apps/web`        | Next                                                       |
-| `apps/artifact`   | Next                                                       |
-| `apps/plugin`     | Later                                                      |
+| Package           | Status                                                 |
+| ----------------- | ------------------------------------------------------ |
+| `@atlas/core`     | Built. Model, events, needs-you, boundary rules, tests |
+| `@atlas/fixtures` | Built. Invented dataset and a scripted day             |
+| `@atlas/worlds`   | Built. Six worlds: layout, canvas, SVG, sounds         |
+| `@atlas/ui`       | Built. Shell, live map, panels, stories                |
+| `apps/storybook`  | Built. Story tests with axe; published to GitHub Pages |
+| `apps/server`     | Next                                                   |
+| `apps/web`        | Next                                                   |
+| `apps/artifact`   | Next                                                   |
+| `apps/plugin`     | Later                                                  |
 
 ## The Data Model
 

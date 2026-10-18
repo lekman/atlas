@@ -6,47 +6,88 @@ every world keeps are in [.claude/rules/worlds.md](../.claude/rules/worlds.md).
 
 ## Built
 
-| Record         | Astronomer                         | Mariner                                     |
-| -------------- | ---------------------------------- | ------------------------------------------- |
-| Map            | Star chart, grid, range rings, HUD | Engraved sea chart, soundings, compass rose |
-| Home           | **Terra**, drawn as Earth          | **Turtle Bay**, a harbour island            |
-| Client         | Star system                        | Island                                      |
-| Requirement    | Planet                             | Anchorage                                   |
-| Backlog item   | Moon, orbiting its planet          | Cargo                                       |
-| Agent          | Probe with an ion trail            | Vessel with a wake                          |
-| Open question  | Comet                              | Fog bank                                    |
-| Decision       | Charted star                       | Lighthouse                                  |
-| Agent to agent | Tight beam                         | Signal flags                                |
-| Outside system | Inbound transmission               | Telegram                                    |
-| Log            | Comms log                          | Ship's log                                  |
+Six worlds are built. Astronomer and Mariner are the first release; each of
+the others has its own page with its palette, typefaces and design choices:
+[Woodsman](worlds/woodsman.md), [Gardener](worlds/gardener.md),
+[Samurai](worlds/samurai.md) and [Doctor](worlds/doctor.md).
 
-| Status   | Astronomer  | Mariner                    |
-| -------- | ----------- | -------------------------- |
-| running  | underway    | under sail                 |
-| watching | scanning    | on watch                   |
-| waiting  | hailing you | at anchor, awaiting orders |
-| blocked  | adrift      | becalmed                   |
-| error    | hull fault  | aground                    |
-| idle     | docked      | in port                    |
+| World      | Home                      | Map                                         |
+| ---------- | ------------------------- | ------------------------------------------- |
+| Astronomer | **Terra**, drawn as Earth | Star chart, grid, range rings, HUD          |
+| Mariner    | **Turtle Bay**            | Engraved sea chart, soundings, compass rose |
+| Woodsman   | **Base Camp**             | Trail map, contour lines, rivers            |
+| Gardener   | **The Homestead**         | Planting plan inside a hedge                |
+| Samurai    | **The Castle**            | Ink-wash campaign scroll                    |
+| Doctor     | **The Nurses’ Station**   | Ward board on monitor glass                 |
+
+### Records
+
+| Record         | Astronomer           | Mariner      | Woodsman                  |
+| -------------- | -------------------- | ------------ | ------------------------- |
+| Client         | Star system          | Island       | Clearing                  |
+| Requirement    | Planet               | Anchorage    | Waymark                   |
+| Backlog item   | Moon                 | Cargo        | Cairn                     |
+| Agent          | Probe                | Vessel       | Scout                     |
+| Open question  | Comet                | Fog bank     | Unmarked fork             |
+| Decision       | Charted star         | Lighthouse   | Blazed tree               |
+| Agent to agent | Tight beam           | Signal flags | Bird call                 |
+| Outside system | Inbound transmission | Telegram     | Runner from the trailhead |
+| Log            | Comms log            | Ship's log   | Field notes               |
+
+| Record         | Gardener        | Samurai        | Doctor             |
+| -------------- | --------------- | -------------- | ------------------ |
+| Client         | Bed             | Clan           | Ward               |
+| Requirement    | Seed row        | Objective      | Care goal          |
+| Backlog item   | Plant           | Campaign       | Treatment step     |
+| Agent          | Bee             | Retainer       | Staff member       |
+| Open question  | Dandelion clock | Scout's report | Pending lab result |
+| Decision       | Trellis         | Seal           | Recorded diagnosis |
+| Agent to agent | Pollen drift    | Messenger      | Page               |
+| Outside system | Weather         | Courier        | Lab feed           |
+| Log            | Garden diary    | Chronicle      | Ward log           |
+
+### Status Names
+
+| Status   | Astronomer  | Mariner                    | Woodsman                    |
+| -------- | ----------- | -------------------------- | --------------------------- |
+| running  | underway    | under sail                 | on the trail                |
+| watching | scanning    | on watch                   | on lookout                  |
+| waiting  | hailing you | at anchor, awaiting orders | waiting at the fork for you |
+| blocked  | adrift      | becalmed                   | lost                        |
+| error    | hull fault  | aground                    | turned back                 |
+| idle     | docked      | in port                    | at camp                     |
+
+| Status   | Gardener            | Samurai               | Doctor              |
+| -------- | ------------------- | --------------------- | ------------------- |
+| running  | tending             | on campaign           | on rounds           |
+| watching | keeping watch       | keeping watch         | monitoring          |
+| waiting  | waiting for you     | awaiting your command | needs your sign-off |
+| blocked  | parched             | besieged              | on hold             |
+| error    | blighted            | wounded               | escalated           |
+| idle     | resting in the hive | at rest               | in the staff room   |
 
 ## Sound
 
-| Cue            | Astronomer                 | Mariner            |
-| -------------- | -------------------------- | ------------------ |
-| Agent to agent | Two-tone chirp             | Morse pips         |
-| Status change  | Soft blip                  | Wood knock         |
-| Outside system | Static and a rising tone   | Telegraph clicks   |
-| Needs you      | Descending three-note call | Ship's bell, twice |
-| Blocked        | Low hum                    | Foghorn            |
+| Cue            | Astronomer                 | Mariner            | Woodsman           |
+| -------------- | -------------------------- | ------------------ | ------------------ |
+| Agent to agent | Two-tone chirp             | Morse pips         | Whistled bird call |
+| Status change  | Soft blip                  | Wood knock         | Soft wood knock    |
+| Outside system | Static and a rising tone   | Telegraph clicks   | Woodpecker         |
+| Needs you      | Descending three-note call | Ship's bell, twice | Owl                |
+| Blocked        | Low hum                    | Foghorn            | Branch crack, drum |
+
+| Cue            | Gardener              | Samurai           | Doctor                  |
+| -------------- | --------------------- | ----------------- | ----------------------- |
+| Agent to agent | Passing bee, chime    | Breathy flute     | Two-note pager          |
+| Status change  | Trowel on a clay pot  | Wooden clapper    | Soft monitor blip       |
+| Outside system | Rain patter           | Two taiko strikes | Data chirp              |
+| Needs you      | Wind chime            | Temple bell       | Rising three-note chime |
+| Blocked        | Watering can set down | Drum roll         | Low falling double tone |
 
 ## Planned
 
-| World    | Home                | Map                        |
-| -------- | ------------------- | -------------------------- |
-| Woodsman | Base Camp           | Trail map, contour lines   |
-| Gardener | The Homestead       | Planting plan              |
-| Samurai  | The Castle          | Ink-wash campaign scroll   |
-| Doctor   | The Nurses' Station | Ward board, vitals monitor |
+None. A new world starts in `plannedWorlds` in
+`packages/worlds/src/planned.ts`, where the picker lists it as planned.
 
 ## Adding a World
 
@@ -54,7 +95,9 @@ every world keeps are in [.claude/rules/worlds.md](../.claude/rules/worlds.md).
    `palette.ts`, `canvas.ts`, `voices.ts` and `index.ts`.
 2. Add it to `worlds` in `packages/worlds/src/index.ts` and remove it from
    `plannedWorlds`.
-3. Teach the still map in `svg.ts` its client and home shapes.
+3. Give it a `stillMap` in `language.ts`: the home and client shapes the
+   still SVG map draws, and where their labels sit. `svg.ts` is shared and
+   needs no change.
 4. Run `bun test packages/worlds`: the tests fail if a record type or a
    status is unnamed, or a status colour leaves its hue family.
 5. Check every story in the new world with the toolbar's **World** control,

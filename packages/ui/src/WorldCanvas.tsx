@@ -7,12 +7,13 @@
  */
 import {
   clampScale,
-  fitCamera,
+  fitAroundPanels,
   focusOn,
   hitTest,
   interpolateCamera,
   paintScene,
   zoomAt,
+  type Bounds,
   type Camera,
   type HitTarget,
   type Scene,
@@ -41,6 +42,12 @@ export interface WorldCanvasProps {
   onCameraChange?(camera: Camera): void;
   /** What a screen reader hears for the map as a whole. */
   label: string;
+  /**
+   * Panels floating over the map, in screen pixels from the canvas's top
+   * left corner. The fitted map keeps clear of them so no label hides under
+   * one.
+   */
+  panels?(): Bounds[];
 }
 
 const reducedMotionQuery = "(prefers-reduced-motion: reduce)";
@@ -69,11 +76,14 @@ export function WorldCanvas(props: WorldCanvasProps) {
     if (width === 0 || height === 0) return;
     const padding =
       live.current.detail === "full" ? (width < 760 ? 14 : 70) : 12;
-    const target = fitCamera(
+    const panels =
+      live.current.detail === "full" ? (live.current.panels?.() ?? []) : [];
+    const target = fitAroundPanels(
       live.current.scene.layout.bounds,
       width,
       height,
       padding,
+      panels,
     );
     if (animate)
       flight.current = {

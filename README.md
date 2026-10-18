@@ -9,13 +9,17 @@ requirements, backlog items, open questions and decisions they connect to.
 It replaces a Markdown dashboard with a database you own, on a machine you
 own, reachable only inside your own private network.
 
-| World      | Home       | Clients      | Agents  | Open questions | Decisions     |
-| ---------- | ---------- | ------------ | ------- | -------------- | ------------- |
-| Astronomer | Terra      | star systems | probes  | comets         | charted stars |
-| Mariner    | Turtle Bay | islands      | vessels | fog banks      | lighthouses   |
+| World      | Home                | Clients      | Agents    | Open questions      | Decisions          |
+| ---------- | ------------------- | ------------ | --------- | ------------------- | ------------------ |
+| Astronomer | Terra               | star systems | probes    | comets              | charted stars      |
+| Mariner    | Turtle Bay          | islands      | vessels   | fog banks           | lighthouses        |
+| Woodsman   | Base Camp           | clearings    | scouts    | unmarked forks      | blazed trees       |
+| Gardener   | The Homestead       | beds         | bees      | dandelion clocks    | trellises          |
+| Samurai    | The Castle          | clans        | retainers | scouts' reports     | seals              |
+| Doctor     | The Nurses’ Station | wards        | staff     | pending lab results | recorded diagnoses |
 
-Woodsman (Base Camp), Gardener (The Homestead), Samurai and Doctor are
-planned.
+Astronomer and Mariner are the first release; the other four are built and
+in Storybook. See [Worlds](docs/worlds.md).
 
 Status reads the same in every world: green running, blue watching, amber
 needs you, red blocked, grey idle. Animation comes from real events (agents
@@ -24,7 +28,7 @@ trackers), and sound plays only when you turn it on.
 
 ## Status
 
-Early. The first slice is the data model, the two worlds and the React
+Early. The first slice is the data model, six worlds and the React
 components, built and tested in Storybook. The server, the iPhone web app
 and the Claude sidebar build come next. See
 [Architecture](docs/architecture.md).
