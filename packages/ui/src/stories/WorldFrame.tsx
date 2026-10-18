@@ -26,6 +26,8 @@ export function WorldFrame({
         minHeight: 0,
         height: "auto",
         padding: 20,
+        // The padding counts inside the width, so a frame never runs past a phone's edge.
+        boxSizing: "border-box",
         maxWidth: width,
       }}
     >
