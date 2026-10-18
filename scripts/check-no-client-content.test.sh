@@ -7,6 +7,9 @@
 # Run with `bun run test`, which runs this after the unit tests.
 set -u
 S="$(git rev-parse --show-toplevel)/scripts/check-no-client-content.sh"
+# A hook run from a worktree exports GIT_DIR, which would send every git call
+# below to the real repository instead of the throwaway one.
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_PREFIX
 t=$(mktemp -d)
 message=$(mktemp)
 failures=0
