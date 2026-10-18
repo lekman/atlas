@@ -12,6 +12,6 @@ command -v bun >/dev/null 2>&1 || warn="$warn\n- bun is not on PATH: the precise
 grep -q 'commit --no-verify' "$dir/.claude/settings.json" 2>/dev/null || warn="$warn\n- the no-verify deny backstop was not found in .claude/settings.json."
 
 if [ -n "$warn" ]; then
-  printf 'Guard-rail tripwire — degraded:%b\nThese are warnings, not blocks. See .claude/rules/security-gates.md.\n' "$warn"
+	printf 'Guard-rail tripwire — degraded:%b\nThese are warnings, not blocks. See .claude/rules/security-gates.md.\n' "$warn"
 fi
 exit 0

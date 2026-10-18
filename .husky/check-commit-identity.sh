@@ -35,27 +35,27 @@ set -eu
 # Written as a conditional, not `[ -n "$CI" ] && exit 0`. Under `set -e` that
 # one-liner exits 1 whenever CI is unset, which is every local commit.
 if [ -n "${CI:-}" ]; then
-  exit 0
+	exit 0
 fi
 
 configured="$(git config --get commit.emailDomain 2>/dev/null || true)"
 if [ -n "${COMMIT_EMAIL_DOMAIN+set}" ]; then
-  EXPECTED_DOMAIN="$COMMIT_EMAIL_DOMAIN"
+	EXPECTED_DOMAIN="$COMMIT_EMAIL_DOMAIN"
 elif git config --get commit.emailDomain >/dev/null 2>&1; then
-  EXPECTED_DOMAIN="$configured"
+	EXPECTED_DOMAIN="$configured"
 else
-  EXPECTED_DOMAIN=""
+	EXPECTED_DOMAIN=""
 fi
 
 # Explicitly emptied: this repository accepts any address.
 if [ -z "$EXPECTED_DOMAIN" ]; then
-  exit 0
+	exit 0
 fi
 
 email="$(git config user.email 2>/dev/null || true)"
 
 if [ -z "$email" ]; then
-  cat >&2 <<EOF
+	cat >&2 <<EOF
 No commit email is configured.
 
   git config user.email "your.name@${EXPECTED_DOMAIN}"
@@ -63,15 +63,15 @@ No commit email is configured.
 Set it per repository, not globally: a global identity follows you into every
 other repository on this machine. See docs/CONTRIBUTING.md.
 EOF
-  exit 1
+	exit 1
 fi
 
 case "$email" in
-  *"@${EXPECTED_DOMAIN}")
-    exit 0
-    ;;
-  *)
-    cat >&2 <<EOF
+*"@${EXPECTED_DOMAIN}")
+	exit 0
+	;;
+*)
+	cat >&2 <<EOF
 Commit email "$email" is outside the expected domain @${EXPECTED_DOMAIN}.
 
 Set it for this repository only:
@@ -86,6 +86,6 @@ If this repository should accept any address, disable the check:
 
   git config commit.emailDomain ""
 EOF
-    exit 1
-    ;;
+	exit 1
+	;;
 esac

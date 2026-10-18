@@ -57,31 +57,31 @@ TERMS_FILE="scripts/client-terms.txt"
 IN_CI="${CI:-}"
 
 if [ ! -f "$TERMS_FILE" ]; then
-  if [ -n "$IN_CI" ]; then
-    echo "check-no-client-content: no $TERMS_FILE in CI. Set the CLIENT_TERMS secret." >&2
-    exit 1
-  fi
-  echo "check-no-client-content: no $TERMS_FILE, skipping."
-  echo "  cp scripts/client-terms.example.txt $TERMS_FILE and fill it in."
-  exit 0
+	if [ -n "$IN_CI" ]; then
+		echo "check-no-client-content: no $TERMS_FILE in CI. Set the CLIENT_TERMS secret." >&2
+		exit 1
+	fi
+	echo "check-no-client-content: no $TERMS_FILE, skipping."
+	echo "  cp scripts/client-terms.example.txt $TERMS_FILE and fill it in."
+	exit 0
 fi
 
 PATTERN=$(grep -vE '^\s*(#|$)' "$TERMS_FILE" | paste -sd'|' -)
 if [ -z "$PATTERN" ]; then
-  if [ -n "$IN_CI" ]; then
-    echo "check-no-client-content: $TERMS_FILE has no terms in CI." >&2
-    exit 1
-  fi
-  echo "check-no-client-content: $TERMS_FILE has no terms, skipping."
-  exit 0
+	if [ -n "$IN_CI" ]; then
+		echo "check-no-client-content: $TERMS_FILE has no terms in CI." >&2
+		exit 1
+	fi
+	echo "check-no-client-content: $TERMS_FILE has no terms, skipping."
+	exit 0
 fi
 
 # A broken line makes grep exit 2, which a plain `if grep` reads as clean.
 # Test the whole pattern once, without printing it.
 grep -E -- "$PATTERN" </dev/null >/dev/null 2>&1
 if [ $? -eq 2 ]; then
-  echo "check-no-client-content: $TERMS_FILE holds a line that is not a valid extended regex." >&2
-  exit 2
+	echo "check-no-client-content: $TERMS_FILE holds a line that is not a valid extended regex." >&2
+	exit 2
 fi
 
 # These files necessarily name the thing they look for.
@@ -92,7 +92,7 @@ EXCLUDE='^(scripts/check-no-client-content\.sh|scripts/client-terms(\.example)?\
 QUIET=0
 ARGS=()
 for arg in "$@"; do
-  if [ "$arg" = "--quiet" ]; then QUIET=1; else ARGS+=("$arg"); fi
+	if [ "$arg" = "--quiet" ]; then QUIET=1; else ARGS+=("$arg"); fi
 done
 
 MODE="${ARGS[0]:-worktree}"
@@ -101,169 +101,169 @@ FAILED=0
 
 # Prefix every line on stdin, for indented reports.
 indent() {
-  local line
-  while IFS= read -r line; do printf '%s%s\n' "$1" "$line"; done
+	local line
+	while IFS= read -r line; do printf '%s%s\n' "$1" "$line"; done
 }
 
 # Content on stdin, made scannable: the lockfile loses its integrity hashes,
 # which are random base64 and collide with short terms. Every other file,
 # binary included, passes through unchanged.
 prepare() {
-  if [ "$1" = "bun.lock" ]; then
-    sed -E 's/"sha(1|256|384|512)-[A-Za-z0-9+\/=]+"//g'
-  else
-    cat
-  fi
+	if [ "$1" = "bun.lock" ]; then
+		sed -E 's/"sha(1|256|384|512)-[A-Za-z0-9+\/=]+"//g'
+	else
+		cat
+	fi
 }
 
 # Scan stdin. Prints up to three matching lines, cut short, unless quiet.
 # Returns 0 on a match and 1 on none; a grep error sets FAILED.
 scan() {
-  local found status
-  found=$(grep -a -i -n -E -- "$PATTERN" | head -3 | cut -c1-200)
-  status=${PIPESTATUS[0]}
-  if [ "$status" -eq 2 ]; then
-    FAILED=1
-    return 1
-  fi
-  [ -n "$found" ] || return 1
-  [ "$QUIET" -eq 1 ] || printf '%s\n' "$found"
-  return 0
+	local found status
+	found=$(grep -a -i -n -E -- "$PATTERN" | head -3 | cut -c1-200)
+	status=${PIPESTATUS[0]}
+	if [ "$status" -eq 2 ]; then
+		FAILED=1
+		return 1
+	fi
+	[ -n "$found" ] || return 1
+	[ "$QUIET" -eq 1 ] || printf '%s\n' "$found"
+	return 0
 }
 
 # A path whose name matches is a hit whatever its content.
 name_matches() {
-  printf '%s\n' "$1" | grep -iqE -- "$PATTERN"
+	printf '%s\n' "$1" | grep -iqE -- "$PATTERN"
 }
 
 case "$MODE" in
-  --message | --text)
-    # Trunk does not expand ${TRUNK_GIT_STDIN_FILE} in an action's `run:`, so
-    # the path arrives empty when this runs as a trunk action. Read it from the
-    # environment instead, then fall back to git's own message file. Relying on
-    # the argument alone made the hook fire and then fail on an empty path,
-    # which at least failed loudly, unlike the hook that never fired at all.
-    FILE="${ARGS[1]:-}"
-    [ -n "$FILE" ] || FILE="${TRUNK_GIT_STDIN_FILE:-}"
-    [ -n "$FILE" ] || FILE="$(git rev-parse --git-dir)/COMMIT_EDITMSG"
-    [ -f "$FILE" ] || {
-      echo "check-no-client-content: no message file at '$FILE'" >&2
-      exit 2
-    }
-    # A commit message skips the comment lines git adds to its template; they
-    # are never committed. Other text is read whole: a Markdown heading starts
-    # with # too.
-    if [ "$MODE" = "--message" ]; then
-      filter=(grep -vE '^\s*#')
-    else
-      filter=(cat)
-    fi
-    if match=$("${filter[@]}" "$FILE" | scan); then
-      if [ "$QUIET" -eq 1 ]; then
-        HITS="the message names a protected term"
-      else
-        HITS="$match"
-      fi
-    fi
-    ;;
+--message | --text)
+	# Trunk does not expand ${TRUNK_GIT_STDIN_FILE} in an action's `run:`, so
+	# the path arrives empty when this runs as a trunk action. Read it from the
+	# environment instead, then fall back to git's own message file. Relying on
+	# the argument alone made the hook fire and then fail on an empty path,
+	# which at least failed loudly, unlike the hook that never fired at all.
+	FILE="${ARGS[1]:-}"
+	[ -n "$FILE" ] || FILE="${TRUNK_GIT_STDIN_FILE:-}"
+	[ -n "$FILE" ] || FILE="$(git rev-parse --git-dir)/COMMIT_EDITMSG"
+	[ -f "$FILE" ] || {
+		echo "check-no-client-content: no message file at '$FILE'" >&2
+		exit 2
+	}
+	# A commit message skips the comment lines git adds to its template; they
+	# are never committed. Other text is read whole: a Markdown heading starts
+	# with # too.
+	if [ "$MODE" = "--message" ]; then
+		filter=(grep -vE '^\s*#')
+	else
+		filter=(cat)
+	fi
+	if match=$("${filter[@]}" "$FILE" | scan); then
+		if [ "$QUIET" -eq 1 ]; then
+			HITS="the message names a protected term"
+		else
+			HITS="$match"
+		fi
+	fi
+	;;
 
-  --messages)
-    # The message and who wrote and committed it: an author field is as
-    # public as the message.
-    RANGE="${ARGS[1]:-HEAD}"
-    while IFS= read -r sha; do
-      if git log -1 --format='%an%n%ae%n%cn%n%ce%n%B' "$sha" | scan >/dev/null; then
-        if [ "$QUIET" -eq 1 ]; then
-          HITS="${HITS}${sha}
+--messages)
+	# The message and who wrote and committed it: an author field is as
+	# public as the message.
+	RANGE="${ARGS[1]:-HEAD}"
+	while IFS= read -r sha; do
+		if git log -1 --format='%an%n%ae%n%cn%n%ce%n%B' "$sha" | scan >/dev/null; then
+			if [ "$QUIET" -eq 1 ]; then
+				HITS="${HITS}${sha}
 "
-        else
-          HITS="${HITS}${sha:0:8} $(git log -1 --format=%s "$sha" | cut -c1-60)
+			else
+				HITS="${HITS}${sha:0:8} $(git log -1 --format=%s "$sha" | cut -c1-60)
 "
-        fi
-      fi
-    done < <(git rev-list "$RANGE")
-    ;;
+			fi
+		fi
+	done < <(git rev-list "$RANGE")
+	;;
 
-  --history)
-    # Every path and every object once. A path is reported when its name or
-    # any version of its content matches; each path once.
-    HITS=$(git rev-list --objects --all | sort -u -k2 | while read -r sha path; do
-      if [ -n "$path" ]; then
-        printf '%s\n' "$path" | grep -qE "$EXCLUDE" && continue
-        if name_matches "$path"; then
-          echo "$path (its name)"
-          continue
-        fi
-      fi
-      [ "$(git cat-file -t "$sha" 2>/dev/null)" = "blob" ] || continue
-      if git cat-file -p "$sha" 2>/dev/null | prepare "$path" | scan >/dev/null; then
-        echo "${path:-$sha}"
-      fi
-    done | sort -u)
-    ;;
+--history)
+	# Every path and every object once. A path is reported when its name or
+	# any version of its content matches; each path once.
+	HITS=$(git rev-list --objects --all | sort -u -k2 | while read -r sha path; do
+		if [ -n "$path" ]; then
+			printf '%s\n' "$path" | grep -qE "$EXCLUDE" && continue
+			if name_matches "$path"; then
+				echo "$path (its name)"
+				continue
+			fi
+		fi
+		[ "$(git cat-file -t "$sha" 2>/dev/null)" = "blob" ] || continue
+		if git cat-file -p "$sha" 2>/dev/null | prepare "$path" | scan >/dev/null; then
+			echo "${path:-$sha}"
+		fi
+	done | sort -u)
+	;;
 
-  --staged)
-    # Added, copied, modified and renamed, read NUL-separated so a name with
-    # spaces is one name.
-    while IFS= read -r -d '' f; do
-      printf '%s\n' "$f" | grep -qE "$EXCLUDE" && continue
-      if name_matches "$f"; then
-        HITS="${HITS}${f} (its name)
+--staged)
+	# Added, copied, modified and renamed, read NUL-separated so a name with
+	# spaces is one name.
+	while IFS= read -r -d '' f; do
+		printf '%s\n' "$f" | grep -qE "$EXCLUDE" && continue
+		if name_matches "$f"; then
+			HITS="${HITS}${f} (its name)
 "
-        continue
-      fi
-      if match=$(git show ":$f" 2>/dev/null | prepare "$f" | scan); then
-        HITS="${HITS}${f}:
+			continue
+		fi
+		if match=$(git show ":$f" 2>/dev/null | prepare "$f" | scan); then
+			HITS="${HITS}${f}:
 $(indent '    ' <<<"$match")
 "
-      fi
-    done < <(git diff --cached --name-only -z --diff-filter=ACMR)
-    ;;
+		fi
+	done < <(git diff --cached --name-only -z --diff-filter=ACMR)
+	;;
 
-  *)
-    while IFS= read -r -d '' f; do
-      printf '%s\n' "$f" | grep -qE "$EXCLUDE" && continue
-      [ -f "$f" ] || continue
-      if name_matches "$f"; then
-        HITS="${HITS}${f} (its name)
+*)
+	while IFS= read -r -d '' f; do
+		printf '%s\n' "$f" | grep -qE "$EXCLUDE" && continue
+		[ -f "$f" ] || continue
+		if name_matches "$f"; then
+			HITS="${HITS}${f} (its name)
 "
-        continue
-      fi
-      # prepare only reads its argument as a name, never the file.
-      # shellcheck disable=SC2094
-      if match=$(prepare "$f" <"$f" | scan); then
-        HITS="${HITS}${f}:
+			continue
+		fi
+		# prepare only reads its argument as a name, never the file.
+		# shellcheck disable=SC2094
+		if match=$(prepare "$f" <"$f" | scan); then
+			HITS="${HITS}${f}:
 $(indent '    ' <<<"$match")
 "
-      fi
-    done < <(git ls-files -z --cached --others --exclude-standard)
-    ;;
+		fi
+	done < <(git ls-files -z --cached --others --exclude-standard)
+	;;
 esac
 
 if [ "$FAILED" -ne 0 ]; then
-  echo "check-no-client-content: grep failed while scanning; treating as a failure." >&2
-  exit 2
+	echo "check-no-client-content: grep failed while scanning; treating as a failure." >&2
+	exit 2
 fi
 
 if [ -n "$HITS" ]; then
-  echo "BLOCKED: client-identifying content found." >&2
-  indent '  ' <<<"$HITS" >&2
-  echo >&2
-  if [ "$QUIET" -eq 1 ]; then
-    echo "Re-run locally without --quiet to see the term and where it is." >&2
-  else
-    echo "Replace with a placeholder (Acme, Globex, PROJ-123, acme-platform)." >&2
-  fi
-  if [ "$MODE" = "--messages" ] || [ "$MODE" = "--message" ] || [ "$MODE" = "--text" ]; then
-    echo "For a message, describe the shape of the change instead of the party:" >&2
-    echo "  bad   fix(api): stop importing Acme Ltd invoices" >&2
-    echo "  good  fix(api): stop importing invoices billed to another tenant" >&2
-  fi
-  if [ "$MODE" = "--history" ]; then
-    echo "Committed already: fixing the working tree is not enough. The blob" >&2
-    echo "stays in history until it is rewritten." >&2
-  fi
-  exit 1
+	echo "BLOCKED: client-identifying content found." >&2
+	indent '  ' <<<"$HITS" >&2
+	echo >&2
+	if [ "$QUIET" -eq 1 ]; then
+		echo "Re-run locally without --quiet to see the term and where it is." >&2
+	else
+		echo "Replace with a placeholder (Acme, Globex, PROJ-123, acme-platform)." >&2
+	fi
+	if [ "$MODE" = "--messages" ] || [ "$MODE" = "--message" ] || [ "$MODE" = "--text" ]; then
+		echo "For a message, describe the shape of the change instead of the party:" >&2
+		echo "  bad   fix(api): stop importing Acme Ltd invoices" >&2
+		echo "  good  fix(api): stop importing invoices billed to another tenant" >&2
+	fi
+	if [ "$MODE" = "--history" ]; then
+		echo "Committed already: fixing the working tree is not enough. The blob" >&2
+		echo "stays in history until it is rewritten." >&2
+	fi
+	exit 1
 fi
 
 echo "check-no-client-content: clean (${MODE#--})"

@@ -13,11 +13,11 @@ api() { gh api --silent "$@"; }
 
 echo "Repository options"
 api -X PATCH "repos/$repository" \
-  -F delete_branch_on_merge=true \
-  -F allow_squash_merge=true \
-  -F allow_merge_commit=false \
-  -F allow_rebase_merge=false \
-  -F has_wiki=false
+	-F delete_branch_on_merge=true \
+	-F allow_squash_merge=true \
+	-F allow_merge_commit=false \
+	-F allow_rebase_merge=false \
+	-F has_wiki=false
 
 echo "Secret scanning and push protection"
 api -X PATCH "repos/$repository" --input - <<'JSON'
@@ -38,14 +38,14 @@ api -X PUT "repos/$repository/private-vulnerability-reporting"
 
 echo "Workflow token: read-only by default; Release Please may open its pull request"
 api -X PUT "repos/$repository/actions/permissions/workflow" \
-  -f default_workflow_permissions=read \
-  -F can_approve_pull_request_reviews=true
+	-f default_workflow_permissions=read \
+	-F can_approve_pull_request_reviews=true
 
 echo "GitHub Pages from the workflow"
 if ! api "repos/$repository/pages" 2>/dev/null; then
-  api -X POST "repos/$repository/pages" -f build_type=workflow
+	api -X POST "repos/$repository/pages" -f build_type=workflow
 else
-  api -X PUT "repos/$repository/pages" -f build_type=workflow
+	api -X PUT "repos/$repository/pages" -f build_type=workflow
 fi
 
 echo "Ruleset protecting main"
@@ -53,8 +53,8 @@ existing=$(gh api "repos/$repository/rulesets" --jq '.[] | select(.name == "Prot
 method=POST
 path="repos/$repository/rulesets"
 if [ -n "$existing" ]; then
-  method=PUT
-  path="repos/$repository/rulesets/$existing"
+	method=PUT
+	path="repos/$repository/rulesets/$existing"
 fi
 gh api --silent -X "$method" "$path" --input - <<'JSON'
 {
@@ -92,8 +92,8 @@ gh api --silent -X "$method" "$path" --input - <<'JSON'
 JSON
 
 if ! gh secret list --repo "$repository" | grep -q '^CLIENT_TERMS'; then
-  echo
-  echo "One step left: the Client Content workflow fails until CLIENT_TERMS is set."
-  echo "  gh secret set CLIENT_TERMS --repo $repository < scripts/client-terms.txt"
+	echo
+	echo "One step left: the Client Content workflow fails until CLIENT_TERMS is set."
+	echo "  gh secret set CLIENT_TERMS --repo $repository < scripts/client-terms.txt"
 fi
 echo "Done."

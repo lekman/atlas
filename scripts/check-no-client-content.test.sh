@@ -16,21 +16,21 @@ mkdir scripts && cp "$S" scripts/ && printf 'scripts/client-terms.txt\n' >.gitig
 printf '# comment\nzebracorp\n' >scripts/client-terms.txt
 # Locally, whatever the machine running the tests says; in CI, as CI.
 run() {
-  env -u CI bash scripts/check-no-client-content.sh "$@" >/dev/null 2>&1
-  echo $?
+	env -u CI bash scripts/check-no-client-content.sh "$@" >/dev/null 2>&1
+	echo $?
 }
 run_in_ci() {
-  CI=true bash scripts/check-no-client-content.sh >/dev/null 2>&1
-  echo $?
+	CI=true bash scripts/check-no-client-content.sh >/dev/null 2>&1
+	echo $?
 }
 expect() {
-  local want=$1 got=$2 name=$3
-  if [ "$want" = "$got" ]; then
-    echo "ok   $name"
-  else
-    echo "FAIL $name: wanted exit $want, got $got"
-    failures=$((failures + 1))
-  fi
+	local want=$1 got=$2 name=$3
+	if [ "$want" = "$got" ]; then
+		echo "ok   $name"
+	else
+		echo "FAIL $name: wanted exit $want, got $got"
+		failures=$((failures + 1))
+	fi
 }
 echo clean >a.txt
 git add -A
@@ -84,10 +84,10 @@ expect 1 "$(run)" "package name in lockfile"
 printf '{"x": ["x@1.0.0", "", {}, "sha512-zebracorpQQ=="]}\n' >bun.lock
 out=$(bash scripts/check-no-client-content.sh 2>&1)
 if grep -q "bun.lock" <<<"$out"; then
-  echo "FAIL an integrity hash in the lockfile was reported"
-  failures=$((failures + 1))
+	echo "FAIL an integrity hash in the lockfile was reported"
+	failures=$((failures + 1))
 else
-  echo "ok   hash in lockfile ignored"
+	echo "ok   hash in lockfile ignored"
 fi
 rm bun.lock
 printf 'zebra(corp\n' >scripts/client-terms.txt
