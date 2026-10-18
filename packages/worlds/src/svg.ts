@@ -9,13 +9,16 @@
 import { clientOfAgent, type Dataset } from "@atlas/core";
 
 import { computeLayout, type Orientation } from "./layout";
+import { paletteFor } from "./lighting";
 import { Scene } from "./scene";
-import type { World } from "./types";
+import type { Lighting, World } from "./types";
 
 export interface SnapshotOptions {
   width: number;
   height: number;
   orientation?: Orientation;
+  /** Day by default: a still map in a plugin pane has no device to follow. */
+  lighting?: Lighting;
 }
 
 const escapeXml = (text: string) =>
@@ -42,7 +45,9 @@ export function renderSnapshot(
   const layout = computeLayout(dataset, orientation);
   const scene = new Scene(dataset, orientation);
   const { left, top, right, bottom } = layout.bounds;
-  const { palette, vocabulary } = world;
+  const lighting = options.lighting ?? "day";
+  const palette = paletteFor(world, lighting);
+  const { vocabulary } = world;
   const font = world.typefaces.display.replace(/"/g, "'");
   const parts: string[] = [];
 
@@ -64,8 +69,8 @@ export function renderSnapshot(
     const home = client.home === true;
     parts.push(
       home
-        ? world.stillMap.home(centre, client.id)
-        : world.stillMap.client(centre, client.id),
+        ? world.stillMap.home(centre, client.id, lighting)
+        : world.stillMap.client(centre, client.id, lighting),
     );
     parts.push(
       `<text x="${centre.x}" y="${centre.y + world.stillMap.labelOffset}" text-anchor="middle" font-family="${font}" font-size="54" fill="${home ? palette.accent : palette.ink}">${escapeXml(home ? vocabulary.homeName : client.name)}</text>`,

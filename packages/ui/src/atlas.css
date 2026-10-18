@@ -449,6 +449,33 @@
 .atlas-world:disabled {
   cursor: default;
 }
+.atlas-world .atlas-world-night {
+  font-style: italic;
+}
+.atlas-lighting {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 0 0 14px;
+  padding: 0;
+  border: 0;
+}
+.atlas-lighting legend {
+  width: 100%;
+  padding: 0;
+}
+.atlas-lighting-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--atlas-ink);
+  cursor: pointer;
+}
+.atlas-lighting-option input {
+  accent-color: var(--atlas-accent);
+  margin: 0;
+}
 .atlas-key {
   width: 100%;
   margin-bottom: 14px;

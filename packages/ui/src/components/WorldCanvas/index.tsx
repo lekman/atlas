@@ -16,6 +16,7 @@ import {
   type Bounds,
   type Camera,
   type HitTarget,
+  type Lighting,
   type Scene,
   type World,
 } from "@atlas/worlds";
@@ -25,6 +26,8 @@ export interface WorldCanvasProps {
   scene: Scene;
   world: World;
   detail: "compact" | "full";
+  /** Day or night; a world without a night mode draws its day. */
+  lighting?: Lighting;
   selectedId: string | null;
   /** A tap: the record under the pointer, or null for empty space. */
   onSelect(id: string | null): void;
@@ -160,6 +163,7 @@ export function WorldCanvas(props: WorldCanvasProps) {
             detail,
             time,
             reducedMotion,
+            lighting: live.current.lighting ?? "day",
             scene,
             selectedId,
           },

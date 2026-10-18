@@ -66,6 +66,21 @@ the others has its own page with its palette, typefaces and design choices:
 | error    | blighted            | wounded               | escalated           |
 | idle     | resting in the hive | at rest               | in the staff room   |
 
+## Day and Night
+
+Lighting follows the device by default, so Atlas goes dark when the Mac or
+the iPhone does; the world picker can fix Day or Night instead. Each world
+draws its night in its own way.
+
+| World      | At night                                                 |
+| ---------- | -------------------------------------------------------- |
+| Astronomer | Always dark                                              |
+| Mariner    | Planned: a dark blue chart, every lighthouse lit         |
+| Woodsman   | No night mode yet                                        |
+| Gardener   | Planned: the night garden, lit by lanterns               |
+| Samurai    | Planned: a night campaign scroll, in the ninja's colours |
+| Doctor     | Planned: the hospital district at night                  |
+
 ## Sound
 
 | Cue            | Astronomer                 | Mariner            | Woodsman           |

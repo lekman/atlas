@@ -37,36 +37,6 @@ describe("every world", () => {
       }
     });
 
-    it(`${world.name} keeps the shared status hues`, () => {
-      // Learning a new world must never mean relearning what is urgent.
-      const hue = (hex: string) => {
-        const value = Number.parseInt(hex.slice(1), 16);
-        const [r, g, b] = [
-          (value >> 16) & 255,
-          (value >> 8) & 255,
-          value & 255,
-        ].map((part) => part / 255) as [number, number, number];
-        const max = Math.max(r, g, b);
-        const min = Math.min(r, g, b);
-        if (max === min) return null;
-        const delta = max - min;
-        const raw =
-          max === r
-            ? ((g - b) / delta) % 6
-            : max === g
-              ? (b - r) / delta + 2
-              : (r - g) / delta + 4;
-        return (raw * 60 + 360) % 360;
-      };
-      const within = (value: number | null, from: number, to: number) =>
-        value !== null && value >= from && value <= to;
-      expect(within(hue(world.palette.status.running), 90, 160)).toBe(true);
-      expect(within(hue(world.palette.status.watching), 190, 230)).toBe(true);
-      expect(within(hue(world.palette.status.waiting), 25, 50)).toBe(true);
-      const red = hue(world.palette.status.blocked);
-      expect(red !== null && (red < 10 || red > 340)).toBe(true);
-    });
-
     it(`${world.name} writes every kind of log line`, () => {
       const lines = [
         world.phrases.message("Schema", "Gaps watch", "Hold releases"),

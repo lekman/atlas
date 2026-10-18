@@ -2,8 +2,11 @@ import { needsYou, type Dataset } from "@atlas/core";
 import type { World } from "@atlas/worlds";
 
 export interface NeedsYouListProps {
+  /** Where questions and agents are read from. */
   dataset: Dataset;
+  /** Whose words name each entry. */
   world: World;
+  /** An entry was picked, to open in the inspector. */
   onSelect(id: string): void;
 }
 

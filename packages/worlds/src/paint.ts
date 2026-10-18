@@ -6,6 +6,7 @@ import { clientOfAgent } from "@atlas/core";
 
 import { worldToScreen, type Point } from "./camera";
 import { decisionPosition, itemPosition, questionPosition } from "./layout";
+import { paletteFor } from "./lighting";
 import type { PaintContext, World } from "./types";
 
 export interface HitTarget {
@@ -77,7 +78,12 @@ export function paintScene(paint: PaintContext, world: World): HitTarget[] {
   for (const agent of dataset.agents) {
     const motion = scene.motions.get(agent.id);
     if (!motion) continue;
-    painter.agent(paint, agent, motion, world.palette.status[agent.status]);
+    painter.agent(
+      paint,
+      agent,
+      motion,
+      paletteFor(world, paint.lighting).status[agent.status],
+    );
     hit(agent.id, motion.position, 16, true);
   }
   for (const { effect, progress } of scene.activeEffects(time))
@@ -85,7 +91,8 @@ export function paintScene(paint: PaintContext, world: World): HitTarget[] {
 
   if (paint.selectedId) {
     const selected = hits.find((target) => target.id === paint.selectedId);
-    if (selected) drawSelection(paint, selected, world.palette.accent);
+    if (selected)
+      drawSelection(paint, selected, paletteFor(world, paint.lighting).accent);
   }
   if (painter.overlay) {
     setScreenTransform(paint);

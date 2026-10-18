@@ -5,7 +5,8 @@ tasks:
     desc: One-time project setup (tools, dependencies, hooks, browser for story tests)
     cmds:
       - mise install
-      # Not frozen: the first setup on a fresh clone writes bun.lock.
+      # Not frozen, so setup also succeeds straight after a dependency change.
+      # CI and `task install` use the frozen lockfile.
       - bun install
       - bunx husky
       - bun apps/storybook/scripts/ensure-browser.ts
@@ -92,4 +93,8 @@ tasks:
   hooks:verify:
     desc: Confirm husky owns the git hooks
     cmds:
-      - test "$(git config core.hooksPath)" = ".husky/_" || (echo "core.hooksPath is '$(git config core.hooksPath)'. Run bun install to restore it." && exit 1)
+      - |
+        if [ "$(git config core.hooksPath)" != ".husky/_" ]; then
+          echo "core.hooksPath is '$(git config core.hooksPath)'. Run bun install to restore it."
+          exit 1
+        fi

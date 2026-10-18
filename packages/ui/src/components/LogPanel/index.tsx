@@ -1,13 +1,16 @@
 import type { World } from "@atlas/worlds";
 
-import { describeEvent } from "./describe";
-import type { LogEntry } from "./useAtlasMap";
+import { describeEvent } from "../../describe";
+import type { LogEntry } from "../../useAtlasMap";
 
 export interface LogPanelProps {
+  /** Newest first, as `useAtlasMap` keeps them. */
   entries: LogEntry[];
+  /** Whose voice each line is written in. */
   world: World;
   /** `panel` floats over the full map; `preview` sits in the sidebar. */
   variant: "panel" | "preview";
+  /** How many lines to show. Eight on the full map, four in the sidebar. */
   limit?: number;
 }
 
