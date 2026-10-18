@@ -11,14 +11,14 @@ the others has its own page with its palette, typefaces and design choices:
 [Woodsman](worlds/woodsman.md), [Gardener](worlds/gardener.md),
 [Samurai](worlds/samurai.md) and [Doctor](worlds/doctor.md).
 
-| World      | Home                      | Map                                         |
-| ---------- | ------------------------- | ------------------------------------------- |
-| Astronomer | **Terra**, drawn as Earth | Star chart, grid, range rings, HUD          |
-| Mariner    | **Turtle Bay**            | Engraved sea chart, soundings, compass rose |
-| Woodsman   | **Base Camp**             | Trail map, contour lines, rivers            |
-| Gardener   | **The Homestead**         | Planting plan inside a hedge                |
-| Samurai    | **The Castle**            | Ink-wash campaign scroll                    |
-| Doctor     | **The Nurses’ Station**   | Ward board on monitor glass                 |
+| World      | Home                      | Map                                            |
+| ---------- | ------------------------- | ---------------------------------------------- |
+| Astronomer | **Terra**, drawn as Earth | Star chart, grid, range rings, HUD             |
+| Mariner    | **Turtle Bay**            | Engraved sea chart, soundings, compass rose    |
+| Woodsman   | **Base Camp**             | Trail map, contour lines, rivers               |
+| Gardener   | **The Homestead**         | Planting plan inside a hedge                   |
+| Samurai    | **The Castle**            | Ink-wash campaign scroll                       |
+| Doctor     | **The Practice**          | Medical district: hospitals, roads, ambulances |
 
 ### Records
 
@@ -34,17 +34,17 @@ the others has its own page with its palette, typefaces and design choices:
 | Outside system | Inbound transmission | Telegram     | Runner from the trailhead |
 | Log            | Comms log            | Ship's log   | Field notes               |
 
-| Record         | Gardener        | Samurai        | Doctor             |
-| -------------- | --------------- | -------------- | ------------------ |
-| Client         | Bed             | Clan           | Ward               |
-| Requirement    | Seed row        | Objective      | Care goal          |
-| Backlog item   | Plant           | Campaign       | Treatment step     |
-| Agent          | Bee             | Retainer       | Staff member       |
-| Open question  | Dandelion clock | Scout's report | Pending lab result |
-| Decision       | Trellis         | Seal           | Recorded diagnosis |
-| Agent to agent | Pollen drift    | Messenger      | Page               |
-| Outside system | Weather         | Courier        | Lab feed           |
-| Log            | Garden diary    | Chronicle      | Ward log           |
+| Record         | Gardener        | Samurai        | Doctor              |
+| -------------- | --------------- | -------------- | ------------------- |
+| Client         | Bed             | Clan           | Hospital            |
+| Requirement    | Seed row        | Objective      | Department          |
+| Backlog item   | Plant           | Campaign       | Admission (a bed)   |
+| Agent          | Bee             | Retainer       | Staff member        |
+| Open question  | Dandelion clock | Scout's report | Pending test result |
+| Decision       | Trellis         | Seal           | Recorded diagnosis  |
+| Agent to agent | Pollen drift    | Messenger      | Ambulance run       |
+| Outside system | Weather         | Courier        | Air ambulance       |
+| Log            | Garden diary    | Chronicle      | Dispatch log        |
 
 ### Status Names
 
@@ -72,14 +72,14 @@ Lighting follows the device by default, so Atlas goes dark when the Mac or
 the iPhone does; the world picker can fix Day or Night instead. Each world
 draws its night in its own way.
 
-| World      | At night                                                 |
-| ---------- | -------------------------------------------------------- |
-| Astronomer | Always dark                                              |
-| Mariner    | Planned: a dark blue chart, every lighthouse lit         |
-| Woodsman   | No night mode yet                                        |
-| Gardener   | Planned: the night garden, lit by lanterns               |
-| Samurai    | Planned: a night campaign scroll, in the ninja's colours |
-| Doctor     | Planned: the hospital district at night                  |
+| World      | At night                                                                                      |
+| ---------- | --------------------------------------------------------------------------------------------- |
+| Astronomer | Always dark                                                                                   |
+| Mariner    | Planned: a dark blue chart, every lighthouse lit                                              |
+| Woodsman   | No night mode yet                                                                             |
+| Gardener   | Planned: the night garden, lit by lanterns                                                    |
+| Samurai    | Planned: a night campaign scroll, in the ninja's colours                                      |
+| Doctor     | Night shift: lit windows, street lights along the main roads, ambulance lights in the streets |
 
 ## Sound
 
@@ -91,13 +91,13 @@ draws its night in its own way.
 | Needs you      | Descending three-note call | Ship's bell, twice | Owl                |
 | Blocked        | Low hum                    | Foghorn            | Branch crack, drum |
 
-| Cue            | Gardener              | Samurai           | Doctor                  |
-| -------------- | --------------------- | ----------------- | ----------------------- |
-| Agent to agent | Passing bee, chime    | Breathy flute     | Two-note pager          |
-| Status change  | Trowel on a clay pot  | Wooden clapper    | Soft monitor blip       |
-| Outside system | Rain patter           | Two taiko strikes | Data chirp              |
-| Needs you      | Wind chime            | Temple bell       | Rising three-note chime |
-| Blocked        | Watering can set down | Drum roll         | Low falling double tone |
+| Cue            | Gardener              | Samurai           | Doctor                          |
+| -------------- | --------------------- | ----------------- | ------------------------------- |
+| Agent to agent | Passing bee, chime    | Breathy flute     | Soft two-note siren motif       |
+| Status change  | Trowel on a clay pot  | Wooden clapper    | Soft blip                       |
+| Outside system | Rain patter           | Two taiko strikes | Soft rotor thump                |
+| Needs you      | Wind chime            | Temple bell       | Three-note public-address chime |
+| Blocked        | Watering can set down | Drum roll         | Low falling double tone         |
 
 ## Planned
 

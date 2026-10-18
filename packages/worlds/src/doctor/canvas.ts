@@ -1,24 +1,22 @@
 /**
- * The Doctor's ward board: a hospital floor plan seen from above, drawn on
- * monitor glass. Clients are wards, each with a small trace whose rhythm
- * follows how many of its staff are on rounds. Requirements are care goals,
- * backlog items treatment steps, agents staff badges, open questions
- * pending lab results, decisions signed charts. Home is the Nurses’ Station.
+ * The Doctor's district: a town plan at night seen from above. Clients are
+ * hospitals on their own blocks, each with wings out to its departments, a
+ * helipad on the roof, an ambulance bay and a car park. Home is The
+ * Practice, a small clinic inside a ring road at the centre. Main roads run
+ * from the ring to every hospital, and a grid of quiet streets fills the
+ * rest. Messages between agents are ambulance runs along the streets; events
+ * from outside arrive by air ambulance.
  *
- * It is a metaphor for work. Nothing here imitates a real device, shows a
- * patient value, or uses a protected emblem: no cross shapes anywhere.
+ * It is a metaphor for work. Nothing here imitates a real hospital, vehicle
+ * or device, shows anything like patient data, or uses a protected emblem:
+ * there is no cross shape anywhere.
  */
 import { externalSourceNames } from "@atlas/core";
 
-import type { Point } from "../camera";
+import { worldToScreen, type Point } from "../camera";
+import { decisionPosition, itemPosition, questionPosition } from "../layout";
 import {
-  decisionPosition,
-  itemPosition,
-  questionPosition,
-  rings,
-} from "../layout";
-import {
-  curveBetween,
+  clientIdOfAgent,
   label,
   labelScale,
   pixels,
@@ -29,264 +27,309 @@ import {
 } from "../paint";
 import type { PaintContext, WorldPainter } from "../types";
 import {
-  floorPlan,
-  roomCorner,
-  staffOf,
-  traceValue,
-  wardRhythm,
-  type Opening,
-  type Rectangle,
-  type Rhythm,
-  type Side,
-} from "./floor";
+  department,
+  drawBay,
+  drawDepartment,
+  drawGrounds,
+  drawHelipad,
+  drawLink,
+  drawMainBlock,
+  drawSign,
+  drawTrees,
+  homeDepartment,
+  homeIdOf,
+  hospitalPlan,
+  mainBlock,
+  practiceBlock,
+  roundedRectangle,
+  turnedRectangle,
+  type HospitalPlan,
+} from "./buildings";
+import { doctorTypefaces as type, toneOf } from "./palette";
 import {
-  doctorPalette as palette,
-  doctorShades as shade,
-  doctorTypefaces as type,
-} from "./palette";
+  blockInset,
+  mainRoadWidth,
+  measure,
+  ringHalf,
+  poseAlong,
+  routeBetween,
+  streetPlan,
+  streetWidth,
+  type Rectangle,
+  type StreetPlan,
+} from "./streets";
+import { drawAmbulance, drawHelicopter, drawTrolley } from "./vehicles";
 import { doctorStatusNames, doctorVocabulary } from "./vocabulary";
 
 const isFull = (paint: PaintContext) => paint.detail === "full";
-const instrument = (alpha: number) => `rgba(${shade.instrument},${alpha})`;
 
-/** How far below home's centre the station desk sits, in world units. */
-const deskDrop = 22;
-
-/** Seconds a trace takes to sweep across its strip. */
-const sweepSeconds = 5;
-
-function roundedRectangle(
-  context: CanvasRenderingContext2D,
-  box: Rectangle,
-  radius: number,
-): void {
-  const r = Math.max(
-    0,
-    Math.min(radius, (box.right - box.left) / 2, (box.bottom - box.top) / 2),
-  );
-  context.beginPath();
-  context.moveTo(box.left + r, box.top);
-  context.arcTo(box.right, box.top, box.right, box.bottom, r);
-  context.arcTo(box.right, box.bottom, box.left, box.bottom, r);
-  context.arcTo(box.left, box.bottom, box.left, box.top, r);
-  context.arcTo(box.left, box.top, box.right, box.top, r);
-  context.closePath();
+function plansOf(paint: PaintContext): StreetPlan {
+  return streetPlan(paint.scene.layout, homeIdOf(paint.scene.dataset));
 }
 
-function inset(box: Rectangle, by: number): Rectangle {
+function planOf(paint: PaintContext, clientId: string): HospitalPlan | null {
+  return hospitalPlan(paint.scene.layout, paint.scene.dataset, clientId);
+}
+
+/** The part of the world on screen, with a margin. */
+function view(paint: PaintContext, margin = 80): Rectangle {
+  const { camera, width, height } = paint;
   return {
-    left: box.left + by,
-    top: box.top + by,
-    right: box.right - by,
-    bottom: box.bottom - by,
+    left: -camera.x / camera.scale - margin,
+    top: -camera.y / camera.scale - margin,
+    right: (width - camera.x) / camera.scale + margin,
+    bottom: (height - camera.y) / camera.scale + margin,
   };
 }
 
-/** A rounded room outline with gaps where doors and corridors open. */
-function strokeWalls(
-  context: CanvasRenderingContext2D,
-  box: Rectangle,
-  radius: number,
-  openings: Opening[],
-): void {
-  const { left, top, right, bottom } = box;
-  const r = radius;
-  const sides: Array<{
-    side: Side;
-    fixed: number;
-    start: number;
-    end: number;
-  }> = [
-    { side: "top", fixed: top, start: left + r, end: right - r },
-    { side: "bottom", fixed: bottom, start: left + r, end: right - r },
-    { side: "left", fixed: left, start: top + r, end: bottom - r },
-    { side: "right", fixed: right, start: top + r, end: bottom - r },
-  ];
+const overlaps = (a: Rectangle, b: Rectangle) =>
+  a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+
+const easeInOut = (t: number) =>
+  t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
+
+function drawTown(paint: PaintContext, plan: StreetPlan, seen: Rectangle) {
+  const { shade, warm } = toneOf(paint.lighting);
+  const { context, camera } = paint;
+  const visible = plan.town.filter((block) => overlaps(block.area, seen));
+
+  context.fillStyle = shade.park;
   context.beginPath();
-  for (const { side, fixed, start, end } of sides) {
-    const horizontal = side === "top" || side === "bottom";
-    const segment = (from: number, to: number) => {
-      if (horizontal) {
-        context.moveTo(from, fixed);
-        context.lineTo(to, fixed);
-      } else {
-        context.moveTo(fixed, from);
-        context.lineTo(fixed, to);
-      }
-    };
-    let cursor = start;
-    for (const gap of openings
-      .filter((opening) => opening.side === side)
-      .sort((a, b) => a.from - b.from)) {
-      const from = Math.max(start, Math.min(end, gap.from));
-      const to = Math.max(start, Math.min(end, gap.to));
-      if (from > cursor) segment(cursor, from);
-      cursor = Math.max(cursor, to);
-    }
-    if (cursor < end) segment(cursor, end);
+  for (const block of visible) {
+    if (block.kind === "buildings") continue;
+    const { area } = block;
+    context.rect(
+      area.left,
+      area.top,
+      area.right - area.left,
+      area.bottom - area.top,
+    );
   }
-  for (const [x, y, from] of [
-    [left + r, top + r, Math.PI],
-    [right - r, top + r, Math.PI * 1.5],
-    [right - r, bottom - r, 0],
-    [left + r, bottom - r, Math.PI / 2],
-  ] as const) {
-    context.moveTo(x + Math.cos(from) * r, y + Math.sin(from) * r);
-    context.arc(x, y, r, from, from + Math.PI / 2);
-  }
-  context.stroke();
-}
+  context.fill();
 
-const inward: Record<Side, Point> = {
-  top: { x: 0, y: 1 },
-  bottom: { x: 0, y: -1 },
-  left: { x: 1, y: 0 },
-  right: { x: -1, y: 0 },
-};
-
-/** The architect's door symbol: the leaf standing open and its swing. */
-function drawDoorSwing(paint: PaintContext, box: Rectangle, opening: Opening) {
-  const { context } = paint;
-  const horizontal = opening.side === "top" || opening.side === "bottom";
-  const wall =
-    opening.side === "top"
-      ? box.top
-      : opening.side === "bottom"
-        ? box.bottom
-        : opening.side === "left"
-          ? box.left
-          : box.right;
-  const hinge = horizontal
-    ? { x: opening.from, y: wall }
-    : { x: wall, y: opening.from };
-  const normal = inward[opening.side];
-  const along = horizontal ? { x: 1, y: 0 } : { x: 0, y: 1 };
-  const width = opening.to - opening.from;
-  context.strokeStyle = instrument(0.32);
+  context.fillStyle = shade.building;
+  context.strokeStyle = shade.buildingEdge;
   context.lineWidth = pixels(paint, 1);
   context.beginPath();
-  context.moveTo(hinge.x, hinge.y);
-  context.lineTo(hinge.x + normal.x * width, hinge.y + normal.y * width);
+  for (const block of visible)
+    for (const building of block.buildings)
+      context.rect(
+        building.left,
+        building.top,
+        building.right - building.left,
+        building.bottom - building.top,
+      );
+  context.fill();
   context.stroke();
-  context.setLineDash([pixels(paint, 2), pixels(paint, 3)]);
-  context.beginPath();
-  const cross = normal.x * along.y - normal.y * along.x;
-  context.arc(
-    hinge.x,
-    hinge.y,
-    width,
-    Math.atan2(normal.y, normal.x),
-    Math.atan2(along.y, along.x),
-    cross < 0,
-  );
-  context.stroke();
-  context.setLineDash([]);
-}
 
-function drawGrid(paint: PaintContext, area: Rectangle) {
-  const { context, camera } = paint;
-  const lines = (step: number, alpha: number) => {
-    context.strokeStyle = instrument(alpha);
-    context.lineWidth = pixels(paint, 1);
+  // A scatter of lit windows, dim and warm.
+  if (shade.lit && camera.scale > 0.14) {
+    context.fillStyle = warm(0.32);
     context.beginPath();
-    for (
-      let x = Math.floor(area.left / step) * step;
-      x <= area.right;
-      x += step
-    ) {
-      context.moveTo(x, area.top);
-      context.lineTo(x, area.bottom);
-    }
-    for (
-      let y = Math.floor(area.top / step) * step;
-      y <= area.bottom;
-      y += step
-    ) {
-      context.moveTo(area.left, y);
-      context.lineTo(area.right, y);
-    }
-    context.stroke();
-  };
-  if (camera.scale > 0.18) lines(40, 0.035);
-  lines(200, 0.07);
-}
-
-/**
- * A strip of monitor with a trace that sweeps left to right, the oldest part
- * fading ahead of the sweep. Under reduced motion the trace holds still.
- */
-function drawTrace(
-  paint: PaintContext,
-  strip: Rectangle,
-  rhythm: Rhythm,
-  options: { alpha: number; head: boolean; width: number },
-) {
-  const { context, reducedMotion } = paint;
-  const now = reducedMotion ? 2.2 : paint.time;
-  const width = strip.right - strip.left;
-  const middle =
-    (strip.top + strip.bottom) / 2 + (strip.bottom - strip.top) * 0.12;
-  const height = (strip.bottom - strip.top) * 0.42;
-  const sweep = (now / sweepSeconds + rhythm.offset) % 1;
-  const samples = Math.round(
-    Math.max(36, Math.min(150, (width * paint.camera.scale) / 2.5)),
-  );
-  context.lineWidth = pixels(paint, options.width);
-  context.lineJoin = "round";
-  let previous: Point | null = null;
-  for (let index = 0; index < samples; index++) {
-    const along = index / (samples - 1);
-    const age = (sweep - along + 1) % 1;
-    const point = {
-      x: strip.left + along * width,
-      y: middle - traceValue(rhythm, now - age * sweepSeconds) * height,
-    };
-    if (age > 0.94) {
-      previous = null;
-      continue;
-    }
-    if (previous) {
-      context.strokeStyle = instrument(options.alpha * (1 - age * 0.75));
-      context.beginPath();
-      context.moveTo(previous.x, previous.y);
-      context.lineTo(point.x, point.y);
-      context.stroke();
-    }
-    previous = point;
-  }
-  if (options.head && !reducedMotion) {
-    const x = strip.left + sweep * width;
-    const y = middle - traceValue(rhythm, now) * height;
-    const glow = context.createRadialGradient(x, y, 0, x, y, pixels(paint, 7));
-    glow.addColorStop(0, instrument(0.75));
-    glow.addColorStop(1, instrument(0));
-    context.fillStyle = glow;
-    context.beginPath();
-    context.arc(x, y, pixels(paint, 7), 0, Math.PI * 2);
+    for (const block of visible)
+      for (const window of block.windows)
+        context.rect(window.x - 2.5, window.y - 2, 5, 4);
     context.fill();
   }
-}
 
-function wardIndex(paint: PaintContext, clientId: string): number {
-  return (
-    paint.scene.dataset.clients
-      .filter((client) => client.home !== true)
-      .findIndex((client) => client.id === clientId) + 1
+  for (const block of visible) {
+    if (block.path.length < 2) continue;
+    context.strokeStyle = warm(0.07);
+    context.lineWidth = 5;
+    context.beginPath();
+    block.path.forEach((point, index) =>
+      index === 0
+        ? context.moveTo(point.x, point.y)
+        : context.lineTo(point.x, point.y),
+    );
+    context.stroke();
+  }
+  drawTrees(
+    paint,
+    visible.flatMap((block) => block.trees),
   );
 }
 
-/** The small rounded rectangle of a treatment step, a checklist box. */
-function stepBox(
-  context: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  half: number,
-) {
-  roundedRectangle(
-    context,
-    { left: x - half, top: y - half, right: x + half, bottom: y + half },
-    half * 0.4,
+function drawRiver(paint: PaintContext, plan: StreetPlan) {
+  const { shade } = toneOf(paint.lighting);
+  const { river } = plan;
+  if (!river) return;
+  const { context } = paint;
+  const [left, right] = river.banks;
+  context.fillStyle = shade.river;
+  context.beginPath();
+  left.forEach((point, index) =>
+    index === 0
+      ? context.moveTo(point.x, point.y)
+      : context.lineTo(point.x, point.y),
   );
+  for (let index = right.length - 1; index >= 0; index--) {
+    const point = right[index];
+    if (point) context.lineTo(point.x, point.y);
+  }
+  context.closePath();
+  context.fill();
+  context.strokeStyle = shade.riverEdge;
+  context.lineWidth = pixels(paint, 1.4);
+  for (const bank of river.banks) {
+    context.beginPath();
+    bank.forEach((point, index) =>
+      index === 0
+        ? context.moveTo(point.x, point.y)
+        : context.lineTo(point.x, point.y),
+    );
+    context.stroke();
+  }
+}
+
+function drawStreets(paint: PaintContext, plan: StreetPlan, seen: Rectangle) {
+  const { shade, warm } = toneOf(paint.lighting);
+  const { context } = paint;
+  const near = (a: Point, b: Point) =>
+    overlaps(
+      {
+        left: Math.min(a.x, b.x),
+        right: Math.max(a.x, b.x),
+        top: Math.min(a.y, b.y),
+        bottom: Math.max(a.y, b.y),
+      },
+      seen,
+    );
+  context.lineCap = "square";
+  context.lineJoin = "miter";
+  const streetPath = () => {
+    context.beginPath();
+    for (const edge of plan.edges) {
+      if (edge.drive) continue;
+      const a = plan.nodes[edge.a];
+      const b = plan.nodes[edge.b];
+      if (!a || !b || !near(a, b)) continue;
+      context.moveTo(a.x, a.y);
+      context.lineTo(b.x, b.y);
+    }
+  };
+  if (shade.streetEdge !== shade.street) {
+    context.strokeStyle = shade.streetEdge;
+    context.lineWidth = streetWidth + pixels(paint, 2);
+    streetPath();
+    context.stroke();
+  }
+  context.strokeStyle = shade.street;
+  context.lineWidth = streetWidth;
+  context.beginPath();
+  for (const edge of plan.edges) {
+    if (edge.drive) continue;
+    const a = plan.nodes[edge.a];
+    const b = plan.nodes[edge.b];
+    if (!a || !b || !near(a, b)) continue;
+    context.moveTo(a.x, a.y);
+    context.lineTo(b.x, b.y);
+  }
+  context.stroke();
+
+  // Bridges: railings where a street crosses the river.
+  const { river } = plan;
+  if (river) {
+    context.strokeStyle = warm(0.22);
+    context.lineWidth = pixels(paint, 1.2);
+    context.lineCap = "butt";
+    context.beginPath();
+    for (const edge of plan.edges) {
+      const a = plan.nodes[edge.a];
+      const b = plan.nodes[edge.b];
+      if (!a || !b || edge.drive) continue;
+      const across = river.vertical
+        ? Math.abs(a.y - b.y) < 0.5 &&
+          Math.min(a.x, b.x) <= river.band.left + 1 &&
+          Math.max(a.x, b.x) >= river.band.right - 1
+        : Math.abs(a.x - b.x) < 0.5 &&
+          Math.min(a.y, b.y) <= river.band.top + 1 &&
+          Math.max(a.y, b.y) >= river.band.bottom - 1;
+      if (!across) continue;
+      for (const side of [-1, 1]) {
+        const offset = side * (streetWidth / 2 + 2);
+        if (river.vertical) {
+          context.moveTo(river.band.left + blockInset, a.y + offset);
+          context.lineTo(river.band.right - blockInset, a.y + offset);
+        } else {
+          context.moveTo(a.x + offset, river.band.top + blockInset);
+          context.lineTo(a.x + offset, river.band.bottom - blockInset);
+        }
+      }
+    }
+    context.stroke();
+  }
+
+  // Main roads: wider, a little lighter, with a faint centre line.
+  context.lineCap = "square";
+  if (shade.mainRoadEdge !== shade.mainRoad) {
+    context.strokeStyle = shade.mainRoadEdge;
+    context.lineWidth = mainRoadWidth + pixels(paint, 2.5);
+    context.beginPath();
+    for (const road of plan.mainRoads)
+      road.forEach((point, index) =>
+        index === 0
+          ? context.moveTo(point.x, point.y)
+          : context.lineTo(point.x, point.y),
+      );
+    context.stroke();
+  }
+  context.strokeStyle = shade.mainRoad;
+  context.lineWidth = mainRoadWidth;
+  context.beginPath();
+  for (const road of plan.mainRoads)
+    road.forEach((point, index) =>
+      index === 0
+        ? context.moveTo(point.x, point.y)
+        : context.lineTo(point.x, point.y),
+    );
+  context.stroke();
+  context.lineCap = "butt";
+  context.strokeStyle = warm(0.2);
+  context.lineWidth = Math.max(1.5, pixels(paint, 1));
+  context.setLineDash([14, 12]);
+  context.beginPath();
+  for (const road of plan.mainRoads)
+    road.forEach((point, index) =>
+      index === 0
+        ? context.moveTo(point.x, point.y)
+        : context.lineTo(point.x, point.y),
+    );
+  context.stroke();
+  context.setLineDash([]);
+
+  // Street lights along the main roads, glowing faintly after dark.
+  if (!shade.lit) return;
+  const lights = plan.lights.filter(
+    (light) =>
+      light.x > seen.left &&
+      light.x < seen.right &&
+      light.y > seen.top &&
+      light.y < seen.bottom,
+  );
+  context.fillStyle = warm(0.045);
+  context.beginPath();
+  for (const light of lights) {
+    context.moveTo(light.x + 26, light.y);
+    context.arc(light.x, light.y, 26, 0, Math.PI * 2);
+  }
+  context.fill();
+  context.fillStyle = warm(0.06);
+  context.beginPath();
+  for (const light of lights) {
+    context.moveTo(light.x + 12, light.y);
+    context.arc(light.x, light.y, 12, 0, Math.PI * 2);
+  }
+  context.fill();
+  context.fillStyle = warm(0.75);
+  context.beginPath();
+  const dot = Math.max(2, pixels(paint, 1.1));
+  for (const light of lights) {
+    context.moveTo(light.x + dot, light.y);
+    context.arc(light.x, light.y, dot, 0, Math.PI * 2);
+  }
+  context.fill();
 }
 
 function tick(
@@ -302,393 +345,340 @@ function tick(
   context.stroke();
 }
 
-export const doctorPainter: WorldPainter = {
-  background(paint) {
-    const { context, width, height, scene } = paint;
-    setScreenTransform(paint);
-    context.fillStyle = palette.ground;
-    context.fillRect(0, 0, width, height);
-    const glow = context.createRadialGradient(
-      width * 0.5,
-      height * 0.45,
-      0,
-      width * 0.5,
-      height * 0.45,
-      Math.max(width, height) * 0.75,
-    );
-    glow.addColorStop(0, "rgba(40,110,112,0.16)");
-    glow.addColorStop(1, "rgba(0,0,0,0)");
-    context.fillStyle = glow;
-    context.fillRect(0, 0, width, height);
-
-    setWorldTransform(paint);
-    const bounds = scene.layout.bounds;
-    drawGrid(paint, {
-      left: bounds.left - 400,
-      right: bounds.right + 400,
-      top: bounds.top - 400,
-      bottom: bounds.bottom + 400,
-    });
-
-    const floor = floorPlan(scene.layout, scene.dataset);
-
-    // Corridors, only where no room covers them.
-    context.save();
-    context.beginPath();
-    context.rect(
-      bounds.left - 2000,
-      bounds.top - 2000,
-      bounds.right - bounds.left + 4000,
-      bounds.bottom - bounds.top + 4000,
-    );
-    for (const room of floor.rooms.values()) {
-      const { box } = room;
-      context.rect(
-        box.left,
-        box.top,
-        box.right - box.left,
-        box.bottom - box.top,
-      );
-    }
-    context.clip("evenodd");
-    context.strokeStyle = instrument(0.2);
-    context.lineWidth = pixels(paint, 2);
-    for (const corridor of floor.corridors)
-      context.strokeRect(
-        corridor.left,
-        corridor.top,
-        corridor.right - corridor.left,
-        corridor.bottom - corridor.top,
-      );
-    context.fillStyle = shade.corridor;
-    for (const corridor of floor.corridors)
-      context.fillRect(
-        corridor.left,
-        corridor.top,
-        corridor.right - corridor.left,
-        corridor.bottom - corridor.top,
-      );
-    context.strokeStyle = instrument(0.22);
-    context.lineWidth = pixels(paint, 1.5);
-    context.setLineDash([pixels(paint, 10), pixels(paint, 7)]);
-    for (const route of floor.routes) {
-      context.beginPath();
-      route.forEach((point, index) =>
-        index === 0
-          ? context.moveTo(point.x, point.y)
-          : context.lineTo(point.x, point.y),
-      );
-      context.stroke();
-    }
-    context.setLineDash([]);
-    context.restore();
-
-    // Rooms: a floor a step lighter than the glass, and a double wall.
-    for (const room of floor.rooms.values()) {
-      roundedRectangle(context, room.box, roomCorner);
-      context.fillStyle = withAlpha(shade.floor, room.home ? 0.9 : 0.78);
-      context.fill();
-      context.lineCap = "round";
-      context.strokeStyle = instrument(room.home ? 0.6 : 0.46);
-      context.lineWidth = pixels(paint, 1.6);
-      strokeWalls(context, room.box, roomCorner, room.openings);
-      context.strokeStyle = instrument(0.16);
-      context.lineWidth = pixels(paint, 1);
-      strokeWalls(context, inset(room.box, 8), roomCorner - 8, room.openings);
-      context.lineCap = "butt";
-      for (const opening of room.openings)
-        if (opening.door) drawDoorSwing(paint, room.box, opening);
-    }
-  },
-
-  home(paint, home) {
-    const { context, scene } = paint;
-    const centre = scene.layout.clients.get(home.id) ?? { x: 0, y: 0 };
-    const { x, y } = centre;
-
-    const pool = context.createRadialGradient(
-      x,
-      y + deskDrop,
-      0,
-      x,
-      y + deskDrop,
-      120,
-    );
-    pool.addColorStop(0, instrument(0.13));
-    pool.addColorStop(1, instrument(0));
-    context.fillStyle = pool;
-    context.beginPath();
-    context.arc(x, y + deskDrop, 120, 0, Math.PI * 2);
-    context.fill();
-
-    // The desk sits a little below the middle, clear of the decisions that
-    // are placed above and to the left of every centre.
-    context.save();
-    context.translate(0, deskDrop);
-    context.translate(x, y);
-    context.scale(1.15, 1.15);
-    context.translate(-x, -y);
-    // The desk: a U-shaped counter, open towards the corridor below.
-    const counter = () => {
-      context.beginPath();
-      context.moveTo(x - 66, y + 36);
-      context.lineTo(x - 66, y - 12);
-      context.arcTo(x - 66, y - 38, x - 40, y - 38, 26);
-      context.lineTo(x + 40, y - 38);
-      context.arcTo(x + 66, y - 38, x + 66, y - 12, 26);
-      context.lineTo(x + 66, y + 36);
-    };
-    context.lineCap = "round";
-    context.lineJoin = "round";
-    counter();
-    context.strokeStyle = instrument(0.7);
-    context.lineWidth = 20 + pixels(paint, 2.6);
-    context.stroke();
-    context.strokeStyle = "#123238";
-    context.lineWidth = 20;
-    context.stroke();
-    context.lineCap = "butt";
-
-    // A chair inside the counter.
-    context.strokeStyle = instrument(0.35);
-    context.lineWidth = pixels(paint, 1);
-    context.beginPath();
-    context.arc(x, y + 4, 8, 0, Math.PI * 2);
-    context.stroke();
-
-    // A bank of small monitors on the back of the desk, one per ward.
-    const wards = scene.dataset.clients.filter(
-      (client) => client.home !== true,
-    );
-    const count = Math.max(3, Math.min(5, wards.length));
-    const spacing = 25;
-    for (let index = 0; index < count; index++) {
-      const mx = x + (index - (count - 1) / 2) * spacing;
-      const screen = {
-        left: mx - 10.5,
-        right: mx + 10.5,
-        top: y - 51,
-        bottom: y - 36,
-      };
-      roundedRectangle(context, screen, 2.5);
-      context.fillStyle = "#03100f";
-      context.fill();
-      context.strokeStyle = instrument(0.75);
-      context.lineWidth = pixels(paint, 1);
-      context.stroke();
-      const ward = wards[index];
-      const rhythm: Rhythm = ward
-        ? wardRhythm(scene.dataset, ward.id)
-        : { rate: 0, amplitude: 0.12, offset: index * 0.37 };
-      drawTrace(paint, inset(screen, 2.5), rhythm, {
-        alpha: 0.95,
-        head: false,
-        width: 1,
-      });
-    }
-
-    // A clipboard on the right arm of the desk.
-    context.save();
-    context.translate(x + 66, y + 14);
-    context.rotate(0.14);
-    roundedRectangle(context, { left: -7, top: -9, right: 7, bottom: 9 }, 1.5);
-    context.fillStyle = shade.paper;
-    context.globalAlpha = 0.85;
-    context.fill();
-    context.globalAlpha = 1;
-    context.fillStyle = "#3d6a6a";
-    context.fillRect(-3.5, -10.5, 7, 3);
-    context.strokeStyle = "rgba(29,74,80,0.7)";
-    context.lineWidth = 0.9;
-    for (const line of [-3, 0.5, 4]) {
-      context.beginPath();
-      context.moveTo(-4.5, line);
-      context.lineTo(4.5 - (line > 3 ? 3 : 0), line);
-      context.stroke();
-    }
-    context.restore();
-    context.restore();
-
-    const below = y + deskDrop + 46 + pixels(paint, 12);
-    label(paint, doctorVocabulary.homeName, x, below, {
-      size: isFull(paint)
-        ? Math.max(11, Math.min(16, (16 * paint.camera.scale) / 0.4))
-        : 10.5,
-      font: type.display,
-      colour: palette.accent,
-      align: "center",
-      baseline: "top",
-      letterSpacing: isFull(paint) ? 0.6 : 0.3,
-    });
-    if (isFull(paint)) {
-      label(paint, `Home · ${home.name}`, x, below + pixels(paint, 20), {
-        size: 10,
+/** The admissions annex: where admissions without a department wait. */
+function drawAdmissions(paint: PaintContext, area: Rectangle, home: boolean) {
+  const { palette, shade, accent } = toneOf(paint.lighting);
+  const { context } = paint;
+  roundedRectangle(
+    context,
+    {
+      left: area.left - 6,
+      right: area.right + 6,
+      top: area.top - 6,
+      bottom: area.bottom + 6,
+    },
+    18,
+  );
+  context.fillStyle = shade.roof;
+  context.fill();
+  context.strokeStyle = accent(0.6);
+  context.lineWidth = pixels(paint, 1.4);
+  context.stroke();
+  roundedRectangle(context, area, 14);
+  context.fillStyle = shade.floor;
+  context.fill();
+  if (isFull(paint) && paint.camera.scale > labelScale.requirement) {
+    label(
+      paint,
+      home ? "Reception" : "Admissions",
+      (area.left + area.right) / 2,
+      area.top - 10,
+      {
+        size: 9.5,
         font: type.mono,
         colour: palette.mute,
         align: "center",
-        baseline: "top",
-      });
-    }
-  },
+        baseline: "bottom",
+      },
+    );
+  }
+}
 
-  client(paint, client) {
-    const { context, scene } = paint;
-    const room = floorPlan(scene.layout, scene.dataset).rooms.get(client.id);
-    if (!room) return;
-    const { box, centre } = room;
+/** The Practice: a small clinic with a hipped roof, a lit window and a door light. */
+function drawPractice(paint: PaintContext, plan: HospitalPlan) {
+  const { shade, accent, warm } = toneOf(paint.lighting);
+  const { context, reducedMotion, time } = paint;
+  const { x, y } = plan.centre;
+  const half = practiceBlock;
+  const box = {
+    left: x - half.width,
+    right: x + half.width,
+    top: y - half.height,
+    bottom: y + half.height,
+  };
+  // The door faces the car park.
+  const door = { x: box.right, y: y + 14 };
+  // At night the door lamp glows warm; by day a small violet lamp marks
+  // the door instead. Each breathes slowly, and holds still on request.
+  const breath = reducedMotion ? 0.5 : 0.5 + 0.5 * Math.sin(time * 0.8);
+  const pool = context.createRadialGradient(
+    door.x,
+    door.y,
+    0,
+    door.x,
+    door.y,
+    46,
+  );
+  const glow = shade.lit ? warm : accent;
+  pool.addColorStop(
+    0,
+    glow(shade.lit ? 0.24 + 0.08 * breath : 0.12 + 0.12 * breath),
+  );
+  pool.addColorStop(1, glow(0));
+  context.fillStyle = pool;
+  context.beginPath();
+  context.arc(door.x, door.y, 46, 0, Math.PI * 2);
+  context.fill();
 
-    // Bays along the far side wall, curtain rails drawn faint.
-    const outer =
-      centre.x <=
-      (scene.layout.clients.get(
-        scene.dataset.clients.find((candidate) => candidate.home === true)
-          ?.id ?? "",
-      )?.x ?? 0)
-        ? box.left
-        : box.right;
-    const direction = outer === box.left ? 1 : -1;
-    const bayTop = box.top + 96;
-    const bayBottom = box.bottom - 24;
-    const bays = Math.max(2, Math.floor((bayBottom - bayTop) / 100));
-    const bayHeight = (bayBottom - bayTop) / bays;
-    context.setLineDash([pixels(paint, 4), pixels(paint, 4)]);
-    context.strokeStyle = instrument(0.1);
-    context.lineWidth = pixels(paint, 1);
-    for (let bay = 0; bay < bays; bay++) {
-      const top = bayTop + bay * bayHeight + 6;
-      const bottom = top + bayHeight - 12;
-      const inner = outer + direction * 70;
+  roundedRectangle(context, box, 8);
+  context.fillStyle = shade.roof;
+  context.fill();
+  context.strokeStyle = accent(0.85);
+  context.lineWidth = pixels(paint, 1.6);
+  context.stroke();
+  // A hipped roof: a ridge and four hips.
+  context.strokeStyle = accent(0.3);
+  context.lineWidth = pixels(paint, 1);
+  const ridge = half.width - half.height;
+  context.beginPath();
+  context.moveTo(x - ridge, y);
+  context.lineTo(x + ridge, y);
+  context.moveTo(box.left + 3, box.top + 3);
+  context.lineTo(x - ridge, y);
+  context.lineTo(box.left + 3, box.bottom - 3);
+  context.moveTo(box.right - 3, box.top + 3);
+  context.lineTo(x + ridge, y);
+  context.lineTo(box.right - 3, box.bottom - 3);
+  context.stroke();
+
+  // Windows along the front. After dark two are lit, one of them softly
+  // brightening and dimming; by day they are glass.
+  const windows = [-0.62, -0.22, 0.22, 0.62];
+  windows.forEach((at, index) => {
+    const lit = index === 1 ? 0.55 + 0.35 * breath : index === 3 ? 0.6 : 0.16;
+    context.fillStyle = shade.lit ? warm(lit) : shade.glass;
+    context.fillRect(x + at * half.width - 7, box.bottom - 3, 14, 5);
+  });
+  context.fillStyle = shade.lit ? warm(0.9) : accent(0.55 + 0.4 * breath);
+  context.fillRect(door.x - 2, door.y - 9, 5, 18);
+}
+
+function drawBed(
+  paint: PaintContext,
+  position: Point,
+  angle: number,
+  state: string,
+  high: boolean,
+) {
+  const { shade } = toneOf(paint.lighting);
+  const { context } = paint;
+  const length = Math.max(22, pixels(paint, 11));
+  const width = length * 0.6;
+  const half = { x: length / 2, y: width / 2 };
+  const line = pixels(paint, 1.2);
+  context.save();
+  context.translate(position.x, position.y);
+  context.rotate(angle);
+  if (state === "done") context.globalAlpha *= 0.45;
+  const frame = { left: -half.x, right: half.x, top: -half.y, bottom: half.y };
+  roundedRectangle(context, frame, width * 0.18);
+  context.fillStyle = shade.bedBase;
+  context.fill();
+  context.strokeStyle = shade.bedFrame;
+  context.lineWidth = line;
+  context.stroke();
+  // The pillow at the head, towards the department's desk.
+  const pillow = {
+    left: -half.x + length * 0.07,
+    right: -half.x + length * 0.27,
+    top: -half.y + width * 0.16,
+    bottom: half.y - width * 0.16,
+  };
+  roundedRectangle(context, pillow, width * 0.12);
+  if (state === "todo") {
+    context.strokeStyle = withAlpha(shade.bedFrame, 0.75);
+    context.stroke();
+  } else {
+    context.fillStyle = shade.bedCover;
+    context.fill();
+  }
+  const blanket = {
+    left: -half.x + length * 0.33,
+    right: half.x - line,
+    top: -half.y + line,
+    bottom: half.y - line,
+  };
+  context.fillStyle = shade.bedCover;
+  switch (state) {
+    case "doing":
+      // In use: the blanket up over the bed.
+      context.fillRect(
+        blanket.left,
+        blanket.top,
+        blanket.right - blanket.left,
+        blanket.bottom - blanket.top,
+      );
+      context.fillStyle = shade.bedBase;
+      context.fillRect(
+        blanket.left + length * 0.08,
+        blanket.top,
+        line,
+        blanket.bottom - blanket.top,
+      );
+      break;
+    case "review":
+      // Half made: the blanket turned back corner to corner.
       context.beginPath();
-      context.moveTo(outer + direction * 10, top);
-      context.lineTo(inner, top);
-      context.lineTo(inner, bottom);
-      context.lineTo(outer + direction * 10, bottom);
+      context.moveTo(blanket.left, blanket.bottom);
+      context.lineTo(blanket.right, blanket.top);
+      context.lineTo(blanket.right, blanket.bottom);
+      context.closePath();
+      context.fill();
+      break;
+    case "done":
+      // Made: the blanket square, with its top folded over.
+      context.fillRect(
+        blanket.left,
+        blanket.top,
+        blanket.right - blanket.left,
+        blanket.bottom - blanket.top,
+      );
+      context.strokeStyle = shade.bedBase;
+      context.lineWidth = line;
+      context.beginPath();
+      context.moveTo(blanket.left + length * 0.1, blanket.top);
+      context.lineTo(blanket.left + length * 0.1, blanket.bottom);
       context.stroke();
-    }
-    context.setLineDash([]);
-
-    // The staff room table at the heart of the ward, where idle staff sit.
+      break;
+    default:
+      // Empty: nothing on it but the pillow's outline.
+      break;
+  }
+  if (high) {
+    // A second frame: higher priority.
+    context.globalAlpha *= 0.85;
     roundedRectangle(
       context,
       {
-        left: centre.x - 22,
-        top: centre.y - 16,
-        right: centre.x + 22,
-        bottom: centre.y + 16,
+        left: frame.left - length * 0.16,
+        right: frame.right + length * 0.16,
+        top: frame.top - length * 0.16,
+        bottom: frame.bottom + length * 0.16,
       },
-      8,
+      width * 0.3,
     );
-    context.fillStyle = instrument(0.05);
-    context.fill();
-    context.strokeStyle = instrument(0.3);
-    context.lineWidth = pixels(paint, 1);
+    context.strokeStyle = shade.bedFrame;
+    context.lineWidth = line;
     context.stroke();
+  }
+  context.restore();
+}
 
-    // The ward's monitor strip along the top wall.
-    const strip = {
-      left: box.left + 26,
-      right: box.right - 26,
-      top: box.top + 16,
-      bottom: box.top + 74,
-    };
-    roundedRectangle(context, strip, 8);
-    context.fillStyle = "rgba(3,14,16,0.7)";
-    context.fill();
-    context.strokeStyle = instrument(0.2);
-    context.lineWidth = pixels(paint, 1);
-    context.stroke();
-    const rhythm = wardRhythm(scene.dataset, client.id);
-    drawTrace(paint, inset(strip, 4), rhythm, {
-      alpha: 0.8,
-      head: true,
-      width: 1.6,
-    });
+/** Dotted line between two points, for handovers and air ambulance drops. */
+function dotted(
+  paint: PaintContext,
+  from: Point,
+  to: Point,
+  colour: string,
+  alpha: number,
+) {
+  if (alpha <= 0) return;
+  const { context } = paint;
+  context.save();
+  context.strokeStyle = withAlpha(colour, alpha);
+  context.lineWidth = pixels(paint, 1.3);
+  context.setLineDash([pixels(paint, 2), pixels(paint, 4)]);
+  context.lineCap = "round";
+  context.beginPath();
+  context.moveTo(from.x, from.y);
+  context.lineTo(to.x, to.y);
+  context.stroke();
+  context.restore();
+}
 
-    const staff = staffOf(scene.dataset, client.id);
-    const onRounds = staff.filter((agent) => agent.status === "running").length;
-    const full = isFull(paint);
-    label(
-      paint,
-      client.name,
-      box.left + pixels(paint, 2),
-      box.top - pixels(paint, full ? 27 : 11),
-      {
-        size: full
-          ? Math.max(11, Math.min(17, (17 * paint.camera.scale) / 0.4))
-          : 10.5,
-        font: type.display,
-        colour: palette.ink,
-        letterSpacing: full ? 0.4 : 0.2,
-      },
-    );
-    if (full) {
-      const roomy = (box.right - box.left) * paint.camera.scale > 240;
-      label(
-        paint,
-        `${roomy ? `Ward ${wardIndex(paint, client.id)} · ` : ""}${staff.length} staff · ${onRounds} ${doctorStatusNames.running}`,
-        box.left + pixels(paint, 2),
-        box.top - pixels(paint, 10),
-        { size: 9.5, font: type.mono, colour: palette.mute },
-      );
-      if (paint.camera.scale > labelScale.requirement) {
-        label(paint, "Staff room", centre.x, centre.y, {
-          size: 8.5,
-          font: type.mono,
-          colour: palette.mute,
-          align: "center",
-        });
-      }
-    }
+function polyline(context: CanvasRenderingContext2D, points: Point[]) {
+  context.beginPath();
+  points.forEach((point, index) =>
+    index === 0
+      ? context.moveTo(point.x, point.y)
+      : context.lineTo(point.x, point.y),
+  );
+}
+
+export const doctorPainter: WorldPainter = {
+  background(paint) {
+    const { palette } = toneOf(paint.lighting);
+    const { context, width, height } = paint;
+    setScreenTransform(paint);
+    context.fillStyle = palette.ground;
+    context.fillRect(0, 0, width, height);
+    setWorldTransform(paint);
+    const plan = plansOf(paint);
+    const seen = view(paint);
+    drawTown(paint, plan, seen);
+    drawRiver(paint, plan);
+    drawStreets(paint, plan, seen);
+  },
+
+  home(paint, home) {
+    const plan = planOf(paint, home.id);
+    if (!plan) return;
+    drawGrounds(paint, plan);
+    if (plan.admissions) drawAdmissions(paint, plan.admissions, true);
+    for (const room of plan.departments) drawLink(paint, plan.centre, room, 28);
+    drawPractice(paint, plan);
+  },
+
+  client(paint, client) {
+    const plan = planOf(paint, client.id);
+    if (!plan) return;
+    drawGrounds(paint, plan);
+    if (plan.admissions) drawAdmissions(paint, plan.admissions, false);
+    drawLink(paint, plan.centre, plan.spoke.bay, 18);
+    for (const room of plan.departments) drawLink(paint, plan.centre, room, 34);
+    drawMainBlock(paint, plan.centre, mainBlock);
+    drawHelipad(paint, plan.centre);
+    drawBay(paint, plan.spoke);
   },
 
   requirement(paint, requirement) {
-    const { context } = paint;
-    const point = paint.scene.layout.fixed.get(requirement.id);
-    if (!point) return;
+    const { palette, shade, accent } = toneOf(paint.lighting);
+    const { context, scene } = paint;
+    const point = scene.layout.fixed.get(requirement.id);
+    const centre = scene.layout.clients.get(requirement.clientId);
+    if (!point || !centre) return;
+    const home =
+      scene.dataset.clients.find((client) => client.id === requirement.clientId)
+        ?.home === true;
+    const angle = Math.atan2(point.y - centre.y, point.x - centre.x);
+    const size = home ? homeDepartment : department;
     const done = requirement.state === "done";
-    // The bay's curtain rail, which its treatment steps move along.
-    context.setLineDash([pixels(paint, 3), pixels(paint, 5)]);
-    context.strokeStyle = instrument(done ? 0.08 : 0.18);
-    context.lineWidth = pixels(paint, 1);
-    context.beginPath();
-    context.arc(point.x, point.y, rings.orbit, 0, Math.PI * 2);
-    context.stroke();
-    context.setLineDash([]);
+    drawDepartment(paint, point, angle, size, done);
 
-    context.globalAlpha = done ? 0.5 : 1;
-    context.fillStyle = "#123a40";
-    context.beginPath();
-    context.arc(point.x, point.y, 15, 0, Math.PI * 2);
+    // The department's desk, where its staff gather.
+    turnedRectangle(context, point, angle, 13, 10, 4);
+    context.fillStyle = shade.roof;
     context.fill();
-    context.strokeStyle = instrument(0.85);
-    context.lineWidth = pixels(paint, 1.4);
+    context.strokeStyle = accent(done ? 0.4 : 0.9);
+    context.lineWidth = pixels(paint, 1.3);
     context.stroke();
-    if (done) {
-      context.strokeStyle = palette.ink;
-      tick(context, point.x, point.y, 10);
-    } else {
-      context.lineWidth = pixels(paint, 1.1);
-      context.beginPath();
-      context.arc(point.x, point.y, 8, 0, Math.PI * 2);
-      context.stroke();
+    context.strokeStyle = palette.ink;
+    if (done) tick(context, point.x, point.y, 9);
+    else {
       context.fillStyle = palette.ink;
       context.beginPath();
       context.arc(point.x, point.y, 3, 0, Math.PI * 2);
       context.fill();
     }
-    context.globalAlpha = 1;
+
     if (isFull(paint) && paint.camera.scale > labelScale.requirement) {
-      label(paint, requirement.title, point.x, point.y + 20, {
+      const reach = size.along + 14;
+      const x = point.x + Math.cos(angle) * reach;
+      const y = point.y + Math.sin(angle) * reach;
+      const cos = Math.cos(angle);
+      const sin = Math.sin(angle);
+      label(paint, requirement.title, x, y, {
         size: 10,
         font: type.mono,
-        colour: done ? "#628784" : "#b5dcd8",
-        align: "center",
-        baseline: "top",
+        colour: done ? palette.mute : shade.labelDepartment,
+        align: cos > 0.45 ? "left" : cos < -0.45 ? "right" : "center",
+        baseline: sin > 0.45 ? "top" : sin < -0.45 ? "bottom" : "middle",
       });
     }
   },
 
   link(paint, item) {
+    const { accent } = toneOf(paint.lighting);
     const { context, scene } = paint;
     const from = item.requirementId
       ? scene.layout.fixed.get(item.requirementId)
@@ -700,7 +690,7 @@ export const doctorPainter: WorldPainter = {
       paint.time,
       paint.reducedMotion,
     );
-    context.strokeStyle = instrument(0.14);
+    context.strokeStyle = accent(0.14);
     context.lineWidth = pixels(paint, 1);
     context.beginPath();
     context.moveTo(from.x, from.y);
@@ -709,80 +699,30 @@ export const doctorPainter: WorldPainter = {
   },
 
   item(paint, item) {
-    const { context, scene } = paint;
+    const { shade } = toneOf(paint.lighting);
+    const { scene } = paint;
     const point = itemPosition(
       scene.layout,
       item,
       paint.time,
       paint.reducedMotion,
     );
-    const half = item.priority === "high" ? 7 : 5.5;
-    const outline = pixels(paint, 1.3);
-    context.save();
-    context.lineWidth = outline;
-    context.lineJoin = "round";
-    switch (item.state) {
-      case "todo":
-        // Planned: an empty box.
-        stepBox(context, point.x, point.y, half);
-        context.fillStyle = palette.ground;
-        context.fill();
-        context.strokeStyle = "#9fcbc6";
-        context.stroke();
-        break;
-      case "doing":
-        // Under way: a filled box.
-        stepBox(context, point.x, point.y, half);
-        context.fillStyle = palette.ink;
-        context.fill();
-        break;
-      case "review":
-        // Being checked: half filled, corner to corner.
-        stepBox(context, point.x, point.y, half);
-        context.fillStyle = palette.ground;
-        context.fill();
-        context.save();
-        context.clip();
-        context.fillStyle = palette.ink;
-        context.beginPath();
-        context.moveTo(point.x - half, point.y - half);
-        context.lineTo(point.x - half, point.y + half);
-        context.lineTo(point.x + half, point.y + half);
-        context.closePath();
-        context.fill();
-        context.restore();
-        stepBox(context, point.x, point.y, half);
-        context.strokeStyle = palette.ink;
-        context.stroke();
-        break;
-      case "done":
-        // Given: a ticked box, faded.
-        context.globalAlpha = 0.5;
-        stepBox(context, point.x, point.y, half);
-        context.strokeStyle = "#9fcbc6";
-        context.stroke();
-        tick(context, point.x, point.y, half * 1.2);
-        break;
-    }
-    if (item.priority === "high") {
-      // A frame around the box: higher priority.
-      context.globalAlpha = item.state === "done" ? 0.4 : 0.75;
-      stepBox(context, point.x, point.y, half + 4);
-      context.strokeStyle = palette.ink;
-      context.lineWidth = outline;
-      context.stroke();
-    }
-    context.restore();
+    const from = item.requirementId
+      ? scene.layout.fixed.get(item.requirementId)
+      : scene.layout.clients.get(item.clientId);
+    const angle = from ? Math.atan2(point.y - from.y, point.x - from.x) : 0;
+    drawBed(paint, point, angle, item.state, item.priority === "high");
     if (isFull(paint) && paint.camera.scale > labelScale.item) {
-      label(paint, item.title, point.x + 13, point.y, {
+      label(paint, item.title, point.x + pixels(paint, 16), point.y, {
         size: 10,
         font: type.mono,
-        colour: "#a6cdc9",
+        colour: shade.labelItem,
       });
     }
   },
 
   question(paint, question, fade) {
+    const { palette, shade } = toneOf(paint.lighting);
     const { context, scene, time, reducedMotion } = paint;
     const point = questionPosition(
       scene.layout,
@@ -808,10 +748,12 @@ export const doctorPainter: WorldPainter = {
       context.setLineDash([]);
     }
 
-    // A test tube in a little stand, waiting on its result.
+    // A test tube waiting on its result.
+    const grow = Math.max(1, pixels(paint, 7) / 14);
     context.save();
     context.translate(point.x, point.y);
     context.rotate(-0.3);
+    context.scale(grow, grow);
     const tube = () => {
       context.beginPath();
       context.moveTo(-5, -14);
@@ -820,7 +762,7 @@ export const doctorPainter: WorldPainter = {
       context.lineTo(5, -14);
     };
     tube();
-    context.fillStyle = "rgba(3,14,16,0.85)";
+    context.fillStyle = shade.tube;
     context.fill();
     context.save();
     context.clip();
@@ -829,7 +771,7 @@ export const doctorPainter: WorldPainter = {
     context.restore();
     tube();
     context.strokeStyle = shade.sample;
-    context.lineWidth = pixels(paint, 1.3);
+    context.lineWidth = pixels(paint, 1.3) / grow;
     context.stroke();
     context.beginPath();
     context.moveTo(-7.5, -14);
@@ -837,7 +779,7 @@ export const doctorPainter: WorldPainter = {
     context.stroke();
     context.restore();
     if (isFull(paint))
-      label(paint, "?", point.x + 11, point.y - 9, {
+      label(paint, "?", point.x + 11 * grow, point.y - 9 * grow, {
         size: 11,
         font: type.display,
         colour: shade.sample,
@@ -849,7 +791,13 @@ export const doctorPainter: WorldPainter = {
       context.strokeStyle = withAlpha(palette.status.waiting, 1 - phase);
       context.lineWidth = pixels(paint, 1.6);
       context.beginPath();
-      context.arc(point.x, point.y, 16 + phase * 16, 0, Math.PI * 2);
+      context.arc(
+        point.x,
+        point.y,
+        pixels(paint, 13) + phase * pixels(paint, 14),
+        0,
+        Math.PI * 2,
+      );
       context.stroke();
     }
     if (isFull(paint) && paint.camera.scale > labelScale.requirement) {
@@ -870,16 +818,24 @@ export const doctorPainter: WorldPainter = {
   },
 
   decision(paint, decision, appear) {
+    const { shade, accent } = toneOf(paint.lighting);
     const { context, scene } = paint;
     const point = decisionPosition(scene.layout, scene.dataset, decision);
     const made = decision.state === "made";
-    const grow = 1 + (1 - appear) * 0.9;
+    const grow = (1 + (1 - appear) * 0.9) * Math.max(1, pixels(paint, 8) / 14);
     context.save();
     context.globalAlpha = Math.min(1, appear * 1.4);
     context.translate(point.x, point.y);
     context.scale(grow, grow);
     // A signed chart on its clipboard.
     const sheet = { left: -9, top: -11, right: 9, bottom: 12 };
+    roundedRectangle(
+      context,
+      { left: -10.5, top: -12.5, right: 10.5, bottom: 13.5 },
+      3,
+    );
+    context.fillStyle = shade.kerb;
+    context.fill();
     roundedRectangle(context, sheet, 2);
     if (made) {
       context.fillStyle = shade.paper;
@@ -891,9 +847,9 @@ export const doctorPainter: WorldPainter = {
       context.stroke();
       context.setLineDash([]);
     }
-    context.fillStyle = "#3d6a6a";
+    context.fillStyle = shade.chartClip;
     context.fillRect(-4.5, -13, 9, 3.5);
-    context.strokeStyle = made ? "rgba(29,74,80,0.55)" : instrument(0.4);
+    context.strokeStyle = made ? shade.chartLines : accent(0.4);
     context.lineWidth = 0.9;
     for (const line of [-5, -1.5, 2]) {
       context.beginPath();
@@ -903,7 +859,7 @@ export const doctorPainter: WorldPainter = {
     }
     if (made) {
       // The signature, written as the decision appears.
-      context.strokeStyle = "#174a54";
+      context.strokeStyle = shade.signature;
       context.lineWidth = 1.2;
       context.beginPath();
       const steps = Math.max(1, Math.round(20 * appear));
@@ -918,16 +874,23 @@ export const doctorPainter: WorldPainter = {
     }
     context.restore();
     if (isFull(paint) && paint.camera.scale > labelScale.requirement) {
-      label(paint, `Diagnosis · ${decision.title}`, point.x + 15, point.y, {
-        size: 9.5,
-        font: type.mono,
-        colour: "#c7e5e1",
-        alpha: appear,
-      });
+      label(
+        paint,
+        `Diagnosis · ${decision.title}`,
+        point.x + 15 * grow,
+        point.y,
+        {
+          size: 9.5,
+          font: type.mono,
+          colour: shade.labelDecision,
+          alpha: appear,
+        },
+      );
     }
   },
 
   agent(paint, agent, motion, colour) {
+    const { palette } = toneOf(paint.lighting);
     const { context } = paint;
     const { position, trail } = motion;
 
@@ -966,7 +929,17 @@ export const doctorPainter: WorldPainter = {
       top: position.y - size * 1.05,
       bottom: position.y + size * 1.05,
     };
-    roundedRectangle(context, inset(badge, -pixels(paint, 1.5)), size * 0.45);
+    const rim = pixels(paint, 1.5);
+    roundedRectangle(
+      context,
+      {
+        left: badge.left - rim,
+        right: badge.right + rim,
+        top: badge.top - rim,
+        bottom: badge.bottom + rim,
+      },
+      size * 0.45,
+    );
     context.fillStyle = palette.ground;
     context.fill();
     roundedRectangle(context, badge, size * 0.35);
@@ -1008,7 +981,7 @@ export const doctorPainter: WorldPainter = {
         paint.scene.dataset.agents.indexOf(agent) * 0.3,
       );
       context.strokeStyle = withAlpha(colour, 1 - phase);
-      context.lineWidth = pixels(paint, 1.6);
+      context.lineWidth = pixels(paint, 1.8);
       context.beginPath();
       context.arc(
         position.x,
@@ -1039,80 +1012,116 @@ export const doctorPainter: WorldPainter = {
   },
 
   effect(paint, effect, progress) {
+    const { palette, shade, accent } = toneOf(paint.lighting);
     const { context, scene, time, reducedMotion } = paint;
-    const fadeOut = Math.min(1, (1 - progress) * 2);
+    const fadeOut = Math.min(1, (1 - progress) * 5);
     if (effect.kind === "message") {
-      // A page: a dashed line, a pager travelling along it, a buzz on arrival.
+      const fromClient = clientIdOfAgent(paint, effect.from);
+      const toClient = clientIdOfAgent(paint, effect.to);
       const from = scene.motions.get(effect.from)?.position;
       const to = scene.motions.get(effect.to)?.position;
-      if (!from || !to) return;
-      const curve = curveBetween(from, to, 0.16);
-      context.setLineDash([pixels(paint, 5), pixels(paint, 4)]);
-      context.strokeStyle = instrument((1 - progress) * 0.75);
-      context.lineWidth = pixels(paint, 1.3);
-      context.beginPath();
-      context.moveTo(from.x, from.y);
-      context.quadraticCurveTo(curve.control.x, curve.control.y, to.x, to.y);
-      context.stroke();
-      context.setLineDash([]);
-      const travel = reducedMotion ? 1 : Math.min(1, progress * 1.6);
-      const pager = curve.at(travel);
-      const w = pixels(paint, 7);
-      const h = pixels(paint, 5);
-      roundedRectangle(
-        context,
-        {
-          left: pager.x - w,
-          right: pager.x + w,
-          top: pager.y - h,
-          bottom: pager.y + h,
-        },
-        pixels(paint, 2),
-      );
-      context.fillStyle = palette.ink;
-      context.globalAlpha = fadeOut;
-      context.fill();
-      context.fillStyle = "#123238";
-      context.fillRect(
-        pager.x - w * 0.65,
-        pager.y - h * 0.55,
-        w * 1.3,
-        h * 0.7,
-      );
-      context.globalAlpha = 1;
-      if (travel >= 1) {
-        const buzz = reducedMotion ? 0.5 : (progress * 3) % 1;
-        context.strokeStyle = instrument((1 - buzz) * fadeOut * 0.8);
-        context.lineWidth = pixels(paint, 1.2);
-        for (const side of [-1, 1]) {
-          context.beginPath();
-          context.arc(
-            to.x,
-            to.y,
-            pixels(paint, 14) + buzz * pixels(paint, 10),
-            (side < 0 ? Math.PI : 0) - 0.5,
-            (side < 0 ? Math.PI : 0) + 0.5,
+      if (!fromClient || !toClient || !from || !to) return;
+
+      if (fromClient === toClient) {
+        // Within one hospital: a porter's trolley along a dashed corridor.
+        const path = [from, { x: to.x, y: from.y }, to];
+        const route = measure(path);
+        context.save();
+        context.strokeStyle = accent(0.7 * fadeOut);
+        context.lineWidth = pixels(paint, 1.4);
+        context.setLineDash([pixels(paint, 5), pixels(paint, 4)]);
+        polyline(context, path);
+        context.stroke();
+        context.restore();
+        const travel = reducedMotion
+          ? 1
+          : easeInOut(Math.min(1, progress / 0.8));
+        const pose = poseAlong(route, travel * route.total, 6);
+        drawTrolley(
+          paint,
+          pose.position,
+          pose.heading,
+          Math.max(18, pixels(paint, 12)),
+          fadeOut,
+        );
+        if (isFull(paint)) {
+          const middle = poseAlong(route, route.total / 2).position;
+          label(
+            paint,
+            `Porter · ${effect.text}`,
+            middle.x,
+            middle.y - pixels(paint, 14),
+            {
+              size: 10,
+              font: type.mono,
+              colour: shade.labelEffect,
+              align: "center",
+              alpha: fadeOut,
+            },
           );
-          context.stroke();
         }
+        return;
       }
+
+      // Between hospitals: an ambulance run along the streets.
+      const plan = plansOf(paint);
+      const start = plan.spokes.get(fromClient)?.bay;
+      const end = plan.spokes.get(toClient)?.bay;
+      if (!start || !end) return;
+      const path = routeBetween(plan, fromClient, toClient) ?? [start, end];
+      const route = measure(path);
+      // The route, drawn faintly ahead of the run.
+      context.save();
+      context.lineJoin = "round";
+      context.lineCap = "round";
+      context.strokeStyle = accent(0.16 * fadeOut);
+      context.lineWidth = Math.max(16, pixels(paint, 6));
+      polyline(context, path);
+      context.stroke();
+      context.strokeStyle = accent(0.55 * fadeOut);
+      context.lineWidth = pixels(paint, 1.4);
+      context.setLineDash([pixels(paint, 6), pixels(paint, 5)]);
+      polyline(context, path);
+      context.stroke();
+      context.restore();
+
+      // Handing over: from the sender to its bay, and from the far bay on.
+      const travel = reducedMotion ? 1 : easeInOut(Math.min(1, progress / 0.8));
+      dotted(
+        paint,
+        from,
+        start,
+        palette.accent,
+        reducedMotion ? 0.5 * fadeOut : Math.max(0, 0.8 - progress * 2),
+      );
+      dotted(paint, end, to, palette.accent, travel >= 1 ? 0.8 * fadeOut : 0);
+
+      const pose = poseAlong(route, travel * route.total, 22);
+      drawAmbulance(
+        paint,
+        pose.position,
+        pose.heading,
+        Math.max(46, pixels(paint, 27)),
+        { alpha: fadeOut, flashing: !reducedMotion },
+      );
       if (isFull(paint)) {
+        const middle = poseAlong(route, route.total / 2).position;
         label(
           paint,
-          `Page · ${effect.text}`,
-          curve.control.x,
-          curve.control.y,
+          `Ambulance run · ${effect.text}`,
+          middle.x,
+          middle.y - pixels(paint, 16),
           {
             size: 10,
             font: type.mono,
-            colour: "#c4ebe6",
+            colour: shade.labelEffect,
             align: "center",
             alpha: fadeOut,
           },
         );
       }
     } else if (effect.kind === "external") {
-      // The lab feed: a line of results running in from beyond the ward.
+      // An air ambulance flies in from beyond the map and lands.
       const target = scene.dataset.items.find(
         (item) => item.id === effect.recordId,
       );
@@ -1125,67 +1134,68 @@ export const doctorPainter: WorldPainter = {
         scene.dataset.requirements.find(
           (requirement) => requirement.id === effect.recordId,
         )?.clientId;
-      const centre = (clientId && scene.layout.clients.get(clientId)) || {
-        x: 0,
-        y: -1,
-      };
-      const angle = Math.atan2(centre.y || -1, centre.x);
+      const plan = clientId ? planOf(paint, clientId) : null;
+      if (!plan) return;
+      const pad =
+        plan.home && plan.carPark
+          ? {
+              x: (plan.carPark.left + plan.carPark.right) / 2,
+              y: (plan.carPark.top + plan.carPark.bottom) / 2,
+            }
+          : plan.centre;
+      const away =
+        Math.hypot(pad.x, pad.y) > 1 ? Math.atan2(pad.y, pad.x) : -Math.PI / 2;
+      const seen = view(paint, 0);
+      const reach = Math.max(seen.right - seen.left, seen.bottom - seen.top);
       const start = {
-        x: point.x + Math.cos(angle) * 640,
-        y: point.y + Math.sin(angle) * 640,
+        x: pad.x + Math.cos(away) * reach * 0.75,
+        y: pad.y + Math.sin(away) * reach * 0.75,
       };
-      const travel = reducedMotion ? 1 : Math.min(1, progress * 1.5);
-      const dx = point.x - start.x;
-      const dy = point.y - start.y;
-      const length = Math.hypot(dx, dy) || 1;
-      const normal = { x: -dy / length, y: dx / length };
-      context.strokeStyle = instrument((1 - progress) * 0.85);
-      context.lineWidth = pixels(paint, 1.4);
-      context.lineJoin = "round";
-      context.beginPath();
-      const samples = 90;
-      for (let index = 0; index <= samples * travel; index++) {
-        const along = index / samples;
-        // A small blip every so often along the line, like data arriving.
-        const local = (along * 7) % 1;
-        const blip =
-          local > 0.42 && local < 0.58
-            ? Math.sin(((local - 0.42) / 0.16) * Math.PI * 2) * 14
-            : 0;
-        const x = start.x + dx * along + normal.x * blip;
-        const y = start.y + dy * along + normal.y * blip;
-        if (index === 0) context.moveTo(x, y);
-        else context.lineTo(x, y);
-      }
-      context.stroke();
-      const head = { x: start.x + dx * travel, y: start.y + dy * travel };
-      context.fillStyle = instrument(fadeOut);
-      context.beginPath();
-      context.arc(head.x, head.y, pixels(paint, 3), 0, Math.PI * 2);
-      context.fill();
-      if (travel >= 1) {
-        context.strokeStyle = instrument(1 - progress);
-        context.lineWidth = pixels(paint, 1.4);
+      const flight = reducedMotion ? 1 : easeOut(Math.min(1, progress / 0.62));
+      const airborne = reducedMotion
+        ? 0
+        : Math.max(0, Math.min(1, (1 - flight) / 0.3));
+      const position = {
+        x: start.x + (pad.x - start.x) * flight,
+        y: start.y + (pad.y - start.y) * flight,
+      };
+      const heading = Math.atan2(pad.y - start.y, pad.x - start.x);
+      if (flight >= 1) {
+        dotted(paint, pad, point, shade.sample, 0.8 * fadeOut);
+        const ring = reducedMotion ? 0.5 : Math.min(1, (progress - 0.62) / 0.3);
+        context.strokeStyle = withAlpha(shade.sample, (1 - ring) * fadeOut);
+        context.lineWidth = pixels(paint, 1.6);
         context.beginPath();
         context.arc(
           point.x,
           point.y,
-          Math.max(0, (progress - 0.66) * 3) * pixels(paint, 36),
+          pixels(paint, 10) + ring * pixels(paint, 24),
           0,
           Math.PI * 2,
         );
         context.stroke();
       }
+      drawHelicopter(
+        paint,
+        position,
+        heading,
+        Math.max(64, pixels(paint, 34)),
+        {
+          airborne,
+          rotor: reducedMotion ? 0.4 : time * 15,
+          alpha: fadeOut,
+        },
+      );
       if (isFull(paint)) {
         label(
           paint,
-          `Lab feed · ${externalSourceNames[effect.source]}: ${effect.text}`,
-          head.x + pixels(paint, 10),
-          head.y - pixels(paint, 12),
+          `Air ambulance · ${externalSourceNames[effect.source]}: ${effect.text}`,
+          position.x + pixels(paint, 22),
+          position.y - pixels(paint, 20),
           {
             size: 10,
             font: type.mono,
-            colour: "#c4ebe6",
+            colour: shade.labelEffect,
             alpha: fadeOut,
           },
         );
@@ -1214,8 +1224,9 @@ export const doctorPainter: WorldPainter = {
   },
 
   overlay(paint) {
-    // Monitor glass: the edges fall a little darker, never over the centre.
-    const { context, width, height } = paint;
+    const { palette, shade, accent } = toneOf(paint.lighting);
+    const { context, width, height, scene, camera } = paint;
+    // Night falls a little darker towards the edges, never over the centre.
     const edge = context.createRadialGradient(
       width / 2,
       height / 2,
@@ -1224,9 +1235,89 @@ export const doctorPainter: WorldPainter = {
       height / 2,
       Math.max(width, height) * 0.8,
     );
-    edge.addColorStop(0, "rgba(2,8,10,0)");
-    edge.addColorStop(1, "rgba(2,8,10,0.35)");
+    edge.addColorStop(0, `rgba(${shade.vignette},0)`);
+    edge.addColorStop(1, `rgba(${shade.vignette},${shade.vignetteAlpha})`);
     context.fillStyle = edge;
     context.fillRect(0, 0, width, height);
+
+    // Signs, on top of everything so a name is never covered. Each sits
+    // just inside the top edge of its grounds, towards the outer side, in
+    // the band the layout leaves clear of departments and staff.
+    const full = isFull(paint);
+    const nameSize = full
+      ? Math.max(12, Math.min(16, (15 * camera.scale) / 0.4))
+      : 11;
+    for (const client of scene.dataset.clients) {
+      const plan = planOf(paint, client.id);
+      if (!plan) continue;
+      const { grounds } = plan;
+      const topLeft = worldToScreen(camera, {
+        x: grounds.left,
+        y: grounds.top,
+      });
+      const bottomRight = worldToScreen(camera, {
+        x: grounds.right,
+        y: grounds.bottom,
+      });
+      const room = bottomRight.x - topLeft.x - 12;
+      if (client.home === true) {
+        // The Practice's own blue-and-white sign, over the ring road at its
+        // front, clear of its department.
+        const height = nameSize * 1.75;
+        const front = worldToScreen(camera, {
+          x: plan.centre.x,
+          y: plan.centre.y + ringHalf,
+        });
+        drawSign(paint, {
+          x: front.x,
+          y: front.y - height / 2,
+          name: doctorVocabulary.homeName,
+          detail: full ? `Home · ${client.name}` : undefined,
+          align: "center",
+          maxWidth: room,
+          plate: shade.signPlate,
+          edge: shade.signEdge,
+          nameColour: shade.signName,
+          detailColour: shade.signDetail,
+          nameSize,
+          font: type.display,
+          detailFont: type.mono,
+        });
+        continue;
+      }
+      const staff = scene.dataset.agents.filter(
+        (agent) => clientIdOfAgent(paint, agent.id) === client.id,
+      );
+      const onRounds = staff.filter(
+        (agent) => agent.status === "running",
+      ).length;
+      const left = plan.centre.x < -1;
+      const right = plan.centre.x > 1;
+      // The corner readout floats over the top right of the screen, so a
+      // hospital up there signs the side of its grounds nearer the centre.
+      const below = right && plan.centre.y < -1;
+      const height = nameSize * 1.75;
+      drawSign(paint, {
+        x: left
+          ? topLeft.x + 6
+          : right
+            ? bottomRight.x - 6
+            : (topLeft.x + bottomRight.x) / 2,
+        y: below ? bottomRight.y - height - 5 : topLeft.y + 5,
+        name: client.name,
+        detail: full
+          ? `${staff.length} ${doctorVocabulary.agents} · ${onRounds} ${doctorStatusNames.running}`
+          : undefined,
+        align: left ? "left" : right ? "right" : "center",
+        maxWidth: room,
+        plate: shade.plate,
+        edge: accent(0.75),
+        nameColour: palette.ink,
+        detailColour: palette.mute,
+        nameSize,
+        font: type.display,
+        detailFont: type.mono,
+      });
+    }
   },
 };

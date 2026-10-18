@@ -16,7 +16,7 @@ own, reachable only inside your own private network.
 | Woodsman   | Base Camp           | clearings    | scouts    | unmarked forks      | blazed trees       |
 | Gardener   | The Homestead       | beds         | bees      | dandelion clocks    | trellises          |
 | Samurai    | The Castle          | clans        | retainers | scouts' reports     | seals              |
-| Doctor     | The Nurses’ Station | wards        | staff     | pending lab results | recorded diagnoses |
+| Doctor | The Practice | hospitals | staff | pending test results | recorded diagnoses |
 
 Astronomer and Mariner are the first release; the other four are built and
 in Storybook. See [Worlds](docs/worlds.md).

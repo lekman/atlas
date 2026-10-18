@@ -3,24 +3,25 @@ import type { AgentStatus } from "@atlas/core";
 import type { Vocabulary } from "../types";
 
 /**
- * A ward board for work, not for patients. Every word here is a metaphor for
- * agents and their tasks, and none of it should read as a clinical alert.
+ * A medical district at night, for work, not for patients. Every word here
+ * is a metaphor for agents and their tasks, and none of it should read as a
+ * clinical alert or as anything about a real person.
  */
 export const doctorVocabulary: Vocabulary = {
-  homeName: "The Nurses’ Station",
-  home: "central desk",
-  client: "ward",
-  clients: "wards",
-  requirement: "care goal",
-  item: "treatment step",
+  homeName: "The Practice",
+  home: "home clinic",
+  client: "hospital",
+  clients: "hospitals",
+  requirement: "department",
+  item: "admission",
   agent: "staff member",
   agents: "staff",
-  question: "pending lab result",
-  questions: "pending lab results",
+  question: "pending test result",
+  questions: "pending test results",
   decision: "recorded diagnosis",
-  agentMessage: "page",
-  externalEvent: "lab feed",
-  log: "Ward log",
+  agentMessage: "ambulance run",
+  externalEvent: "air ambulance",
+  log: "Dispatch log",
 };
 
 export const doctorStatusNames: Record<AgentStatus, string> = {
