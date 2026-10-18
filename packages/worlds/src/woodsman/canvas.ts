@@ -840,18 +840,6 @@ export const woodsmanPainter: WorldPainter = {
       }
     }
 
-    if (full && width > 760) {
-      // A cartouche under the corner readout, as a printed map frames its title.
-      const boxWidth = 306;
-      const x = width - 15 - boxWidth;
-      context.fillStyle = withAlpha(palette.ground, 0.94);
-      context.fillRect(x, 54, boxWidth, 94);
-      context.strokeStyle = "rgba(35,38,28,0.7)";
-      context.lineWidth = 1;
-      context.strokeRect(x + 0.5, 54.5, boxWidth, 94);
-      context.lineWidth = 0.6;
-      context.strokeRect(x + 3.5, 57.5, boxWidth - 6, 88);
-    }
     if (full) {
       northArrow(paint, 36, 88, 16);
       scaleBar(paint, 62, 96);

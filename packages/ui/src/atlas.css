@@ -277,6 +277,11 @@
   line-height: 1.7;
   color: var(--atlas-mute);
   pointer-events: none;
+  /* A panel behind the readout, so it stays legible over any world's map. */
+  padding: 8px 12px;
+  background: var(--atlas-panel);
+  border: 1px solid var(--atlas-line);
+  border-radius: 3px;
 }
 .atlas-hud strong {
   font-weight: 500;
