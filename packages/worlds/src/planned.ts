@@ -23,11 +23,4 @@ export const plannedWorlds: PlannedWorld[] = [
       "Ink-wash campaign scrolls. Clans, retainers and sealed decisions.",
     homeName: "The Castle",
   },
-  {
-    id: "doctor",
-    name: "Doctor",
-    description:
-      "Ward boards and vitals monitors. Rounds, lab results and diagnoses.",
-    homeName: "The Nurses' Station",
-  },
 ];

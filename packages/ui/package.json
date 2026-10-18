@@ -23,6 +23,8 @@
   "dependencies": {
     "@atlas/core": "workspace:*",
     "@atlas/worlds": "workspace:*",
+    "@fontsource/atkinson-hyperlegible-mono": "^5.2.0",
+    "@fontsource/atkinson-hyperlegible-next": "^5.2.0",
     "@fontsource/chakra-petch": "^5.2.0",
     "@fontsource/eb-garamond": "^5.2.0",
     "@fontsource/ibm-plex-mono": "^5.2.0",
