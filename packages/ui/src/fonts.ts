@@ -15,3 +15,7 @@ import "@fontsource/im-fell-english-sc/400.css";
 import "@fontsource/eb-garamond/400.css";
 import "@fontsource/eb-garamond/500.css";
 import "@fontsource/eb-garamond/400-italic.css";
+// Woodsman
+import "@fontsource/barlow-condensed/600.css";
+import "@fontsource/bitter/400.css";
+import "@fontsource/bitter/400-italic.css";
