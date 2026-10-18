@@ -3,15 +3,24 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, within } from "storybook/test";
 
 import { WorldPicker } from ".";
-import { storyWorld, WorldFrame } from "../../stories/WorldFrame";
+import {
+  storyLighting,
+  storyWorld,
+  WorldFrame,
+} from "../../stories/WorldFrame";
 
 const meta = {
   title: "Components/World Picker",
   component: WorldPicker,
   tags: ["autodocs"],
-  args: { current: "astronomer", onChange: fn() },
+  args: {
+    current: "astronomer",
+    onChange: fn(),
+    lighting: "automatic",
+    onLightingChange: fn(),
+  },
   render: (args, { globals }) => (
-    <WorldFrame world={storyWorld(globals)}>
+    <WorldFrame world={storyWorld(globals)} lighting={storyLighting(globals)}>
       <WorldPicker {...args} current={storyWorld(globals)} />
     </WorldFrame>
   ),
@@ -38,5 +47,20 @@ export const EveryWorld: Story = {
       canvas.getByRole("button", { name: new RegExp(worlds[other].name, "i") }),
     );
     await expect(args.onChange).toHaveBeenCalledWith(other);
+  },
+};
+
+/**
+ * Lighting follows the device until the reader picks Day or Night. The
+ * choice is reported; the shell applies it.
+ */
+export const ChooseNight: Story = {
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole("radio", { name: "Automatic" }),
+    ).toBeChecked();
+    await userEvent.click(canvas.getByRole("radio", { name: "Night" }));
+    await expect(args.onLightingChange).toHaveBeenCalledWith("night");
   },
 };

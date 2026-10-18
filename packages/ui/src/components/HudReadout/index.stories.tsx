@@ -3,7 +3,11 @@ import { worlds } from "@atlas/worlds";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 
 import { HudReadout } from ".";
-import { storyWorld, WorldFrame } from "../../stories/WorldFrame";
+import {
+  storyLighting,
+  storyWorld,
+  WorldFrame,
+} from "../../stories/WorldFrame";
 
 const meta = {
   title: "Components/HUD Readout",
@@ -16,7 +20,11 @@ const meta = {
     viewport: { width: 420, height: 320 },
   },
   render: (args, { globals }) => (
-    <WorldFrame world={storyWorld(globals)} width={520}>
+    <WorldFrame
+      world={storyWorld(globals)}
+      lighting={storyLighting(globals)}
+      width={520}
+    >
       <div style={{ position: "relative", height: 200 }}>
         <HudReadout {...args} world={worlds[storyWorld(globals)]} />
       </div>

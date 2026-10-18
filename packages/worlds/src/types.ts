@@ -45,6 +45,21 @@ export interface Palette {
   status: Record<AgentStatus, string>;
 }
 
+/**
+ * Day is a world's own look. Night is its dark mode, where it has one: the
+ * same map after dark, with its own palette and its own lit details.
+ */
+export type Lighting = "day" | "night";
+
+export interface NightMode {
+  /** What the world calls its dark mode, shown in the world picker. */
+  name: string;
+  /** One line on what changes after dark. */
+  description: string;
+  /** Held to the same hue families and contrast as the day palette. */
+  palette: Palette;
+}
+
 export interface Typefaces {
   display: string;
   body: string;
@@ -87,6 +102,8 @@ export interface PaintContext {
   /** Seconds, from a monotonic clock. */
   time: number;
   reducedMotion: boolean;
+  /** Day or night. A world without a night mode draws its day at night. */
+  lighting: Lighting;
   scene: Scene;
   selectedId: string | null;
 }
@@ -148,8 +165,8 @@ export interface Readout {
 
 /** Shapes for the still SVG map, in world units. Each returns SVG markup. */
 export interface StillMap {
-  home(centre: Point, homeId: string): string;
-  client(centre: Point, clientId: string): string;
+  home(centre: Point, homeId: string, lighting?: Lighting): string;
+  client(centre: Point, clientId: string, lighting?: Lighting): string;
   /** Where a client's name sits relative to its centre. */
   labelOffset: number;
 }
@@ -161,7 +178,13 @@ export interface World {
   description: string;
   vocabulary: Vocabulary;
   statusNames: Record<AgentStatus, string>;
+  /** The day palette; also the only one when the world has no night. */
   palette: Palette;
+  /**
+   * The world's dark mode. Absent when the world has none yet, or when its
+   * day is already dark, as Astronomer's is.
+   */
+  night?: NightMode;
   typefaces: Typefaces;
   painter: WorldPainter;
   voices: Voices;

@@ -4,12 +4,16 @@ import {
   sampleEvents,
   WorldDemonstration,
 } from "../stories/WorldDemonstration";
+import { storyLighting } from "../stories/WorldFrame";
 
 /** The Samurai world on its own: the full map, the compact map, and each kind of event. */
 const meta = {
   title: "Worlds/Samurai",
   component: WorldDemonstration,
   parameters: { layout: "fullscreen" },
+  render: (args, { globals }) => (
+    <WorldDemonstration {...args} lighting={storyLighting(globals)} />
+  ),
   args: { world: "samurai", events: [], detail: "full" },
 } satisfies Meta<typeof WorldDemonstration>;
 

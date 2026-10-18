@@ -4,7 +4,12 @@
  */
 import type { AtlasEvent } from "@atlas/core";
 import { sampleDataset } from "@atlas/fixtures";
-import { defaultSoundSettings, worlds, type WorldId } from "@atlas/worlds";
+import {
+  defaultSoundSettings,
+  worlds,
+  type Lighting,
+  type WorldId,
+} from "@atlas/worlds";
 import { useEffect, useState } from "react";
 
 import { worldStyle } from "../theme";
@@ -15,10 +20,12 @@ export function WorldDemonstration({
   world,
   events,
   detail,
+  lighting = "day",
 }: {
   world: WorldId;
   events: AtlasEvent[];
   detail: "compact" | "full";
+  lighting?: Lighting;
 }) {
   const definition = worlds[world];
   const map = useAtlasMap({
@@ -42,8 +49,9 @@ export function WorldDemonstration({
       className="atlas"
       data-world={world}
       data-mode="full"
+      data-lighting={lighting}
       style={{
-        ...worldStyle(definition),
+        ...worldStyle(definition, lighting),
         position: "relative",
         height: "100vh",
       }}
@@ -52,6 +60,7 @@ export function WorldDemonstration({
         scene={map.scene}
         world={definition}
         detail={detail}
+        lighting={lighting}
         selectedId={selected}
         onSelect={setSelected}
         label={`${definition.name} map of the sample dataset`}

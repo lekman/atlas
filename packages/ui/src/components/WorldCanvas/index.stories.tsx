@@ -12,10 +12,11 @@ const meta = {
   tags: ["autodocs"],
   component: WorldDemonstration,
   parameters: { layout: "fullscreen" },
-  args: { world: "astronomer", events: [], detail: "full" },
+  args: { world: "astronomer", events: [], detail: "full", lighting: "day" },
   argTypes: {
     world: { control: "inline-radio", options: worldIds },
     detail: { control: "inline-radio", options: ["compact", "full"] },
+    lighting: { control: "inline-radio", options: ["day", "night"] },
   },
 } satisfies Meta<typeof WorldDemonstration>;
 

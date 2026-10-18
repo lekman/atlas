@@ -10,9 +10,12 @@ import type { AtlasEvent, Dataset } from "@atlas/core";
 import {
   defaultSoundSettings,
   isWorldId,
+  lightingPreferences,
+  resolveLighting,
   worlds,
   type Bounds,
   type Camera,
+  type LightingPreference,
   type SoundSettings,
   type WorldId,
 } from "@atlas/worlds";
@@ -31,6 +34,25 @@ import { WorldPicker } from "../WorldPicker";
 
 export type AtlasMode = "compact" | "full";
 
+const darkQuery = "(prefers-color-scheme: dark)";
+
+/** Whether the device is in dark mode, kept current as it changes. */
+function useDeviceIsDark(): boolean {
+  const [dark, setDark] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      (window.matchMedia?.(darkQuery).matches ?? false),
+  );
+  useEffect(() => {
+    const query = window.matchMedia?.(darkQuery);
+    if (!query) return;
+    const update = () => setDark(query.matches);
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
+  return dark;
+}
+
 export interface AtlasShellProps {
   dataset: Dataset;
   script?: ScriptStep[];
@@ -38,9 +60,14 @@ export interface AtlasShellProps {
   interval?: number;
   initialWorld?: WorldId;
   initialMode?: AtlasMode;
+  /**
+   * Day, night, or follow the device. Automatic by default, so Atlas goes
+   * dark when the Mac or the iPhone does.
+   */
+  initialLighting?: LightingPreference;
   /** Opens the inspector on this record at start, for stories and deep links. */
   initialSelection?: string;
-  /** Remember the chosen world and sound settings in this browser. */
+  /** Remember the chosen world, lighting and sound settings in this browser. */
   remember?: boolean;
   /** An inspector action. The app sends it to the agent; stories show a toast. */
   onAction?(action: InspectorAction, id: string): void;
@@ -54,6 +81,7 @@ const storageKey = "atlas.preferences";
 
 interface Preferences {
   world?: WorldId;
+  lighting?: LightingPreference;
   sound?: Pick<SoundSettings, "volume" | "categories">;
 }
 
@@ -90,6 +118,15 @@ export function AtlasShell(props: AtlasShellProps) {
       (isWorldId(remembered.world) ? remembered.world : "astronomer"),
   );
   const [mode, setMode] = useState<AtlasMode>(props.initialMode ?? "compact");
+  const [lightingPreference, setLightingPreference] =
+    useState<LightingPreference>(
+      props.initialLighting ??
+        (lightingPreferences.includes(remembered.lighting as LightingPreference)
+          ? (remembered.lighting as LightingPreference)
+          : "automatic"),
+    );
+  const deviceIsDark = useDeviceIsDark();
+  const lighting = resolveLighting(lightingPreference, deviceIsDark);
   const [selected, setSelected] = useState<string | null>(
     props.initialSelection ?? null,
   );
@@ -142,9 +179,16 @@ export function AtlasShell(props: AtlasShellProps) {
     if (props.remember)
       writePreferences({
         world: worldId,
+        lighting: lightingPreference,
         sound: { volume: sound.volume, categories: sound.categories },
       });
-  }, [props.remember, worldId, sound.volume, sound.categories]);
+  }, [
+    props.remember,
+    worldId,
+    lightingPreference,
+    sound.volume,
+    sound.categories,
+  ]);
 
   const reported = useRef(0);
   const { onEvent } = props;
@@ -217,7 +261,8 @@ export function AtlasShell(props: AtlasShellProps) {
       className="atlas"
       data-world={worldId}
       data-mode={mode}
-      style={worldStyle(world)}
+      data-lighting={lighting}
+      style={worldStyle(world, lighting)}
       ref={shellRef}
     >
       <header className="atlas-bar">
@@ -282,6 +327,7 @@ export function AtlasShell(props: AtlasShellProps) {
         scene={map.scene}
         world={world}
         detail={mode}
+        lighting={lighting}
         selectedId={selected}
         focusId={focus}
         label={label}
@@ -345,6 +391,8 @@ export function AtlasShell(props: AtlasShellProps) {
           {popover === "world" && (
             <WorldPicker
               current={worldId}
+              lighting={lightingPreference}
+              onLightingChange={setLightingPreference}
               onChange={(id) => {
                 setWorldId(id);
                 setPopover(null);

@@ -1,13 +1,18 @@
-import type { World } from "@atlas/worlds";
+import { paletteFor, type Lighting, type World } from "@atlas/worlds";
 import type { CSSProperties } from "react";
 
 /**
  * A world's palette and typefaces as CSS custom properties. The stylesheet
  * reads only these, so a world is defined once, in `@atlas/worlds`, and
- * the canvas, the SVG and the panels can never drift apart.
+ * the canvas, the SVG and the panels can never drift apart. At night the
+ * world's night palette is used, where it has one.
  */
-export function worldStyle(world: World): CSSProperties {
-  const { palette, typefaces } = world;
+export function worldStyle(
+  world: World,
+  lighting: Lighting = "day",
+): CSSProperties {
+  const palette = paletteFor(world, lighting);
+  const { typefaces } = world;
   return {
     "--atlas-ground": palette.ground,
     "--atlas-ink": palette.ink,

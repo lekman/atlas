@@ -2,7 +2,7 @@ import { sampleDataset } from "@atlas/fixtures";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 
 import { AtlasShell } from ".";
-import { storyWorld } from "../../stories/WorldFrame";
+import { storyLighting, storyWorld } from "../../stories/WorldFrame";
 
 const meta = {
   title: "Components/Atlas Shell",
@@ -14,8 +14,9 @@ const meta = {
     <div style={{ height: "100vh" }}>
       <AtlasShell
         {...args}
-        key={storyWorld(globals)}
+        key={`${storyWorld(globals)}-${storyLighting(globals)}`}
         initialWorld={storyWorld(globals)}
+        initialLighting={storyLighting(globals)}
       />
     </div>
   ),

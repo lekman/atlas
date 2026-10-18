@@ -3,7 +3,11 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, within } from "storybook/test";
 
 import { SoundPanel } from ".";
-import { storyWorld, WorldFrame } from "../../stories/WorldFrame";
+import {
+  storyLighting,
+  storyWorld,
+  WorldFrame,
+} from "../../stories/WorldFrame";
 
 const meta = {
   title: "Components/Sound Panel",
@@ -11,7 +15,7 @@ const meta = {
   tags: ["autodocs"],
   args: { settings: defaultSoundSettings, onChange: fn(), onPreview: fn() },
   render: (args, { globals }) => (
-    <WorldFrame world={storyWorld(globals)}>
+    <WorldFrame world={storyWorld(globals)} lighting={storyLighting(globals)}>
       <SoundPanel {...args} />
     </WorldFrame>
   ),

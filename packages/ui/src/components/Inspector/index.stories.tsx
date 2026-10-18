@@ -4,7 +4,11 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, within } from "storybook/test";
 
 import { Inspector } from ".";
-import { storyWorld, WorldFrame } from "../../stories/WorldFrame";
+import {
+  storyLighting,
+  storyWorld,
+  WorldFrame,
+} from "../../stories/WorldFrame";
 
 const meta = {
   title: "Components/Inspector",
@@ -21,7 +25,7 @@ const meta = {
   render: (args, { globals }) => {
     const id = storyWorld(globals);
     return (
-      <WorldFrame world={id}>
+      <WorldFrame world={id} lighting={storyLighting(globals)}>
         <div style={{ position: "relative", height: 420 }}>
           <Inspector {...args} world={worlds[id]} />
         </div>

@@ -71,8 +71,13 @@ for (const world of Object.values(worlds)) {
   describe(`${world.name} painter`, () => {
     for (const orientation of ["landscape", "portrait"] as const) {
       for (const detail of ["compact", "full"] as const) {
-        for (const reducedMotion of [false, true]) {
-          const name = `${orientation}, ${detail}${reducedMotion ? ", reduced motion" : ""}`;
+        for (const [reducedMotion, lighting] of [
+          [false, "day"],
+          [true, "day"],
+          [false, "night"],
+          [true, "night"],
+        ] as const) {
+          const name = `${orientation}, ${detail}, ${lighting}${reducedMotion ? ", reduced motion" : ""}`;
           it(`draws the day's events without throwing, ${name}`, () => {
             const calls = { count: 0 };
             const scene = new Scene(sampleDataset, orientation);
@@ -87,6 +92,7 @@ for (const world of Object.values(worlds)) {
               detail,
               time: 0,
               reducedMotion,
+              lighting,
               scene,
               selectedId: "release",
             };

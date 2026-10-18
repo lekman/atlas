@@ -39,6 +39,22 @@ Off by default, never autoplayed, with a master switch, a volume and a
 switch per category. Sounds are synthesised, so no audio file needs a
 licence.
 
+## Night Is the Same World After Dark
+
+A world may have a night mode (`night` in its definition): its own palette
+and lit details, such as lighthouses lit or lanterns in a garden. Lighting
+is Automatic by default and follows the device; the reader can fix Day or
+Night in the world picker.
+
+The night palette is held to every rule above: the same status hue
+families, 4.5:1 contrast for text on the ground and on a panel, and the
+same pulsing ring for anything that needs the reader. Lights that come on
+at night are decoration and never take a status hue. A world whose day is
+already dark, as Astronomer's is, needs no night.
+
+`packages/worlds/tests/palettes.test.ts` checks every palette, day and
+night.
+
 ## A World Is Four Parts
 
 | Part       | Lives in                                    |

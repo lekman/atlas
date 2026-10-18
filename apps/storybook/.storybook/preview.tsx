@@ -17,8 +17,20 @@ const preview: Preview = {
         dynamicTitle: true,
       },
     },
+    lighting: {
+      description: "Day, or the world's night mode where it has one",
+      toolbar: {
+        title: "Lighting",
+        icon: "sun",
+        items: [
+          { value: "day", title: "Day", icon: "sun" },
+          { value: "night", title: "Night", icon: "moon" },
+        ],
+        dynamicTitle: true,
+      },
+    },
   },
-  initialGlobals: { world: "astronomer" },
+  initialGlobals: { world: "astronomer", lighting: "day" },
   decorators: [
     (Story) => (
       <>

@@ -13,7 +13,14 @@ const meta = {
   title: "Pages/Atlas",
   component: AtlasShell,
   parameters: { layout: "fullscreen" },
-  args: { dataset: sampleDataset, script: sampleScript, interval: 3.4 },
+  // Day unless a story says otherwise, so a test never depends on whether
+  // the machine running it is in dark mode.
+  args: {
+    dataset: sampleDataset,
+    script: sampleScript,
+    interval: 3.4,
+    initialLighting: "day",
+  },
 } satisfies Meta<typeof AtlasShell>;
 
 export default meta;

@@ -3,7 +3,11 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
 
 import { KeyPanel } from ".";
-import { storyWorld, WorldFrame } from "../../stories/WorldFrame";
+import {
+  storyLighting,
+  storyWorld,
+  WorldFrame,
+} from "../../stories/WorldFrame";
 
 const meta = {
   title: "Components/Key Panel",
@@ -11,7 +15,7 @@ const meta = {
   tags: ["autodocs"],
   args: { world: worlds.astronomer },
   render: (_args, { globals }) => (
-    <WorldFrame world={storyWorld(globals)}>
+    <WorldFrame world={storyWorld(globals)} lighting={storyLighting(globals)}>
       <KeyPanel world={worlds[storyWorld(globals)]} />
     </WorldFrame>
   ),

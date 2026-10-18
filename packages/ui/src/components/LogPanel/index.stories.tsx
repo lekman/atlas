@@ -4,7 +4,11 @@ import { worlds } from "@atlas/worlds";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 
 import { LogPanel } from ".";
-import { storyWorld, WorldFrame } from "../../stories/WorldFrame";
+import {
+  storyLighting,
+  storyWorld,
+  WorldFrame,
+} from "../../stories/WorldFrame";
 import type { LogEntry } from "../../useAtlasMap";
 
 const events = sampleScript
@@ -27,7 +31,7 @@ const meta = {
   render: (args, { globals }) => {
     const id = storyWorld(globals);
     return (
-      <WorldFrame world={id} width={480}>
+      <WorldFrame world={id} lighting={storyLighting(globals)} width={480}>
         <LogPanel {...args} world={worlds[id]} />
       </WorldFrame>
     );

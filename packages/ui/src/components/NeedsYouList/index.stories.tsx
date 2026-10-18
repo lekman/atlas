@@ -4,7 +4,11 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, within } from "storybook/test";
 
 import { NeedsYouList } from ".";
-import { storyWorld, WorldFrame } from "../../stories/WorldFrame";
+import {
+  storyLighting,
+  storyWorld,
+  WorldFrame,
+} from "../../stories/WorldFrame";
 
 const meta = {
   title: "Components/Needs You List",
@@ -14,7 +18,7 @@ const meta = {
   render: (args, { globals }) => {
     const id = storyWorld(globals);
     return (
-      <WorldFrame world={id}>
+      <WorldFrame world={id} lighting={storyLighting(globals)}>
         <NeedsYouList {...args} world={worlds[id]} />
       </WorldFrame>
     );

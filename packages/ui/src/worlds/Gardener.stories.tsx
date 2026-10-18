@@ -4,12 +4,16 @@ import {
   sampleEvents,
   WorldDemonstration,
 } from "../stories/WorldDemonstration";
+import { storyLighting } from "../stories/WorldFrame";
 
 /** The Gardener world on its own: the full map, the compact map, and each kind of event. */
 const meta = {
   title: "Worlds/Gardener",
   component: WorldDemonstration,
   parameters: { layout: "fullscreen" },
+  render: (args, { globals }) => (
+    <WorldDemonstration {...args} lighting={storyLighting(globals)} />
+  ),
   args: { world: "gardener", events: [], detail: "full" },
 } satisfies Meta<typeof WorldDemonstration>;
 
