@@ -1,7 +1,11 @@
 import type { World } from "../types";
 import { marinerPainter } from "./canvas";
 import { marinerPhrases, marinerReadout, marinerStillMap } from "./language";
-import { marinerPalette, marinerTypefaces } from "./palette";
+import {
+  marinerNightPalette,
+  marinerPalette,
+  marinerTypefaces,
+} from "./palette";
 import { marinerStatusNames, marinerVocabulary } from "./vocabulary";
 import { marinerVoices } from "./voices";
 
@@ -13,6 +17,12 @@ export const mariner: World = {
   vocabulary: marinerVocabulary,
   statusNames: marinerStatusNames,
   palette: marinerPalette,
+  night: {
+    name: "Night watch",
+    description:
+      "The chart on deep navy by moonlight: every lighthouse lit and sweeping, ships showing masthead lights, Turtle Bay's windows aglow.",
+    palette: marinerNightPalette,
+  },
   typefaces: marinerTypefaces,
   painter: marinerPainter,
   voices: marinerVoices,
