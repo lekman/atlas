@@ -17,6 +17,7 @@ trim_trailing_whitespace = true
 indent_style = space
 indent_size = 2
 switch_case_indent = true
+binary_next_line = true
 
 [*.md]
 # Trailing double-space is a hard line break in markdown.

@@ -71,6 +71,12 @@ done
 MODE="${ARGS[0]:-worktree}"
 HITS=""
 
+# Prefix every line on stdin, for indented reports.
+indent() {
+  local line
+  while IFS= read -r line; do printf '%s%s\n' "$1" "$line"; done
+}
+
 case "$MODE" in
   --message)
     # Trunk does not expand ${TRUNK_GIT_STDIN_FILE} in an action's `run:`, so
@@ -81,14 +87,17 @@ case "$MODE" in
     FILE="${ARGS[1]:-}"
     [ -n "$FILE" ] || FILE="${TRUNK_GIT_STDIN_FILE:-}"
     [ -n "$FILE" ] || FILE="$(git rev-parse --git-dir)/COMMIT_EDITMSG"
-    [ -f "$FILE" ] || { echo "check-no-client-content: no message file at '$FILE'" >&2; exit 2; }
+    [ -f "$FILE" ] || {
+      echo "check-no-client-content: no message file at '$FILE'" >&2
+      exit 2
+    }
     # Skip the comment lines git adds to the template; they are never committed.
     match=$(grep -vE '^\s*#' "$FILE" | grep -InE "$PATTERN")
     if [ -n "$match" ]; then
       if [ "$QUIET" -eq 1 ]; then
         HITS="the commit message names a protected term"
       else
-        HITS=$(echo "$match" | sed 's/^/    /')
+        HITS=$(indent '    ' <<<"$match")
       fi
     fi
     ;;
@@ -105,7 +114,7 @@ case "$MODE" in
 "
         fi
       fi
-    done < <(git rev-list ${RANGE:-HEAD})
+    done < <(git rev-list "${RANGE:-HEAD}")
     ;;
 
   --history)
@@ -126,7 +135,7 @@ case "$MODE" in
       match=$(git show ":$f" 2>/dev/null | grep -IinE "$PATTERN" | head -3)
       if [ -n "$match" ]; then
         HITS="${HITS}${f}:
-$(echo "$match" | sed 's/^/    /')
+$(indent '    ' <<<"$match")
 "
       fi
     done
@@ -135,14 +144,14 @@ $(echo "$match" | sed 's/^/    /')
   *)
     FILES=$(git ls-files --cached --others --exclude-standard | grep -vE "$EXCLUDE")
     [ -z "$FILES" ] && exit 0
-    HITS=$(printf '%s\n' "$FILES" | tr '\n' '\0' |
-      xargs -0 grep -IinE "$PATTERN" 2>/dev/null)
+    HITS=$(printf '%s\n' "$FILES" | tr '\n' '\0' \
+      | xargs -0 grep -IinE "$PATTERN" 2>/dev/null)
     ;;
 esac
 
 if [ -n "$HITS" ]; then
   echo "BLOCKED: client-identifying content found." >&2
-  echo "$HITS" | sed 's/^/  /' >&2
+  indent '  ' <<<"$HITS" >&2
   echo >&2
   if [ "$QUIET" -eq 1 ]; then
     echo "Re-run locally without --quiet to see the term and where it is." >&2

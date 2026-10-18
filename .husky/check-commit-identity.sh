@@ -67,11 +67,11 @@ EOF
 fi
 
 case "$email" in
-*"@${EXPECTED_DOMAIN}")
-  exit 0
-  ;;
-*)
-  cat >&2 <<EOF
+  *"@${EXPECTED_DOMAIN}")
+    exit 0
+    ;;
+  *)
+    cat >&2 <<EOF
 Commit email "$email" is outside the expected domain @${EXPECTED_DOMAIN}.
 
 Set it for this repository only:
@@ -86,6 +86,6 @@ If this repository should accept any address, disable the check:
 
   git config commit.emailDomain ""
 EOF
-  exit 1
-  ;;
+    exit 1
+    ;;
 esac
