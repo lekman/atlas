@@ -17,13 +17,6 @@ export const plannedWorlds: PlannedWorld[] = [
     homeName: "The Homestead",
   },
   {
-    id: "samurai",
-    name: "Samurai",
-    description:
-      "Ink-wash campaign scrolls. Clans, retainers and sealed decisions.",
-    homeName: "The Castle",
-  },
-  {
     id: "doctor",
     name: "Doctor",
     description:

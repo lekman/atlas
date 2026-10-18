@@ -15,3 +15,7 @@ import "@fontsource/im-fell-english-sc/400.css";
 import "@fontsource/eb-garamond/400.css";
 import "@fontsource/eb-garamond/500.css";
 import "@fontsource/eb-garamond/400-italic.css";
+// Samurai
+import "@fontsource/shippori-mincho/latin-400.css";
+import "@fontsource/shippori-mincho/latin-600.css";
+import "@fontsource/zen-kaku-gothic-new/latin-500.css";

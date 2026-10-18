@@ -1,5 +1,6 @@
 import { astronomer } from "./astronomer";
 import { mariner } from "./mariner";
+import { samurai } from "./samurai";
 import type { World } from "./types";
 
 /**
@@ -9,6 +10,7 @@ import type { World } from "./types";
 export const worlds = {
   astronomer,
   mariner,
+  samurai,
 } satisfies Record<string, World>;
 
 export type WorldId = keyof typeof worlds;
@@ -18,7 +20,7 @@ export function isWorldId(value: unknown): value is WorldId {
   return typeof value === "string" && value in worlds;
 }
 
-export { astronomer, mariner };
+export { astronomer, mariner, samurai };
 export * from "./camera";
 export * from "./layout";
 export * from "./paint";
