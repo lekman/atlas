@@ -3,11 +3,12 @@ import { worlds } from "@atlas/worlds";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, within } from "storybook/test";
 
-import { Inspector } from "./Inspector";
-import { storyWorld, WorldFrame } from "./stories/WorldFrame";
+import { Inspector } from ".";
+import { storyWorld, WorldFrame } from "../../stories/WorldFrame";
 
 const meta = {
   title: "Components/Inspector",
+  tags: ["autodocs"],
   component: Inspector,
   args: {
     dataset: sampleDataset,
@@ -32,20 +33,26 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
+/** An agent: status, client, what it works on, and the plain-word buttons. */
 export const AnAgent: Story = { name: "An Agent" };
+
+/** A requirement, with the backlog items and decisions under it. */
 export const ARequirement: Story = {
   name: "A Requirement",
   args: { id: "one-tenant" },
 };
+/** A backlog item, with the agent working it. */
 export const ABacklogItem: Story = {
   name: "A Backlog Item",
   args: { id: "cut-over" },
 };
+/** A decision, with what it settled. */
 export const ADecision: Story = {
   name: "A Decision",
   args: { id: "single-tenant" },
 };
 
+/** An open question asked of you, with Answer as its first button. */
 export const AQuestion: Story = {
   name: "A Question",
   args: { id: "alarms-live" },

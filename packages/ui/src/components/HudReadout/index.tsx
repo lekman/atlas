@@ -2,13 +2,22 @@ import { needsYou, type Dataset } from "@atlas/core";
 import type { Camera, World } from "@atlas/worlds";
 
 export interface HudReadoutProps {
+  /** Whose words the readout uses. */
   world: World;
+  /** What is counted: clients, agents, who is active, what needs you. */
   dataset: Dataset;
+  /** Where the map is looking, for worlds that show a position or a scale. */
   camera: Camera | null;
+  /** The map's size in pixels, to turn the camera into a map position. */
   viewport: { width: number; height: number };
 }
 
-/** The corner readout over the full map, in the world's own words. */
+/**
+ * The corner readout over the full map, in the world's own words. Hidden
+ * from screen readers: everything it counts is in the needs-you list and
+ * the map's own description, and a line that changes as the map pans would
+ * only be noise.
+ */
 export function HudReadout({
   world,
   dataset,

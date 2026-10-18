@@ -11,11 +11,17 @@ export type InspectorAction =
   | "open-record";
 
 export interface InspectorProps {
+  /** Where the record and everything it links to are looked up. */
   dataset: Dataset;
+  /** Whose words name the record; the real term is shown beneath. */
   world: World;
+  /** The record to show: an agent, group, requirement, item, question or decision. */
   id: string;
+  /** The close button was pressed. */
   onClose(): void;
+  /** A linked record was picked, to show next. */
   onSelect(id: string): void;
+  /** A button was pressed. The parent carries it out; the inspector only reports it. */
   onAction(action: InspectorAction, id: string): void;
 }
 

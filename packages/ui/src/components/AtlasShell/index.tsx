@@ -18,14 +18,16 @@ import {
 } from "@atlas/worlds";
 import { useEffect, useRef, useState } from "react";
 
-import { HudReadout } from "./HudReadout";
-import { Inspector, type InspectorAction } from "./Inspector";
-import { LogPanel } from "./LogPanel";
-import { NeedsYouList } from "./NeedsYouList";
-import { KeyPanel, SoundPanel, WorldPicker } from "./Panels";
-import { worldStyle } from "./theme";
-import { useAtlasMap, type ScriptStep } from "./useAtlasMap";
-import { WorldCanvas } from "./WorldCanvas";
+import { worldStyle } from "../../theme";
+import { useAtlasMap, type ScriptStep } from "../../useAtlasMap";
+import { HudReadout } from "../HudReadout";
+import { Inspector, type InspectorAction } from "../Inspector";
+import { KeyPanel } from "../KeyPanel";
+import { LogPanel } from "../LogPanel";
+import { NeedsYouList } from "../NeedsYouList";
+import { SoundPanel } from "../SoundPanel";
+import { WorldCanvas } from "../WorldCanvas";
+import { WorldPicker } from "../WorldPicker";
 
 export type AtlasMode = "compact" | "full";
 

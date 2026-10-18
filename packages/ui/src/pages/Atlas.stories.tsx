@@ -3,7 +3,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import type { ReactNode } from "react";
 import { expect, userEvent, within } from "storybook/test";
 
-import { AtlasShell } from "./AtlasShell";
+import { AtlasShell } from "../components/AtlasShell";
 
 /**
  * The whole view, on the invented dataset with its scripted day replaying.
@@ -39,6 +39,7 @@ function Sidebar({ children }: { children: ReactNode }) {
   );
 }
 
+/** Astronomer as it first opens: the compact pane beside your sessions. */
 export const AstronomerInTheSidebar: Story = {
   name: "Astronomer, in the Sidebar",
   args: { initialWorld: "astronomer", initialMode: "compact" },
@@ -49,22 +50,26 @@ export const AstronomerInTheSidebar: Story = {
   ),
 };
 
+/** The same pane in Mariner. */
 export const MarinerInTheSidebar: Story = {
   name: "Mariner, in the Sidebar",
   args: { initialWorld: "mariner", initialMode: "compact" },
   render: AstronomerInTheSidebar.render,
 };
 
+/** Expanded: the full map with the readout and the log. */
 export const AstronomerFullPage: Story = {
   name: "Astronomer, Full Page",
   args: { initialWorld: "astronomer", initialMode: "full" },
 };
 
+/** The full page in Mariner. */
 export const MarinerFullPage: Story = {
   name: "Mariner, Full Page",
   args: { initialWorld: "mariner", initialMode: "full" },
 };
 
+/** A question open in the inspector, with Answer first. */
 export const InspectingAQuestion: Story = {
   name: "Inspecting a Question",
   args: {
@@ -113,6 +118,7 @@ export const OnALaptopFullPage: Story = {
   globals: { viewport: { value: "laptopFullPage", isRotated: false } },
 };
 
+/** An iPhone 15: the compact view on a phone that does not fold. */
 export const OnAPhone: Story = {
   name: "On an iPhone 15",
   args: { initialWorld: "mariner", initialMode: "compact" },

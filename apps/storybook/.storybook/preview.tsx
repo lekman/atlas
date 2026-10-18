@@ -30,8 +30,43 @@ const preview: Preview = {
     ),
   ],
   parameters: {
+    /**
+     * Sidebar order, set rather than left alphabetical.
+     *
+     * Pages first, because the question anybody opening this asks is what
+     * Atlas looks like on the screen they use. Then the worlds, in release
+     * order: the first release, then the rest in the order they were
+     * designed. The building blocks come last: they matter when building a
+     * view, not when judging one.
+     *
+     * A name not listed here falls to the bottom alphabetically, so a new
+     * section appears rather than hides.
+     */
     options: {
-      storySort: { order: ["Introduction", "Pages", "Worlds", "Components"] },
+      storySort: {
+        order: [
+          "Introduction",
+          "Pages",
+          "Worlds",
+          [
+            "Astronomer",
+            "Mariner",
+            "Woodsman",
+            "Gardener",
+            "Samurai",
+            "Doctor",
+          ],
+          "Components",
+          [
+            "Atlas Shell",
+            "World Canvas",
+            "Needs You List",
+            "Inspector",
+            "Log Panel",
+            "HUD Readout",
+          ],
+        ],
+      },
     },
     // Real devices rather than "small mobile" and "large mobile": the ones
     // Atlas is opened on.

@@ -9,7 +9,7 @@ import { useEffect, useState } from "react";
 
 import { worldStyle } from "../theme";
 import { useAtlasMap } from "../useAtlasMap";
-import { WorldCanvas } from "../WorldCanvas";
+import { WorldCanvas } from "../components/WorldCanvas";
 
 export function WorldDemonstration({
   world,
