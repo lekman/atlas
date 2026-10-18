@@ -282,6 +282,11 @@
   font-weight: 500;
   color: var(--atlas-ink);
 }
+.atlas-hud-hint {
+  margin-top: 4px;
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+}
 .atlas-hud-attention {
   color: var(--atlas-waiting);
 }

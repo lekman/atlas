@@ -42,6 +42,10 @@ export function HudReadout({
       {rest.map((line) => (
         <span key={line}>{line}</span>
       ))}
+      <span className="atlas-hud-hint">
+        Double-click a {world.vocabulary.client} to zoom in; again, or empty
+        space, for the whole map
+      </span>
     </div>
   );
 }

@@ -27,6 +27,14 @@ export interface WorldCanvasProps {
   selectedId: string | null;
   /** A tap: the record under the pointer, or null for empty space. */
   onSelect(id: string | null): void;
+  /**
+   * A double tap on a client in compact detail: the parent opens the full
+   * view and passes the client back as `zoomClientId`.
+   */
+  onOpenSystem?(clientId: string): void;
+  /** Fly in to this client's system. Change `zoomRequest` to ask again. */
+  zoomClientId?: string | null;
+  zoomRequest?: number;
   /** Fly to this record when it changes. */
   focusId?: string | null;
   /** Called a few times a second while the camera moves, for the HUD. */
@@ -36,6 +44,9 @@ export interface WorldCanvasProps {
 }
 
 const reducedMotionQuery = "(prefers-reduced-motion: reduce)";
+const doubleTapMilliseconds = 300;
+/** How far from a client's centre a double tap still counts as its system. */
+const systemRadius = { client: 380, home: 240 } as const;
 
 export function WorldCanvas(props: WorldCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -50,6 +61,7 @@ export function WorldCanvas(props: WorldCanvasProps) {
   } | null>(null);
   const userMoved = useRef(false);
   const hits = useRef<HitTarget[]>([]);
+  const zoomedSystem = useRef<string | null>(null);
   const size = useRef({ width: 0, height: 0, pixelRatio: 1 });
 
   const fit = (animate: boolean) => {
@@ -162,9 +174,67 @@ export function WorldCanvas(props: WorldCanvasProps) {
   // Refit when the view changes between compact and full.
   useEffect(() => {
     userMoved.current = false;
+    zoomedSystem.current = null;
     const timer = window.setTimeout(() => fit(true), 30);
     return () => window.clearTimeout(timer);
   }, [props.detail]);
+
+  /** The client whose system is under a screen point, if any. */
+  const systemAt = (x: number, y: number): string | null => {
+    const world = {
+      x: (x - camera.current.x) / camera.current.scale,
+      y: (y - camera.current.y) / camera.current.scale,
+    };
+    const { scene } = live.current;
+    let best: string | null = null;
+    let bestDistance = Infinity;
+    for (const client of scene.dataset.clients) {
+      const centre = scene.layout.clients.get(client.id);
+      if (!centre) continue;
+      const reach =
+        client.home === true ? systemRadius.home : systemRadius.client;
+      const distance = Math.hypot(world.x - centre.x, world.y - centre.y);
+      if (distance < reach && distance < bestDistance) {
+        best = client.id;
+        bestDistance = distance;
+      }
+    }
+    return best;
+  };
+
+  const flyToSystem = (clientId: string) => {
+    const { scene } = live.current;
+    const centre = scene.layout.clients.get(clientId);
+    if (!centre) return;
+    const isHome =
+      scene.dataset.clients.find((client) => client.id === clientId)?.home ===
+      true;
+    const { width, height } = size.current;
+    const span = isHome ? 260 : 400;
+    const scale = clampScale(Math.min(width, height) / (span * 2));
+    userMoved.current = true;
+    zoomedSystem.current = clientId;
+    flight.current = {
+      from: { ...camera.current },
+      to: focusOn(centre, scale, width, height),
+      start: performance.now() / 1000,
+      duration: 0.6,
+    };
+  };
+
+  const flyToGalaxy = () => {
+    zoomedSystem.current = null;
+    userMoved.current = false;
+    fit(true);
+  };
+
+  // Fly in to a system when the parent asks (after a double tap in compact).
+  useEffect(() => {
+    const id = props.zoomClientId;
+    if (!id) return;
+    const timer = window.setTimeout(() => flyToSystem(id), 120);
+    return () => window.clearTimeout(timer);
+  }, [props.zoomClientId, props.zoomRequest]);
 
   // Fly to a record when asked.
   useEffect(() => {
@@ -263,15 +333,41 @@ export function WorldCanvas(props: WorldCanvasProps) {
         canvas.dataset.dragging = "true";
       }
     };
+    // A double click or double tap flies in to the system under it; on empty
+    // space, or on the system already in view, back out to the whole map.
+    let lastTap = { time: 0, x: 0, y: 0 };
+    let pendingTap: number | undefined;
     const up = (event: PointerEvent) => {
       pointers.delete(event.pointerId);
       delete canvas.dataset.dragging;
       if (pointers.size < 2) pinch = null;
       if (drag && !drag.moved && event.type === "pointerup") {
         const point = local(event);
-        live.current.onSelect(
-          hitTest(hits.current, point.x, point.y)?.id ?? null,
-        );
+        const now = performance.now();
+        const isDouble =
+          now - lastTap.time < doubleTapMilliseconds &&
+          Math.hypot(point.x - lastTap.x, point.y - lastTap.y) < 30;
+        lastTap = isDouble ? { time: 0, x: 0, y: 0 } : { time: now, ...point };
+        const selected = hitTest(hits.current, point.x, point.y)?.id ?? null;
+        if (isDouble) {
+          window.clearTimeout(pendingTap);
+          const system = systemAt(point.x, point.y);
+          if (!full()) {
+            if (system) live.current.onOpenSystem?.(system);
+            else live.current.onSelect(null);
+          } else if (system && system !== zoomedSystem.current)
+            flyToSystem(system);
+          else flyToGalaxy();
+        } else if (full()) {
+          live.current.onSelect(selected);
+        } else {
+          // In compact detail a tap opens the full view, so wait a moment to
+          // see whether it is the first half of a double tap.
+          pendingTap = window.setTimeout(
+            () => live.current.onSelect(selected),
+            doubleTapMilliseconds,
+          );
+        }
       }
       drag = null;
     };

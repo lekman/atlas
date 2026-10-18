@@ -90,6 +90,10 @@ export function AtlasShell(props: AtlasShellProps) {
   const [selected, setSelected] = useState<string | null>(
     props.initialSelection ?? null,
   );
+  const [zoom, setZoom] = useState<{
+    clientId: string;
+    request: number;
+  } | null>(null);
   const [focus, setFocus] = useState<string | null>(
     props.initialSelection ?? null,
   );
@@ -260,6 +264,12 @@ export function AtlasShell(props: AtlasShellProps) {
         focusId={focus}
         label={label}
         onCameraChange={setCamera}
+        zoomClientId={zoom?.clientId ?? null}
+        zoomRequest={zoom?.request ?? 0}
+        onOpenSystem={(clientId) => {
+          setMode("full");
+          setZoom({ clientId, request: Date.now() });
+        }}
         onSelect={(id) => {
           if (mode === "compact") {
             if (id) open(id);
