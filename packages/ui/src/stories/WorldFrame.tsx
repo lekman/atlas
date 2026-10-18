@@ -1,5 +1,5 @@
 /** A world's colours and faces around a single component, for its stories. */
-import { worlds, type WorldId } from "@atlas/worlds";
+import { isWorldId, worlds, type WorldId } from "@atlas/worlds";
 import type { ReactNode } from "react";
 
 import { worldStyle } from "../theme";
@@ -33,5 +33,5 @@ export function WorldFrame({
 
 /** The world chosen in the Storybook toolbar. */
 export function storyWorld(globals: Record<string, unknown>): WorldId {
-  return globals.world === "mariner" ? "mariner" : "astronomer";
+  return isWorldId(globals.world) ? globals.world : "astronomer";
 }

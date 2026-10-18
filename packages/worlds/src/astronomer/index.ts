@@ -1,5 +1,10 @@
 import type { World } from "../types";
 import { astronomerPainter } from "./canvas";
+import {
+  astronomerPhrases,
+  astronomerReadout,
+  astronomerStillMap,
+} from "./language";
 import { astronomerPalette, astronomerTypefaces } from "./palette";
 import { astronomerStatusNames, astronomerVocabulary } from "./vocabulary";
 import { astronomerVoices } from "./voices";
@@ -15,4 +20,7 @@ export const astronomer: World = {
   typefaces: astronomerTypefaces,
   painter: astronomerPainter,
   voices: astronomerVoices,
+  phrases: astronomerPhrases,
+  readout: astronomerReadout,
+  stillMap: astronomerStillMap,
 };

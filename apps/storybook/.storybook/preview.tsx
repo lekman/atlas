@@ -1,3 +1,4 @@
+import { worldIds, worlds } from "@atlas/worlds";
 import type { Preview } from "@storybook/react-vite";
 
 // Served from this Storybook, not from Google: it is published publicly, and
@@ -12,10 +13,7 @@ const preview: Preview = {
       toolbar: {
         title: "World",
         icon: "globe",
-        items: [
-          { value: "astronomer", title: "Astronomer" },
-          { value: "mariner", title: "Mariner" },
-        ],
+        items: worldIds.map((id) => ({ value: id, title: worlds[id].name })),
         dynamicTitle: true,
       },
     },

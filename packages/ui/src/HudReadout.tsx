@@ -8,70 +8,40 @@ export interface HudReadoutProps {
   viewport: { width: number; height: number };
 }
 
-/**
- * The corner readout: position and zoom for the Astronomer's console, scale
- * and a title for the Mariner's chart, and in both the counts that matter.
- */
+/** The corner readout over the full map, in the world's own words. */
 export function HudReadout({
   world,
   dataset,
   camera,
   viewport,
 }: HudReadoutProps) {
-  const { vocabulary } = world;
-  const clients = dataset.clients.filter(
-    (client) => client.home !== true,
-  ).length;
-  const active = dataset.agents.filter(
-    (agent) => agent.status === "running" || agent.status === "watching",
-  ).length;
-  const waiting = needsYou(dataset).length;
-  const comets = dataset.questions.filter(
-    (question) => question.state === "open",
-  ).length;
-  const time = new Date().toLocaleTimeString("en-GB", {
-    hour: "2-digit",
-    minute: "2-digit",
+  const readout = world.readout({
+    clients: dataset.clients.filter((client) => client.home !== true).length,
+    agents: dataset.agents.length,
+    active: dataset.agents.filter(
+      (agent) => agent.status === "running" || agent.status === "watching",
+    ).length,
+    needsYou: needsYou(dataset).length,
+    openQuestions: dataset.questions.filter(
+      (question) => question.state === "open",
+    ).length,
+    x: camera ? (viewport.width / 2 - camera.x) / camera.scale : 0,
+    y: camera ? (viewport.height / 2 - camera.y) / camera.scale : 0,
+    scale: camera?.scale ?? 1,
+    time: new Date().toLocaleTimeString("en-GB", {
+      hour: "2-digit",
+      minute: "2-digit",
+    }),
   });
-
-  if (world.id === "mariner") {
-    const scale = camera ? Math.round(1000 / camera.scale) : 0;
-    return (
-      <div className="atlas-hud" aria-hidden="true">
-        <strong>Chart of present work</strong>
-        <span>
-          {clients} {vocabulary.clients} · {dataset.agents.length}{" "}
-          {vocabulary.agents} · {active} under way
-        </span>
-        <span className="atlas-hud-attention">
-          {waiting} awaiting your orders · {comets} {vocabulary.questions}
-        </span>
-        <span>
-          Scale 1 : {scale.toLocaleString("en-GB")} · {time}
-        </span>
-      </div>
-    );
-  }
-  const x = camera
-    ? ((viewport.width / 2 - camera.x) / camera.scale / 1000).toFixed(3)
-    : "0.000";
-  const y = camera
-    ? ((viewport.height / 2 - camera.y) / camera.scale / 1000).toFixed(3)
-    : "0.000";
+  const [first, ...rest] = readout.lines;
   return (
     <div className="atlas-hud" aria-hidden="true">
-      <span>
-        X <strong>{x}</strong> Y <strong>{y}</strong> ZOOM{" "}
-        <strong>{camera ? camera.scale.toFixed(2) : "-"}</strong>
-      </span>
-      <span>
-        {clients} SYSTEMS · {dataset.agents.length} PROBES ·{" "}
-        <strong>{active}</strong> UNDERWAY
-      </span>
-      <span className="atlas-hud-attention">
-        {waiting} HAILING YOU · {comets} COMETS TRACKED
-      </span>
-      <span>{time} · LOCAL DATABASE · TAILNET ONLY</span>
+      {readout.title && <strong>{readout.title}</strong>}
+      {first && <span>{first}</span>}
+      <span className="atlas-hud-attention">{readout.attention}</span>
+      {rest.map((line) => (
+        <span key={line}>{line}</span>
+      ))}
     </div>
   );
 }

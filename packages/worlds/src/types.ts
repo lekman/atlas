@@ -8,10 +8,8 @@ import type {
   Requirement,
 } from "@atlas/core";
 
-import type { Camera } from "./camera";
+import type { Camera, Point } from "./camera";
 import type { Effect, Motion, Scene } from "./scene";
-
-export type WorldId = "astronomer" | "mariner";
 
 /** What a world calls each thing. Plural forms are spelled out, never derived. */
 export interface Vocabulary {
@@ -117,8 +115,48 @@ export interface WorldPainter {
   overlay?(paint: PaintContext): void;
 }
 
+/** What a world's log line is built from. Names are already resolved. */
+export interface Phrases {
+  message(from: string, to: string, text: string): string;
+  external(source: string, record: string, text: string): string;
+  status(agent: string, was: string, now: string, text: string): string;
+  /** `where` is the client's name, or the world's name for home. */
+  answered(decision: string, where: string): string;
+}
+
+export interface ReadoutInput {
+  clients: number;
+  agents: number;
+  active: number;
+  needsYou: number;
+  openQuestions: number;
+  /** Screen centre in world units, and the zoom. */
+  x: number;
+  y: number;
+  scale: number;
+  /** Local time, already formatted. */
+  time: string;
+}
+
+/** The corner readout over the full map: a few short lines, one marked for attention. */
+export interface Readout {
+  title?: string;
+  lines: string[];
+  /** The line about what needs the reader, drawn in the waiting colour. */
+  attention: string;
+}
+
+/** Shapes for the still SVG map, in world units. Each returns SVG markup. */
+export interface StillMap {
+  home(centre: Point, homeId: string): string;
+  client(centre: Point, clientId: string): string;
+  /** Where a client's name sits relative to its centre. */
+  labelOffset: number;
+}
+
 export interface World {
-  id: WorldId;
+  /** Lower-case, one word: the key in the registry and in the URL. */
+  id: string;
   name: string;
   description: string;
   vocabulary: Vocabulary;
@@ -127,6 +165,9 @@ export interface World {
   typefaces: Typefaces;
   painter: WorldPainter;
   voices: Voices;
+  phrases: Phrases;
+  readout(input: ReadoutInput): Readout;
+  stillMap: StillMap;
 }
 
 export interface PlannedWorld {

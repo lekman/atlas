@@ -1,6 +1,11 @@
 import type { AtlasEvent } from "@atlas/core";
 import { sampleDataset } from "@atlas/fixtures";
-import { defaultSoundSettings, worlds, type WorldId } from "@atlas/worlds";
+import {
+  defaultSoundSettings,
+  worldIds,
+  worlds,
+  type WorldId,
+} from "@atlas/worlds";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useEffect, useState } from "react";
 
@@ -67,7 +72,7 @@ const meta = {
   parameters: { layout: "fullscreen" },
   args: { world: "astronomer", events: [], detail: "full" },
   argTypes: {
-    world: { control: "inline-radio", options: ["astronomer", "mariner"] },
+    world: { control: "inline-radio", options: worldIds },
     detail: { control: "inline-radio", options: ["compact", "full"] },
   },
 } satisfies Meta<typeof Demonstration>;

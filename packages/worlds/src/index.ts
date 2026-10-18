@@ -1,8 +1,17 @@
 import { astronomer } from "./astronomer";
 import { mariner } from "./mariner";
-import type { World, WorldId } from "./types";
+import type { World } from "./types";
 
-export const worlds: Record<WorldId, World> = { astronomer, mariner };
+/**
+ * Every built world. A new world adds one import above and one key here, and
+ * leaves `plannedWorlds`.
+ */
+export const worlds = {
+  astronomer,
+  mariner,
+} satisfies Record<string, World>;
+
+export type WorldId = keyof typeof worlds;
 export const worldIds = Object.keys(worlds) as WorldId[];
 
 export function isWorldId(value: unknown): value is WorldId {
