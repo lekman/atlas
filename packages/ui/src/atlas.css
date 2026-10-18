@@ -521,6 +521,19 @@
   }
 }
 
+/* ── Short screens: an unfolded phone held sideways, a small laptop ───── */
+@media (max-height: 720px) {
+  .atlas-log-panel {
+    max-height: 24%;
+  }
+  .atlas-log-panel .atlas-log-rows li:nth-child(n + 3) {
+    display: none;
+  }
+  .atlas-inspector {
+    max-height: calc(100% - 84px);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .atlas[data-mode="full"],
   .atlas-log-rows li {

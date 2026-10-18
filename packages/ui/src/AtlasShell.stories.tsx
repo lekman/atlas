@@ -74,9 +74,48 @@ export const InspectingAQuestion: Story = {
   },
 };
 
-export const OnAPhone: Story = {
-  name: "On a Phone",
+/** The folded iPhone Duo: the compact view fills the outer screen. */
+export const OnIphoneDuoFolded: Story = {
+  name: "On iPhone Duo, Folded",
   args: { initialWorld: "astronomer", initialMode: "compact" },
+  globals: { viewport: { value: "iphoneDuoFolded", isRotated: false } },
+};
+
+/** Unfolded, there is room for the full map with the inspector beside it. */
+export const OnIphoneDuoUnfolded: Story = {
+  name: "On iPhone Duo, Unfolded",
+  args: {
+    initialWorld: "astronomer",
+    initialMode: "full",
+    initialSelection: "release",
+  },
+  globals: { viewport: { value: "iphoneDuoUnfolded", isRotated: false } },
+};
+
+/** Unfolded and held upright. */
+export const OnIphoneDuoUnfoldedUpright: Story = {
+  name: "On iPhone Duo, Unfolded Upright",
+  args: { initialWorld: "mariner", initialMode: "full" },
+  globals: { viewport: { value: "iphoneDuoUnfolded", isRotated: true } },
+};
+
+/** The Claude desktop sidebar on a laptop: compact, the full window height. */
+export const OnALaptopInTheSidebar: Story = {
+  name: "On a Laptop, Sidebar",
+  args: { initialWorld: "astronomer", initialMode: "compact" },
+  globals: { viewport: { value: "laptopSidebar", isRotated: false } },
+};
+
+/** The same laptop with Atlas expanded to the full page. */
+export const OnALaptopFullPage: Story = {
+  name: "On a Laptop, Full Page",
+  args: { initialWorld: "astronomer", initialMode: "full" },
+  globals: { viewport: { value: "laptopFullPage", isRotated: false } },
+};
+
+export const OnAPhone: Story = {
+  name: "On an iPhone 15",
+  args: { initialWorld: "mariner", initialMode: "compact" },
   globals: { viewport: { value: "iphone15", isRotated: false } },
 };
 

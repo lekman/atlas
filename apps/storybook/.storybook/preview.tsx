@@ -33,26 +33,38 @@ const preview: Preview = {
     options: {
       storySort: { order: ["Introduction", "Pages", "Worlds", "Components"] },
     },
-    // Real devices rather than "small mobile" and "large mobile".
+    // Real devices rather than "small mobile" and "large mobile": the ones
+    // Atlas is opened on.
     viewport: {
       options: {
+        // The iPhone Duo's sizes are estimates. Apple had not published
+        // point sizes when these were set; they are the rumoured panel
+        // resolutions (outer 1422 x 2088, inner 2713 x 1920 pixels) at the
+        // usual iPhone scale of 3. Replace them with Apple's figures.
+        iphoneDuoFolded: {
+          name: "iPhone Duo, folded",
+          styles: { width: "474px", height: "696px" },
+          type: "mobile",
+        },
+        iphoneDuoUnfolded: {
+          name: "iPhone Duo, unfolded",
+          styles: { width: "904px", height: "640px" },
+          type: "tablet",
+        },
         iphone15: {
           name: "iPhone 15",
           styles: { width: "393px", height: "852px" },
           type: "mobile",
         },
-        iphone15ProMax: {
-          name: "iPhone 15 Pro Max",
-          styles: { width: "430px", height: "932px" },
+        // The Claude desktop sidebar on a MacBook Air: a pane beside the
+        // sessions, the full height of the window.
+        laptopSidebar: {
+          name: "Laptop, Claude sidebar",
+          styles: { width: "420px", height: "956px" },
           type: "mobile",
         },
-        ipadMini: {
-          name: "iPad mini",
-          styles: { width: "744px", height: "1133px" },
-          type: "tablet",
-        },
-        macbookAir: {
-          name: "MacBook Air, 1470",
+        laptopFullPage: {
+          name: "Laptop, full page",
           styles: { width: "1470px", height: "956px" },
           type: "desktop",
         },
