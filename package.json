@@ -17,7 +17,7 @@
   ],
   "scripts": {
     "build": "turbo build",
-    "lint": "trunk check --ci",
+    "lint": "bash scripts/trunk-check.sh",
     "format": "trunk fmt",
     "typecheck": "turbo typecheck",
     "test": "bun test && bun test ./.claude/hooks && bash scripts/check-no-client-content.test.sh",

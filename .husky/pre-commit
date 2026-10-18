@@ -12,5 +12,5 @@ bash scripts/check-no-client-content.sh --staged
 
 . ./.husky/ensure-toolchain.sh
 
-trunk check --ci
+bash scripts/trunk-check.sh
 bun run typecheck
