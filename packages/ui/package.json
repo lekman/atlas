@@ -23,8 +23,10 @@
   "dependencies": {
     "@atlas/core": "workspace:*",
     "@atlas/worlds": "workspace:*",
+    "@fontsource/architects-daughter": "^5.2.0",
     "@fontsource/chakra-petch": "^5.2.0",
     "@fontsource/eb-garamond": "^5.2.0",
+    "@fontsource/fraunces": "^5.2.0",
     "@fontsource/ibm-plex-mono": "^5.2.0",
     "@fontsource/im-fell-english": "^5.2.0",
     "@fontsource/im-fell-english-sc": "^5.2.0"

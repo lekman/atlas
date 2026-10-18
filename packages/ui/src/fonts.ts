@@ -15,3 +15,7 @@ import "@fontsource/im-fell-english-sc/400.css";
 import "@fontsource/eb-garamond/400.css";
 import "@fontsource/eb-garamond/500.css";
 import "@fontsource/eb-garamond/400-italic.css";
+// Gardener
+import "@fontsource/architects-daughter/400.css";
+import "@fontsource/fraunces/400.css";
+import "@fontsource/fraunces/400-italic.css";

@@ -10,13 +10,6 @@ export const plannedWorlds: PlannedWorld[] = [
     homeName: "Base Camp",
   },
   {
-    id: "gardener",
-    name: "Gardener",
-    description:
-      "Planting plans. Work grows from seed to bloom; stale work wilts.",
-    homeName: "The Homestead",
-  },
-  {
     id: "samurai",
     name: "Samurai",
     description:
