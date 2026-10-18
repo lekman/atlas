@@ -52,3 +52,16 @@ export const QuestionAnswered: Story = {
   name: "Question Answered",
   args: { events: [sampleEvents.answered] },
 };
+
+/** The night garden: lanterns along the paths and at every bed, lit windows at the Homestead, fireflies over the beds. */
+export const NightGarden: Story = {
+  name: "Night Garden",
+  globals: { lighting: "night" },
+};
+
+/** Weather arriving at night, to show an event still reads plainly among the lanterns. */
+export const NightGardenEvent: Story = {
+  name: "Night Garden Event",
+  globals: { lighting: "night" },
+  args: { events: [sampleEvents.outside] },
+};

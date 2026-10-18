@@ -5,11 +5,15 @@
  *
  * Sizes are in whatever units the context is in, scaled by `unit`, so the
  * same drawing serves the map (world units) and the legend (screen pixels).
+ *
+ * At night the leaves go deep and a bloom opens pale and glows faintly, as a
+ * moonflower does, so done work still stands out from the rest.
  */
 import type { BacklogItem } from "@atlas/core";
 
 import { withAlpha } from "../paint";
-import { gardenerPalette as palette, washes } from "./palette";
+import type { Lighting } from "../types";
+import { gardenLook, lanternLight, type Washes } from "./palette";
 
 type Context = CanvasRenderingContext2D;
 
@@ -35,6 +39,7 @@ function leaf(
 
 function canopy(
   context: Context,
+  washes: Washes,
   x: number,
   y: number,
   radius: number,
@@ -74,8 +79,10 @@ export function drawPlant(
   unit: number,
   line: number,
   twist = 0,
+  lighting: Lighting = "day",
 ): void {
   const u = unit;
+  const { palette, washes, night } = gardenLook(lighting);
   context.save();
   context.lineJoin = "round";
   if (state === "todo") {
@@ -91,13 +98,13 @@ export function drawPlant(
     context.arc(x, y, 9.5 * u, 0, Math.PI * 2);
     context.stroke();
     context.setLineDash([]);
-    context.fillStyle = "#6e4a2b";
+    context.fillStyle = night ? "#2a1c12" : "#6e4a2b";
     context.beginPath();
     context.ellipse(x, y, 3.6 * u, 2.4 * u, 0.6 + twist, 0, Math.PI * 2);
     context.fill();
   } else if (state === "doing") {
     // A sprout: two seed leaves opening.
-    canopy(context, x, y, 10 * u, washes.foliage, 0.38, line);
+    canopy(context, washes, x, y, 10 * u, washes.foliage, 0.38, line);
     context.fillStyle = washes.sprout;
     context.strokeStyle = washes.leafDeep;
     context.lineWidth = line;
@@ -112,7 +119,7 @@ export function drawPlant(
     context.fill();
   } else if (state === "review") {
     // A bud: a rosette of leaves round a closed lavender bud.
-    canopy(context, x, y, 12.5 * u, washes.foliage, 0.42, line);
+    canopy(context, washes, x, y, 12.5 * u, washes.foliage, 0.42, line);
     context.fillStyle = washes.leaf;
     context.strokeStyle = washes.leafDeep;
     context.lineWidth = line;
@@ -139,7 +146,17 @@ export function drawPlant(
     context.stroke();
   } else {
     // A bloom: petals open over the leaves, a golden eye.
-    canopy(context, x, y, 14 * u, washes.foliage, 0.36, line);
+    if (night) {
+      // The faint glow of a moonflower.
+      const glow = context.createRadialGradient(x, y, 4 * u, x, y, 24 * u);
+      glow.addColorStop(0, withAlpha(lanternLight.moon, 0.32));
+      glow.addColorStop(1, withAlpha(lanternLight.moon, 0));
+      context.fillStyle = glow;
+      context.beginPath();
+      context.arc(x, y, 24 * u, 0, Math.PI * 2);
+      context.fill();
+    }
+    canopy(context, washes, x, y, 14 * u, washes.foliage, 0.36, line);
     context.fillStyle = washes.leaf;
     context.strokeStyle = washes.leafDeep;
     context.lineWidth = line;
@@ -162,8 +179,8 @@ export function drawPlant(
       context.fill();
       context.stroke();
     }
-    context.fillStyle = "#e2b443";
-    context.strokeStyle = "#8c6a1c";
+    context.fillStyle = night ? "#f0dc8a" : "#e2b443";
+    context.strokeStyle = night ? "#7d6a2c" : "#8c6a1c";
     context.beginPath();
     context.arc(x, y, 2.8 * u, 0, Math.PI * 2);
     context.fill();

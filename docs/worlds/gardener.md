@@ -78,6 +78,70 @@ The washes (lawn, soil, box, terracotta, lavender, water blue) are laid
 down translucent and are listed as `washes` in `palette.ts`. They never
 carry meaning on their own.
 
+## Night
+
+**Night garden**: the garden by moonlight. Lanterns line the paths and stand
+at every bed, the Homestead's windows are lit, fireflies drift over the beds
+and moonflowers open where work is done. It is the same plan after dark:
+every bed, plant, bee, clock and trellis sits where it does by day.
+
+### Night Palette
+
+Status colours keep their hue families, raised in lightness until they read
+on the dark lawn. Contrast is WCAG 2 against the ground and against the
+panel (`rgba(18, 34, 35, 0.95)` over the ground, `#122223`).
+
+| Role     | Colour    | Hue | On ground | On panel  |
+| -------- | --------- | --- | --------- | --------- |
+| ground   | `#0f1e1f` |     |           |           |
+| ink      | `#e8ecdc` | 75  | 14.25 : 1 | 13.69 : 1 |
+| mute     | `#a9b8a8` | 116 | 8.25 : 1  | 7.92 : 1  |
+| accent   | `#c3b2f0` | 256 | 8.93 : 1  | 8.58 : 1  |
+| running  | `#6fd283` | 132 | 9.16 : 1  | 8.79 : 1  |
+| watching | `#79b8f2` | 209 | 8.12 : 1  | 7.80 : 1  |
+| waiting  | `#f2aa4c` | 34  | 8.67 : 1  | 8.33 : 1  |
+| blocked  | `#ff8577` | 6   | 7.24 : 1  | 6.95 : 1  |
+| error    | `#ff8577` | 6   | 7.24 : 1  | 6.95 : 1  |
+| idle     | `#ada99f` | 43  | 7.30 : 1  | 7.02 : 1  |
+
+The night washes (`nightWashes`) turn the lawn a deep blue-green, the beds
+a darker soil and the hedge a dark silhouette. What the moon catches goes
+pale: the gravel, the furrows, the grass blades, the rim of each shrub and
+the rain from a passing cloud. The fence and trellis wood is a moonlit grey,
+so the yard's fence is never read as an amber ring.
+
+### What Is Lit
+
+Lantern light (`lanternLight`) is warm white and pale gold, never the amber
+of waiting, so a lit lamp is never mistaken for a status.
+
+| Where                    | What                                                                                    |
+| ------------------------ | --------------------------------------------------------------------------------------- |
+| Each bed's entrance      | A pair of paper lanterns where the gravel path meets the box edging, pooling warm light |
+| The Homestead's gates    | A pair where each path leaves the yard, so every path is a short lit walk               |
+| Long paths and the lane  | Single lanterns, alternating sides; a pair at the gate in the hedge                     |
+| The cottage              | Lit windows on every wall, spilling light into the yard, and a lantern by the door      |
+| The pond                 | The moon, reflected, with a few broken streaks of light                                 |
+| The hedge and box edging | A dark silhouette with a pale moonlit edge on the upper left of each shrub              |
+| Done plants              | Open pale, with a faint glow, as moonflowers do                                         |
+| Over the beds            | A few fireflies, tiny, dim and warm white, so none is read as a running bee             |
+| The skep                 | The hive sleeps: while bees rest in it, a few slow letters Z rise from it               |
+
+A lantern that would stand under a name board steps along its path until
+it is clear, so a board never hides a lamp. Bees keep their status colours,
+outlined in the dark ground so each colour stays pure, and anything that
+needs the reader keeps its pulsing ring. The hen has gone to roost.
+
+**Motion at night.** Lanterns and the cottage windows flicker very gently,
+by a few per cent; fireflies drift slowly and glow on and off; the moon in
+the pond shimmers and the letters Z rise from a sleeping hive. Under reduced
+motion every light is on and still, the fireflies hold their places and the
+Z letters stand still.
+
+The still map draws the same night: soil beds edged in moonlight, a pair of
+lanterns at each bed's entrance, lit windows and a door lantern at the
+cottage.
+
 ## Typefaces
 
 | Slot    | Family              | Weights         | Used for                                         |

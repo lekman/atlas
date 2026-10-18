@@ -3,15 +3,20 @@
  * terracotta roof and a weathervane on the ridge, a kitchen garden, a well,
  * and a hen who wanders the yard. The hen and the chimney smoke move; under
  * reduced motion both hold still.
+ *
+ * At night the windows are lit and spill warm light into the yard, a lantern
+ * burns by the door, and the hen has gone to roost.
  */
 import type { Point } from "../camera";
 import { pixels, withAlpha } from "../paint";
 import type { PaintContext } from "../types";
 import { traceBed, yardSize } from "./beds";
-import { gardenerPalette as palette, washes } from "./palette";
+import { flicker, lanternBody, lanternPool } from "./night";
+import { gardenLook, lanternLight } from "./palette";
 
 export function drawYard(paint: PaintContext, id: string, centre: Point) {
   const { context } = paint;
+  const { washes } = gardenLook(paint.lighting);
   traceBed(context, id, centre, yardSize, 0, 6);
   context.fillStyle = withAlpha(washes.lawn, 0.3);
   context.fill();
@@ -32,12 +37,65 @@ export function drawYard(paint: PaintContext, id: string, centre: Point) {
   }
 }
 
+/** Where the cottage's windows are, on its walls, and which way each faces. */
+const windows = [
+  { x: -24, y: 26, facing: Math.PI / 2 },
+  { x: 24, y: 26, facing: Math.PI / 2 },
+  { x: -20, y: -30, facing: -Math.PI / 2 },
+  { x: 20, y: -30, facing: -Math.PI / 2 },
+  { x: -40, y: -2, facing: Math.PI },
+  { x: 40, y: 0, facing: 0 },
+] as const;
+
+/** Lamplight falling out of each window onto the ground, under the eaves. */
+function drawWindowLight(paint: PaintContext, centre: Point) {
+  const { context } = paint;
+  context.save();
+  context.globalCompositeOperation = "screen";
+  windows.forEach((pane, index) => {
+    const bright = flicker(paint, index * 1.9);
+    const x = centre.x + pane.x + Math.cos(pane.facing) * 10;
+    const y = centre.y + pane.y + Math.sin(pane.facing) * 10;
+    context.save();
+    context.translate(x, y);
+    context.rotate(pane.facing);
+    const spill = context.createRadialGradient(0, 0, 0, 0, 0, 30);
+    spill.addColorStop(0, withAlpha(lanternLight.glow, 0.42 * bright));
+    spill.addColorStop(1, withAlpha(lanternLight.glow, 0));
+    context.fillStyle = spill;
+    context.beginPath();
+    context.ellipse(4, 0, 26, 15, 0, 0, Math.PI * 2);
+    context.fill();
+    context.restore();
+  });
+  context.restore();
+}
+
+/** The lit windows themselves, as bright slips at the eaves. */
+function drawWindows(paint: PaintContext, centre: Point) {
+  const { context } = paint;
+  context.fillStyle = lanternLight.paper;
+  context.strokeStyle = withAlpha(lanternLight.frame, 0.9);
+  context.lineWidth = pixels(paint, 0.6);
+  for (const pane of windows) {
+    const across = Math.abs(Math.sin(pane.facing)) > 0.5;
+    const width = across ? 9 : 2.6;
+    const height = across ? 2.6 : 9;
+    const x = centre.x + pane.x + Math.cos(pane.facing) * 1.3 - width / 2;
+    const y = centre.y + pane.y + Math.sin(pane.facing) * 1.3 - height / 2;
+    context.fillRect(x, y, width, height);
+    context.strokeRect(x, y, width, height);
+  }
+}
+
 function drawCottage(paint: PaintContext, centre: Point) {
   const { context, time, reducedMotion } = paint;
+  const { palette, washes, night, shadow } = gardenLook(paint.lighting);
   const { x, y } = centre;
   const line = pixels(paint, 1.2);
+  if (night) drawWindowLight(paint, centre);
   // Shadow, then the roof.
-  context.fillStyle = "rgba(60,50,30,0.16)";
+  context.fillStyle = night ? shadow : "rgba(60,50,30,0.16)";
   context.fillRect(x - 36, y - 24, 80, 56);
   context.fillStyle = withAlpha(washes.terracotta, 0.92);
   context.fillRect(x - 40, y - 30, 80, 56);
@@ -50,7 +108,7 @@ function drawCottage(paint: PaintContext, centre: Point) {
     context.lineTo(x + 38, y + course);
   }
   context.stroke();
-  context.strokeStyle = palette.ink;
+  context.strokeStyle = night ? withAlpha(palette.ink, 0.6) : palette.ink;
   context.lineWidth = line;
   context.strokeRect(x - 40, y - 30, 80, 56);
   context.strokeStyle = washes.terracottaDeep;
@@ -71,7 +129,9 @@ function drawCottage(paint: PaintContext, centre: Point) {
   context.strokeRect(x + 20, y - 22, 9, 9);
   for (let puff = 0; puff < 3; puff++) {
     const age = reducedMotion ? puff / 3 + 0.15 : (time * 0.25 + puff / 3) % 1;
-    context.fillStyle = `rgba(150,150,160,${0.35 * (1 - age)})`;
+    context.fillStyle = night
+      ? `rgba(170,185,195,${0.22 * (1 - age)})`
+      : `rgba(150,150,160,${0.35 * (1 - age)})`;
     context.beginPath();
     context.arc(
       x + 25 + age * 22,
@@ -118,10 +178,19 @@ function drawCottage(paint: PaintContext, centre: Point) {
   context.strokeStyle = withAlpha(washes.gravelStone, 0.6);
   context.lineWidth = pixels(paint, 0.8);
   context.strokeRect(x - 7, y + 26, 14, 40);
+  if (night) drawWindows(paint, centre);
+}
+
+/** The lantern by the door, for after the cottage is drawn. */
+function drawDoorLantern(paint: PaintContext, centre: Point) {
+  const lantern = { x: centre.x + 14, y: centre.y + 34, seed: 4.2 };
+  lanternPool(paint, lantern, 62, 1.1);
+  lanternBody(paint, lantern);
 }
 
 function drawKitchenGarden(paint: PaintContext, centre: Point) {
   const { context } = paint;
+  const { washes } = gardenLook(paint.lighting);
   for (const [dx, dy] of [
     [52, -34],
     [80, -34],
@@ -151,6 +220,7 @@ function drawKitchenGarden(paint: PaintContext, centre: Point) {
 
 function drawWell(paint: PaintContext, centre: Point) {
   const { context } = paint;
+  const { palette, washes } = gardenLook(paint.lighting);
   const x = centre.x - 70;
   const y = centre.y + 48;
   context.fillStyle = withAlpha(washes.stone, 0.9);
@@ -180,7 +250,10 @@ function drawWell(paint: PaintContext, centre: Point) {
 }
 
 function drawHen(paint: PaintContext, centre: Point) {
-  const { context, time, reducedMotion } = paint;
+  const { context, time } = paint;
+  const { palette, washes, night } = gardenLook(paint.lighting);
+  // At night she has gone to roost, and holds still.
+  const reducedMotion = paint.reducedMotion || night;
   const at = (t: number) => ({
     x: centre.x - 26 + Math.sin(t * 0.21) * 34,
     y: centre.y + 80 + Math.sin(t * 0.34) * 10,
@@ -240,5 +313,6 @@ export function drawHomestead(paint: PaintContext, centre: Point): void {
   drawWell(paint, origin);
   drawCottage(paint, origin);
   drawHen(paint, origin);
+  if (paint.lighting === "night") drawDoorLantern(paint, origin);
   context.restore();
 }
