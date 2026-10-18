@@ -14,12 +14,7 @@ import type {
 import { attentionStatuses, YOU } from "./model";
 
 export type RecordKind =
-  | "agent"
-  | "group"
-  | "requirement"
-  | "item"
-  | "question"
-  | "decision";
+  "agent" | "group" | "requirement" | "item" | "question" | "decision";
 
 export type AnyRecord =
   | { kind: "agent"; record: Agent }
