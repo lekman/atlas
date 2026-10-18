@@ -38,6 +38,54 @@ export const samuraiDecoration = {
   cord: "#2f3d55",
 } as const;
 
+/**
+ * Ninja, the scroll by moonlight: a deep indigo ground, ink read as pale
+ * moonlit silver, and status banners raised in lightness until each reads as
+ * text on the dark ground and on the panels. Blocked leans a little to rose
+ * (hue 353) so it stays well apart from the seals' vermilion (hue 16).
+ */
+export const samuraiNightPalette: Palette = {
+  ground: "#141824",
+  darkGround: true,
+  ink: "#ece5d3",
+  mute: "#aaa595",
+  accent: "#c4a8e0",
+  panel: "rgba(30, 35, 50, 0.96)",
+  line: "rgba(214, 220, 232, 0.24)",
+  status: {
+    running: "#6fca82",
+    watching: "#78b2ec",
+    waiting: "#e3a342",
+    blocked: "#f4707f",
+    error: "#f4707f",
+    idle: "#a7a196",
+  },
+};
+
+/**
+ * The night's decoration. Gold leaf turns to moonlit silver, vermilion is
+ * brightened for the dark ground, and lantern light is warm white and pale
+ * gold: lighter and far less saturated than the waiting amber, so a lit lamp
+ * is never read as a status.
+ */
+export const samuraiNightDecoration = {
+  vermilion: "#ee6e3e",
+  silver: "#c3cbd9",
+  moon: "#ebe6d6",
+  /** Scrolls, flags and white stones, as paper looks by moonlight. */
+  paper: "#d9d5c9",
+  /** The keep's walls in moonlight, and its stone base in shadow. */
+  plaster: "#8c96aa",
+  stone: "#3b4255",
+  /** Dark garb, roofs and silhouettes: darker than the ground. */
+  sumi: "#07080d",
+  petal: "#d6c3cb",
+  cord: "#3a4a66",
+  /** Paper lanterns and lit windows: pale gold, with a warm white flame. */
+  lantern: "#f6e6b4",
+  flame: "#fffaf0",
+} as const;
+
 export const samuraiTypefaces: Typefaces = {
   display:
     '"Shippori Mincho", "Hiragino Mincho ProN", "Yu Mincho", Georgia, serif',

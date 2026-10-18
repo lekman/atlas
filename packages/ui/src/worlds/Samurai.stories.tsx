@@ -52,3 +52,16 @@ export const QuestionAnswered: Story = {
   name: "Question Answered",
   args: { events: [sampleEvents.answered] },
 };
+
+/** Ninja, the scroll by moonlight: the moon behind a ridge, the keep and every clan's lantern lit, banners still in their status colours. */
+export const NinjaMap: Story = {
+  name: "Ninja Map",
+  globals: { lighting: "night" },
+};
+
+/** An outside event at night, arriving as a signal fire on a distant ridge passed inward by relay lights. */
+export const NinjaSignalFire: Story = {
+  name: "Ninja Signal Fire",
+  globals: { lighting: "night" },
+  args: { events: [sampleEvents.outside] },
+};
