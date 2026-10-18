@@ -23,6 +23,11 @@ updates:
       # See .claude/rules/stack.md. Minors and patches still flow.
       - dependency-name: zod
         update-types: ["version-update:semver-major"]
+      # TypeScript is held at 6: .claude/rules/stack.md names TypeScript 6,
+      # and 7 is a move to decide on, not a weekly bump. Minors and patches
+      # still flow.
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: /
