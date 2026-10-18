@@ -1,4 +1,11 @@
-import type { Phrases, Readout, ReadoutInput, StillMap } from "../types";
+import type { Point } from "../camera";
+import type {
+  Lighting,
+  Phrases,
+  Readout,
+  ReadoutInput,
+  StillMap,
+} from "../types";
 import { coastPath, islandRadius } from "./coast";
 
 /** The log reads like a log book: sentences, quotation marks, italics in the view. */
@@ -24,12 +31,38 @@ export function marinerReadout(input: ReadoutInput): Readout {
 
 const homeRadius = 70;
 
+/** Shallows and land for the still map: sand on paper by day, slate on navy by night. */
+function island(
+  id: string,
+  centre: Point,
+  radius: number,
+  lighting: Lighting = "day",
+): string {
+  const [shallows, opacity, land, coast] =
+    lighting === "night"
+      ? ["#3c6996", "0.35", "#2b3036", "#b9c4cf"]
+      : ["#c9dde3", "0.45", "#e7d29b", "#5a3f22"];
+  return (
+    `<path d="${coastPath(id, centre, 70, radius)}" fill="${shallows}" fill-opacity="${opacity}"/>` +
+    `<path d="${coastPath(id, centre, 0, radius)}" fill="${land}" stroke="${coast}" stroke-width="3"/>`
+  );
+}
+
+/** A warm light seen from far off: a soft halo and a bright point. Never a status hue. */
+const stillLight = (x: number, y: number, size: number) =>
+  `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${size * 4}" fill="#fff0cc" fill-opacity="0.18"/>` +
+  `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${size}" fill="#fff8e6"/>`;
+
 export const marinerStillMap: StillMap = {
-  home: (centre, id) =>
-    `<path d="${coastPath(id, centre, 70, homeRadius)}" fill="#c9dde3" fill-opacity="0.45"/>` +
-    `<path d="${coastPath(id, centre, 0, homeRadius)}" fill="#e7d29b" stroke="#5a3f22" stroke-width="3"/>`,
-  client: (centre, id) =>
-    `<path d="${coastPath(id, centre, 70, islandRadius)}" fill="#c9dde3" fill-opacity="0.45"/>` +
-    `<path d="${coastPath(id, centre, 0, islandRadius)}" fill="#e7d29b" stroke="#5a3f22" stroke-width="3"/>`,
+  home: (centre, id, lighting) =>
+    island(id, centre, homeRadius, lighting) +
+    (lighting === "night"
+      ? // Turtle Bay after dark: the pier light and a few lit windows.
+        stillLight(centre.x - 4, centre.y - homeRadius * 0.62, 6) +
+        stillLight(centre.x - 20, centre.y + 6, 3) +
+        stillLight(centre.x + 8, centre.y + 8, 3) +
+        stillLight(centre.x + 2, centre.y + 26, 3)
+      : ""),
+  client: (centre, id, lighting) => island(id, centre, islandRadius, lighting),
   labelOffset: 150,
 };

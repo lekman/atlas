@@ -3,6 +3,11 @@
  * and rhumb lines. Clients are islands, agents ships, open questions fog
  * banks, decisions lighthouses. Home is Turtle Bay, a harbour island beside
  * the compass rose.
+ *
+ * At night (Night watch) the same chart is engraved in pale ink on deep
+ * navy: every lighthouse is lit and sweeps its beam, each ship carries a
+ * masthead light, and Turtle Bay's windows and pier light are on. The night
+ * inks are in `palette.ts`, the lights in `night.ts`.
  */
 import { externalSourceNames } from "@atlas/core";
 
@@ -26,12 +31,22 @@ import {
 import { seededRandom } from "../random";
 import type { PaintContext, WorldPainter } from "../types";
 import { coastRadius, islandRadius, traceCoast } from "./coast";
-
-const homeRadius = 70;
-import { marinerPalette as palette, marinerTypefaces as type } from "./palette";
+import { beam, beamAngle, glow, lantern, moonlight } from "./night";
+import {
+  marinerInks,
+  marinerPaletteFor,
+  marinerTypefaces as type,
+  type MarinerInks,
+} from "./palette";
 import { marinerStatusNames, marinerVocabulary } from "./vocabulary";
 
+const homeRadius = 70;
+
 const isFull = (paint: PaintContext) => paint.detail === "full";
+const isNight = (paint: PaintContext) => paint.lighting === "night";
+const inksOf = (paint: PaintContext): MarinerInks =>
+  marinerInks(paint.lighting);
+const paletteOf = (paint: PaintContext) => marinerPaletteFor(paint.lighting);
 
 const soundingsCache = new WeakMap<
   object,
@@ -69,9 +84,20 @@ function rosePosition(paint: PaintContext): Point {
 
 function drawRose(paint: PaintContext, centre: Point, radius: number) {
   const { context } = paint;
+  const ink = inksOf(paint);
   context.save();
   context.translate(centre.x, centre.y);
-  context.strokeStyle = "rgba(60,48,30,0.7)";
+  if (isNight(paint)) {
+    // At night the rose is faintly lit, as a binnacle is.
+    const lit = context.createRadialGradient(0, 0, 0, 0, 0, radius * 1.6);
+    lit.addColorStop(0, "rgba(150,185,225,0.16)");
+    lit.addColorStop(1, "rgba(150,185,225,0)");
+    context.fillStyle = lit;
+    context.beginPath();
+    context.arc(0, 0, radius * 1.6, 0, Math.PI * 2);
+    context.fill();
+  }
+  context.strokeStyle = ink.rose;
   context.lineWidth = pixels(paint, 1);
   for (const ring of [radius, radius * 0.86, radius * 0.6]) {
     context.beginPath();
@@ -95,8 +121,8 @@ function drawRose(paint: PaintContext, centre: Point, radius: number) {
       point % 4 ? (point % 2 ? radius * 0.42 : radius * 0.62) : radius * 0.92;
     const width = point % 4 ? 6 : 11;
     for (const [side, light, dark] of [
-      [1, "#f6efde", "#2a2116"],
-      [-1, "#7a1f16", "#f6efde"],
+      [1, ink.roseLight, ink.roseDark],
+      [-1, ink.roseRed, ink.roseLight],
     ] as const) {
       context.beginPath();
       context.moveTo(Math.cos(angle) * length, Math.sin(angle) * length);
@@ -115,7 +141,7 @@ function drawRose(paint: PaintContext, centre: Point, radius: number) {
   label(paint, "N", centre.x, centre.y - radius - pixels(paint, 8), {
     size: 13,
     font: type.display,
-    colour: palette.ink,
+    colour: paletteOf(paint).ink,
     align: "center",
     baseline: "bottom",
   });
@@ -128,12 +154,13 @@ function drawContours(
   radius: number,
 ) {
   const { context } = paint;
+  const ink = inksOf(paint);
   traceCoast(context, id, centre, 70, radius);
-  context.fillStyle = "rgba(150,190,205,0.28)";
+  context.fillStyle = ink.shallows;
   context.fill();
   [28, 70, 120, 190].forEach((offset, index) => {
     traceCoast(context, id, centre, offset, radius);
-    context.strokeStyle = `rgba(45,95,135,${0.34 - index * 0.06})`;
+    context.strokeStyle = `rgba(${ink.contour},${ink.contourAlpha - index * 0.06})`;
     context.lineWidth = pixels(paint, 0.9);
     if (index > 1) context.setLineDash([pixels(paint, 4), pixels(paint, 4)]);
     context.stroke();
@@ -148,14 +175,30 @@ function drawLand(
   radius: number,
 ) {
   const { context } = paint;
+  const ink = inksOf(paint);
   traceCoast(context, id, centre, 0, radius);
-  context.fillStyle = "#e7d29b";
+  context.fillStyle = ink.land;
   context.fill();
-  context.strokeStyle = "#5a3f22";
+  if (isNight(paint)) {
+    // Moonlight catches the high ground, so the island reads against the sea.
+    const moonlit = context.createRadialGradient(
+      centre.x - radius * 0.25,
+      centre.y - radius * 0.35,
+      0,
+      centre.x,
+      centre.y,
+      radius * 1.1,
+    );
+    moonlit.addColorStop(0, "rgba(170,190,210,0.16)");
+    moonlit.addColorStop(1, "rgba(170,190,210,0)");
+    context.fillStyle = moonlit;
+    context.fill();
+  }
+  context.strokeStyle = ink.coast;
   context.lineWidth = pixels(paint, 1.6);
   context.stroke();
   traceCoast(context, id, centre, -7, radius);
-  context.strokeStyle = "rgba(90,63,34,0.35)";
+  context.strokeStyle = ink.coastInner;
   context.lineWidth = pixels(paint, 0.8);
   context.stroke();
 }
@@ -163,8 +206,9 @@ function drawLand(
 export const marinerPainter: WorldPainter = {
   background(paint) {
     const { context, width, height, scene } = paint;
+    const ink = inksOf(paint);
     setScreenTransform(paint);
-    context.fillStyle = palette.ground;
+    context.fillStyle = paletteOf(paint).ground;
     context.fillRect(0, 0, width, height);
     const vignette = context.createRadialGradient(
       width / 2,
@@ -174,14 +218,15 @@ export const marinerPainter: WorldPainter = {
       height / 2,
       Math.max(width, height) * 0.75,
     );
-    vignette.addColorStop(0, "rgba(255,250,235,0)");
-    vignette.addColorStop(1, "rgba(150,115,60,0.18)");
+    vignette.addColorStop(0, ink.vignette[0]);
+    vignette.addColorStop(1, ink.vignette[1]);
     context.fillStyle = vignette;
     context.fillRect(0, 0, width, height);
+    if (isNight(paint)) moonlight(paint);
 
     setWorldTransform(paint);
     const rose = rosePosition(paint);
-    context.strokeStyle = "rgba(60,48,30,0.10)";
+    context.strokeStyle = ink.rhumb;
     context.lineWidth = pixels(paint, 0.8);
     for (let line = 0; line < 32; line++) {
       const angle = (line / 32) * Math.PI * 2;
@@ -201,7 +246,7 @@ export const marinerPainter: WorldPainter = {
     if (paint.camera.scale > 0.32) {
       context.save();
       context.font = `italic ${pixels(paint, 9.5)}px ${type.mono}`;
-      context.fillStyle = "rgba(40,70,100,0.32)";
+      context.fillStyle = ink.soundings;
       context.textAlign = "center";
       for (const sounding of soundings(paint))
         context.fillText(String(sounding.depth), sounding.x, sounding.y);
@@ -212,11 +257,12 @@ export const marinerPainter: WorldPainter = {
 
   overlay(paint) {
     const { context, width, height } = paint;
-    context.strokeStyle = "rgba(60,48,30,0.55)";
+    const ink = inksOf(paint);
+    context.strokeStyle = ink.frame;
     context.lineWidth = 1;
     context.strokeRect(8.5, 8.5, width - 17, height - 17);
     context.strokeRect(12.5, 12.5, width - 25, height - 25);
-    context.fillStyle = "rgba(60,48,30,0.55)";
+    context.fillStyle = ink.frame;
     for (let x = 12; x < width - 12; x += 80) {
       context.fillRect(x, 9, Math.min(40, width - 12 - x), 3);
       context.fillRect(x, height - 12, Math.min(40, width - 12 - x), 3);
@@ -225,52 +271,79 @@ export const marinerPainter: WorldPainter = {
 
   home(paint, home) {
     const { context, time, reducedMotion } = paint;
+    const ink = inksOf(paint);
+    const palette = paletteOf(paint);
+    const night = isNight(paint);
     const centre = paint.scene.layout.clients.get(home.id) ?? { x: 0, y: 0 };
     const radius = homeRadius;
     drawLand(paint, home.id, centre, radius);
     // The bay: a bite of sea out of the island's north shore, with a pier.
+    const bay = { x: centre.x, y: centre.y - radius * 0.62 };
     context.save();
     context.beginPath();
-    context.arc(
-      centre.x,
-      centre.y - radius * 0.62,
-      radius * 0.48,
-      0,
-      Math.PI * 2,
-    );
-    context.fillStyle = "#d9e6e6";
+    context.arc(bay.x, bay.y, radius * 0.48, 0, Math.PI * 2);
+    context.fillStyle = ink.bay;
     context.fill();
-    context.strokeStyle = "#5a3f22";
+    context.strokeStyle = night ? ink.coastInner : ink.coast;
     context.lineWidth = pixels(paint, 1.4);
     context.stroke();
     context.restore();
-    context.strokeStyle = "#5a3f22";
+    context.strokeStyle = ink.pier;
     context.lineWidth = pixels(paint, 2);
     context.beginPath();
     context.moveTo(centre.x - 4, centre.y - radius * 0.22);
     context.lineTo(centre.x - 4, centre.y - radius * 0.62);
     context.stroke();
-    // A few houses
-    context.fillStyle = "#7a1f16";
-    for (const [dx, dy] of [
+    // A few houses; at night three of them have a lit window.
+    const houses = [
       [-20, 6],
       [-8, 14],
       [8, 8],
       [20, 18],
       [2, 26],
-    ] as const) {
+    ] as const;
+    context.fillStyle = ink.house;
+    for (const [dx, dy] of houses) {
       context.fillRect(centre.x + dx - 3.5, centre.y + dy - 3.5, 7, 7);
+    }
+    if (night) {
+      for (const [dx, dy] of [houses[0], houses[2], houses[4]]) {
+        glow(paint, { x: centre.x + dx, y: centre.y + dy }, 9, 0.75, 1.5);
+      }
     }
     // A turtle, swimming in the bay.
     const swim = reducedMotion ? 0 : Math.sin(time * 0.4) * 10;
     const turtle = { x: centre.x + 14 + swim, y: centre.y - radius * 0.7 };
-    context.fillStyle = "#4b6b3a";
+    context.fillStyle = ink.turtle;
     context.beginPath();
     context.ellipse(turtle.x, turtle.y, 7, 5, 0, 0, Math.PI * 2);
     context.fill();
     context.beginPath();
     context.arc(turtle.x + 8, turtle.y, 2.4, 0, Math.PI * 2);
     context.fill();
+    if (night) {
+      // The harbour light at the pier head, and its reflection in the bay.
+      const pierHead = { x: centre.x - 4, y: bay.y };
+      context.save();
+      context.globalCompositeOperation = "lighter";
+      const reflection = context.createLinearGradient(
+        pierHead.x,
+        pierHead.y,
+        pierHead.x,
+        pierHead.y - radius * 0.42,
+      );
+      reflection.addColorStop(0, "rgba(255,240,204,0.14)");
+      reflection.addColorStop(1, "rgba(255,240,204,0)");
+      context.fillStyle = reflection;
+      context.fillRect(
+        pierHead.x - 1.5,
+        pierHead.y - radius * 0.4,
+        3,
+        radius * 0.4,
+      );
+      context.restore();
+      glow(paint, pierHead, 13, 0.9, 1.9);
+    }
 
     const below =
       centre.y +
@@ -306,10 +379,11 @@ export const marinerPainter: WorldPainter = {
 
   client(paint, client) {
     const { context } = paint;
+    const palette = paletteOf(paint);
     const centre = paint.scene.layout.clients.get(client.id);
     if (!centre) return;
     drawLand(paint, client.id, centre, islandRadius);
-    context.strokeStyle = "rgba(90,63,34,0.45)";
+    context.strokeStyle = inksOf(paint).hachure;
     context.lineWidth = pixels(paint, 0.8);
     for (let hachure = 0; hachure < 22; hachure++) {
       const angle = (hachure / 22) * Math.PI * 2;
@@ -361,12 +435,13 @@ export const marinerPainter: WorldPainter = {
 
   requirement(paint, requirement) {
     const { context } = paint;
+    const inks = inksOf(paint);
     const point = paint.scene.layout.fixed.get(requirement.id);
     if (!point) return;
     const done = requirement.state === "done";
-    const ink = done ? "rgba(60,48,30,0.4)" : palette.ink;
+    const ink = done ? inks.doneInk : paletteOf(paint).ink;
     context.setLineDash([pixels(paint, 3), pixels(paint, 3)]);
-    context.strokeStyle = done ? "rgba(60,48,30,0.25)" : "rgba(31,79,122,0.55)";
+    context.strokeStyle = done ? inks.orbitDone : inks.orbit;
     context.lineWidth = pixels(paint, 1);
     context.beginPath();
     context.arc(point.x, point.y, rings.orbit, 0, Math.PI * 2);
@@ -413,7 +488,7 @@ export const marinerPainter: WorldPainter = {
       paint.reducedMotion,
     );
     context.setLineDash([pixels(paint, 2), pixels(paint, 4)]);
-    context.strokeStyle = "rgba(60,48,30,0.3)";
+    context.strokeStyle = inksOf(paint).link;
     context.lineWidth = pixels(paint, 1);
     context.beginPath();
     context.moveTo(from.x, from.y);
@@ -424,6 +499,7 @@ export const marinerPainter: WorldPainter = {
 
   item(paint, item) {
     const { context, scene } = paint;
+    const ink = inksOf(paint);
     const point = itemPosition(
       scene.layout,
       item,
@@ -436,11 +512,11 @@ export const marinerPainter: WorldPainter = {
     context.globalAlpha = item.state === "done" ? 0.45 : 1;
     context.fillStyle =
       item.state === "review"
-        ? "#d8c08a"
+        ? ink.cargo.review
         : item.state === "todo"
-          ? "#f6efde"
-          : "#b8925a";
-    context.strokeStyle = "#4a3520";
+          ? ink.cargo.todo
+          : ink.cargo.doing;
+    context.strokeStyle = ink.cargoStroke;
     context.lineWidth = pixels(paint, 1.1);
     context.fillRect(-size, -size * 0.75, size * 2, size * 1.5);
     context.strokeRect(-size, -size * 0.75, size * 2, size * 1.5);
@@ -449,10 +525,10 @@ export const marinerPainter: WorldPainter = {
     context.lineTo(size, size * 0.75);
     context.moveTo(size, -size * 0.75);
     context.lineTo(-size, size * 0.75);
-    context.strokeStyle = "rgba(74,53,32,0.5)";
+    context.strokeStyle = ink.cargoCross;
     context.stroke();
     if (item.priority === "high") {
-      context.fillStyle = palette.status.blocked;
+      context.fillStyle = paletteOf(paint).status.blocked;
       context.beginPath();
       context.arc(size + 3, -size, 3, 0, Math.PI * 2);
       context.fill();
@@ -462,7 +538,7 @@ export const marinerPainter: WorldPainter = {
       label(paint, item.title, point.x + 14, point.y, {
         size: 11.5,
         font: type.mono,
-        colour: "#3d3020",
+        colour: ink.cargoLabel,
         alpha: 0.9,
       });
     }
@@ -470,6 +546,7 @@ export const marinerPainter: WorldPainter = {
 
   question(paint, question, fade) {
     const { context, scene, time, reducedMotion } = paint;
+    const ink = inksOf(paint);
     const point = questionPosition(
       scene.layout,
       scene.dataset,
@@ -480,14 +557,16 @@ export const marinerPainter: WorldPainter = {
     context.save();
     context.globalAlpha = fade;
     const drift = reducedMotion ? 0 : time * 0.15;
+    // By night the fog is moonlit: paler, and a little lighter at the heart.
+    const density = isNight(paint) ? 0.15 : 0.38;
     for (let puff = 0; puff < 5; puff++) {
       const angle = puff * 1.3 + drift;
       const radius = 20 + puff * 4;
       const x = point.x + Math.cos(angle) * radius * 0.9;
       const y = point.y + Math.sin(angle * 1.3) * radius * 0.5;
       const fog = context.createRadialGradient(x, y, 0, x, y, 46);
-      fog.addColorStop(0, "rgba(150,150,150,0.38)");
-      fog.addColorStop(1, "rgba(150,150,150,0)");
+      fog.addColorStop(0, `rgba(${ink.fog},${density})`);
+      fog.addColorStop(1, `rgba(${ink.fog},0)`);
       context.fillStyle = fog;
       context.beginPath();
       context.arc(x, y, 46, 0, Math.PI * 2);
@@ -495,7 +574,10 @@ export const marinerPainter: WorldPainter = {
     }
     if (question.asks === "You") {
       const phase = pulsePhase(paint, 0.8);
-      context.strokeStyle = withAlpha(palette.status.waiting, 1 - phase);
+      context.strokeStyle = withAlpha(
+        paletteOf(paint).status.waiting,
+        1 - phase,
+      );
       context.lineWidth = pixels(paint, 1.5);
       context.beginPath();
       context.arc(point.x, point.y, 14 + phase * 26, 0, Math.PI * 2);
@@ -505,14 +587,14 @@ export const marinerPainter: WorldPainter = {
       label(paint, "Fog", point.x, point.y - pixels(paint, 6), {
         size: 10,
         font: type.display,
-        colour: "#4b4b4b",
+        colour: ink.fogTitle,
         align: "center",
         letterSpacing: 2,
       });
       label(paint, question.title, point.x, point.y + pixels(paint, 8), {
         size: 11.5,
         font: type.mono,
-        colour: "#3a3a3a",
+        colour: ink.fogLabel,
         align: "center",
       });
     }
@@ -521,12 +603,27 @@ export const marinerPainter: WorldPainter = {
 
   decision(paint, decision, appear) {
     const { context, scene, time, reducedMotion } = paint;
+    const ink = inksOf(paint);
+    const palette = paletteOf(paint);
+    const night = isNight(paint);
+    const made = decision.state === "made";
     const point = decisionPosition(scene.layout, scene.dataset, decision);
+    const lamp = { x: point.x, y: point.y - 11 };
     context.save();
     context.globalAlpha = appear;
-    if (decision.state === "made") {
+    if (night) {
+      // Every lighthouse is lit after dark. A proposed decision's beam is
+      // fainter than a made one's, so the two still read apart.
+      beam(
+        paint,
+        lamp,
+        beamAngle(paint, decision.id),
+        made ? 190 : 150,
+        made ? 1 : 0.55,
+      );
+    } else if (made) {
       const sweep = reducedMotion ? -0.8 : time * 0.9 + point.x;
-      const beam = context.createRadialGradient(
+      const sweepLight = context.createRadialGradient(
         point.x,
         point.y,
         0,
@@ -534,17 +631,17 @@ export const marinerPainter: WorldPainter = {
         point.y,
         150,
       );
-      beam.addColorStop(0, "rgba(255,214,120,0.55)");
-      beam.addColorStop(1, "rgba(255,214,120,0)");
-      context.fillStyle = beam;
+      sweepLight.addColorStop(0, `rgba(${ink.beam},0.55)`);
+      sweepLight.addColorStop(1, `rgba(${ink.beam},0)`);
+      context.fillStyle = sweepLight;
       context.beginPath();
       context.moveTo(point.x, point.y);
       context.arc(point.x, point.y, 150, sweep - 0.22, sweep + 0.22);
       context.closePath();
       context.fill();
     }
-    context.fillStyle = "#f6efde";
-    context.strokeStyle = palette.ink;
+    context.fillStyle = ink.tower;
+    context.strokeStyle = night ? ink.coast : palette.ink;
     context.lineWidth = pixels(paint, 1.2);
     context.beginPath();
     context.moveTo(point.x - 5, point.y + 8);
@@ -554,12 +651,16 @@ export const marinerPainter: WorldPainter = {
     context.closePath();
     context.fill();
     context.stroke();
-    context.fillStyle = palette.status.blocked;
+    context.fillStyle = ink.towerBand;
     context.fillRect(point.x - 3.6, point.y - 2, 7.2, 3);
-    context.fillStyle = decision.state === "made" ? "#e8a300" : "#b8ad99";
-    context.beginPath();
-    context.arc(point.x, point.y - 11, 2.6, 0, Math.PI * 2);
-    context.fill();
+    if (night) {
+      glow(paint, lamp, made ? 20 : 15, made ? 1 : 0.75, 2.6);
+    } else {
+      context.fillStyle = made ? ink.lampLit : ink.lampUnlit;
+      context.beginPath();
+      context.arc(lamp.x, lamp.y, 2.6, 0, Math.PI * 2);
+      context.fill();
+    }
     if (isFull(paint) && paint.camera.scale > labelScale.requirement) {
       label(paint, decision.title, point.x + 12, point.y + 2, {
         size: 11.5,
@@ -568,10 +669,19 @@ export const marinerPainter: WorldPainter = {
       });
     }
     context.restore();
+    if (night && appear < 1) {
+      // A decision just made flares as it is lit, then settles to its lamp.
+      const flare = Math.sin(Math.PI * appear);
+      context.save();
+      context.globalCompositeOperation = "lighter";
+      glow(paint, lamp, 20 + flare * 46, flare * 0.8);
+      context.restore();
+    }
   },
 
   agent(paint, agent, motion, colour) {
     const { context } = paint;
+    const ink = inksOf(paint);
     const { position, trail } = motion;
     if (agent.status === "running" && trail.length > 3) {
       for (let index = 2; index < trail.length; index += 2) {
@@ -581,7 +691,7 @@ export const marinerPainter: WorldPainter = {
         const across =
           Math.atan2(here.y - before.y, here.x - before.x) + Math.PI / 2;
         const spread = index * 0.45;
-        context.strokeStyle = `rgba(31,79,122,${(1 - index / trail.length) * 0.4})`;
+        context.strokeStyle = `rgba(${ink.wake},${(1 - index / trail.length) * 0.4})`;
         context.lineWidth = pixels(paint, 1);
         context.beginPath();
         for (const side of [1, -1]) {
@@ -605,7 +715,7 @@ export const marinerPainter: WorldPainter = {
     context.save();
     context.translate(position.x, position.y);
     context.rotate(heading + Math.PI / 2);
-    context.fillStyle = "#3d2a17";
+    context.fillStyle = ink.hull;
     context.beginPath();
     context.moveTo(0, -size * 1.3);
     context.quadraticCurveTo(size * 0.7, -size * 0.2, size * 0.45, size * 1.1);
@@ -619,6 +729,13 @@ export const marinerPainter: WorldPainter = {
     context.closePath();
     context.fill();
     context.restore();
+    if (isNight(paint)) {
+      // The masthead light, forward at the bow, clear of the status sail.
+      lantern(paint, {
+        x: position.x + Math.cos(heading) * size * 1.3,
+        y: position.y + Math.sin(heading) * size * 1.3,
+      });
+    }
 
     if (agent.status === "waiting") {
       context.strokeStyle = colour;
@@ -662,7 +779,7 @@ export const marinerPainter: WorldPainter = {
       agent.name,
       position.x + pixels(paint, 14),
       position.y - pixels(paint, 8),
-      { size: 12, font: type.mono, colour: palette.ink },
+      { size: 12, font: type.mono, colour: paletteOf(paint).ink },
     );
     if (paint.camera.scale > labelScale.agentStatus) {
       label(
@@ -677,6 +794,8 @@ export const marinerPainter: WorldPainter = {
 
   effect(paint, effect, progress) {
     const { context, scene, time, reducedMotion } = paint;
+    const ink = inksOf(paint);
+    const palette = paletteOf(paint);
     const fadeOut = Math.min(1, (1 - progress) * 2);
     if (effect.kind === "message") {
       const from = scene.motions.get(effect.from)?.position;
@@ -684,7 +803,7 @@ export const marinerPainter: WorldPainter = {
       if (!from || !to) return;
       const curve = curveBetween(from, to, 0.15);
       context.setLineDash([pixels(paint, 6), pixels(paint, 5)]);
-      context.strokeStyle = `rgba(122,31,22,${(1 - progress) * 0.75})`;
+      context.strokeStyle = `rgba(${ink.signal},${(1 - progress) * 0.75})`;
       context.lineWidth = pixels(paint, 1.3);
       context.beginPath();
       context.moveTo(from.x, from.y);
@@ -693,7 +812,7 @@ export const marinerPainter: WorldPainter = {
       context.setLineDash([]);
       const flag = curve.at(reducedMotion ? 1 : Math.min(1, progress * 1.5));
       const size = pixels(paint, 9);
-      (["#b3261e", "#e8a300", "#1f4f7a"] as const).forEach((colour, index) => {
+      ink.flags.forEach((colour, index) => {
         context.fillStyle = colour;
         context.fillRect(
           flag.x + index * size * 0.9 - size * 1.3,
@@ -712,7 +831,7 @@ export const marinerPainter: WorldPainter = {
         label(paint, `“${effect.text}”`, curve.control.x, curve.control.y, {
           size: 12,
           font: type.mono,
-          colour: "#5a1810",
+          colour: ink.signalLabel,
           align: "center",
           alpha: fadeOut,
           italic: true,
@@ -742,7 +861,7 @@ export const marinerPainter: WorldPainter = {
       };
       const travel = reducedMotion ? 1 : Math.min(1, progress * 1.4);
       const dashes = 26;
-      context.strokeStyle = `rgba(42,33,22,${(1 - progress) * 0.8})`;
+      context.strokeStyle = `rgba(${ink.telegram},${(1 - progress) * 0.8})`;
       context.lineWidth = pixels(paint, 1.6);
       for (let dash = 0; dash < dashes * travel; dash++) {
         const from = dash / dashes;
@@ -759,7 +878,7 @@ export const marinerPainter: WorldPainter = {
         context.stroke();
       }
       if (travel >= 1) {
-        context.strokeStyle = `rgba(42,33,22,${1 - progress})`;
+        context.strokeStyle = `rgba(${ink.telegram},${1 - progress})`;
         context.lineWidth = pixels(paint, 1);
         context.beginPath();
         context.arc(

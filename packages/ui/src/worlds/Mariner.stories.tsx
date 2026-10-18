@@ -52,3 +52,16 @@ export const QuestionAnswered: Story = {
   name: "Question Answered",
   args: { events: [sampleEvents.answered] },
 };
+
+/** Night watch: the chart on navy, every lighthouse lit and sweeping, ships showing masthead lights. */
+export const NightWatch: Story = {
+  name: "Night Watch",
+  globals: { lighting: "night" },
+};
+
+/** At night, a question answered: the fog lifts and the new lighthouse flares, then sweeps with the rest. */
+export const NightQuestionAnswered: Story = {
+  name: "Night Watch, Question Answered",
+  args: { events: [sampleEvents.answered] },
+  globals: { lighting: "night" },
+};
