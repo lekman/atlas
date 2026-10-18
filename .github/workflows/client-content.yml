@@ -60,4 +60,5 @@ jobs:
       - name: Explain a failure without repeating it
         if: failure()
         run: |
-          echo "::notice::Client-identifying content found. Run 'scripts/check-no-client-content.sh --history' and '--messages' locally to see what and where."
+          echo "::notice::Client-identifying content found. To see what and where," \
+            "run 'scripts/check-no-client-content.sh --history' and '--messages' locally."

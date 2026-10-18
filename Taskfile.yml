@@ -93,4 +93,8 @@ tasks:
   hooks:verify:
     desc: Confirm husky owns the git hooks
     cmds:
-      - test "$(git config core.hooksPath)" = ".husky/_" || (echo "core.hooksPath is '$(git config core.hooksPath)'. Run bun install to restore it." && exit 1)
+      - |
+        if [ "$(git config core.hooksPath)" != ".husky/_" ]; then
+          echo "core.hooksPath is '$(git config core.hooksPath)'. Run bun install to restore it."
+          exit 1
+        fi
