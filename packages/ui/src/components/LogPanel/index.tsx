@@ -10,7 +10,7 @@ export interface LogPanelProps {
   world: World;
   /** `panel` floats over the full map; `preview` sits in the sidebar. */
   variant: "panel" | "preview";
-  /** How many lines to show. Eight on the full map, four in the sidebar. */
+  /** How many lines to show. Three on the full map, four in the sidebar. */
   limit?: number;
 }
 
@@ -26,7 +26,7 @@ export function LogPanel({
   entries,
   world,
   variant,
-  limit = variant === "panel" ? 8 : 4,
+  limit = variant === "panel" ? 3 : 4,
 }: LogPanelProps) {
   const shown = entries.slice(0, limit);
   return (

@@ -247,7 +247,12 @@
   font-style: italic;
   font-size: 14px;
 }
-.atlas-log-preview .atlas-log-rows li span {
+.atlas-log-panel .atlas-log-rows,
+.atlas-log-panel .atlas-empty {
+  min-height: calc(3 * (1.55em + 4px));
+}
+.atlas-log-preview .atlas-log-rows li span,
+.atlas-log-panel .atlas-log-rows li span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -295,13 +300,15 @@
 .atlas-hud-attention {
   color: var(--atlas-waiting);
 }
+/* The latest three lines, one line each, at a height that never changes:
+   the map is fitted around the panel once, so a panel that grew as events
+   arrived would creep over the map. */
 .atlas-log-panel {
   position: absolute;
   left: max(16px, env(safe-area-inset-left, 0px));
   bottom: calc(16px + env(safe-area-inset-bottom, 0px));
   z-index: 3;
   width: min(460px, calc(100% - 32px));
-  max-height: 30%;
   overflow: hidden;
   padding: 10px 12px;
   background: var(--atlas-panel);
@@ -549,8 +556,9 @@
     padding-left: max(16px, env(safe-area-inset-left, 0px));
     padding-right: max(16px, env(safe-area-inset-right, 0px));
   }
-  .atlas-log-panel {
-    max-height: 22%;
+  .atlas-log-panel .atlas-log-rows,
+  .atlas-log-panel .atlas-empty {
+    min-height: calc(1.55em + 4px);
   }
   .atlas-log-panel .atlas-log-rows li:nth-child(n + 2) {
     display: none;
@@ -562,8 +570,9 @@
 
 /* ── Short screens: an unfolded phone held sideways, a small laptop ───── */
 @media (max-height: 720px) {
-  .atlas-log-panel {
-    max-height: 24%;
+  .atlas-log-panel .atlas-log-rows,
+  .atlas-log-panel .atlas-empty {
+    min-height: calc(2 * (1.55em + 4px));
   }
   .atlas-log-panel .atlas-log-rows li:nth-child(n + 3) {
     display: none;

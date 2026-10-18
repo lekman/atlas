@@ -189,7 +189,11 @@ export function AtlasShell(props: AtlasShellProps) {
   const shellRef = useRef<HTMLDivElement>(null);
   const world = worlds[worldId];
 
-  /** The corner readout and the log, measured against the map. */
+  /**
+   * The corner readout and the log, measured against the map. Both keep a
+   * fixed height, so the map fitted around them stays clear as events
+   * arrive.
+   */
   const floatingPanels = (): Bounds[] => {
     const shell = shellRef.current;
     const canvas = shell?.querySelector("canvas");
