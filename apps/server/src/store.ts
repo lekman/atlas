@@ -4,7 +4,7 @@
  * transaction, so the log and the records never disagree.
  */
 import { AtlasEvent, Dataset, type Decision } from "@atlas/core";
-import { asc, eq, gt } from "drizzle-orm";
+import { asc, desc, eq, gt } from "drizzle-orm";
 
 import type { AtlasDatabase } from "./database";
 import * as schema from "./schema";
@@ -31,6 +31,25 @@ export function readDataset(database: AtlasDatabase): Dataset {
     items: database.select().from(schema.items).all().map(present),
     questions: database.select().from(schema.questions).all().map(present),
     decisions: database.select().from(schema.decisions).all().map(present),
+  });
+}
+
+/** The dataset and the last event it includes, read in one transaction. */
+export function readSnapshot(database: AtlasDatabase): {
+  dataset: Dataset;
+  sequence: number;
+} {
+  return database.transaction((transaction) => {
+    const last = transaction
+      .select({ sequence: schema.events.sequence })
+      .from(schema.events)
+      .orderBy(desc(schema.events.sequence))
+      .limit(1)
+      .get();
+    return {
+      dataset: readDataset(transaction as unknown as AtlasDatabase),
+      sequence: last?.sequence ?? 0,
+    };
   });
 }
 

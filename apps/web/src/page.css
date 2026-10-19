@@ -1,0 +1,22 @@
+html,
+body,
+#atlas {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: #101114;
+  color: #e6e7ea;
+  font:
+    16px system-ui,
+    sans-serif;
+}
+
+.atlas-page-message {
+  display: grid;
+  height: 100%;
+  place-items: center;
+  padding: 24px;
+  text-align: center;
+}
