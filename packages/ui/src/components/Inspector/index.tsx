@@ -1,6 +1,6 @@
 import { clientOfAgent, findRecord, type Dataset } from "@atlas/core";
 import type { World } from "@atlas/worlds";
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 
 export type InspectorAction =
   | "open-session"
@@ -46,6 +46,7 @@ export function Inspector({
   onSelect,
   onAction,
 }: InspectorProps) {
+  const titleId = useId();
   const found = findRecord(dataset, id);
   if (!found) return null;
   const { vocabulary, statusNames } = world;
@@ -185,7 +186,7 @@ export function Inspector({
   }
 
   return (
-    <aside className="atlas-inspector" aria-labelledby="atlas-inspector-title">
+    <aside className="atlas-inspector" aria-labelledby={titleId}>
       <button
         type="button"
         className="atlas-button atlas-close"
@@ -197,7 +198,7 @@ export function Inspector({
       <p className="atlas-eyebrow">
         {themed} · {client}
       </p>
-      <h2 id="atlas-inspector-title">{title}</h2>
+      <h2 id={titleId}>{title}</h2>
       <p className="atlas-real-term">{subtitle}</p>
       {rows.length > 0 && (
         <dl>
