@@ -12,6 +12,7 @@ import {
   readConfiguration,
   readDataset,
   seedDataset,
+  sequenceHeader,
   type Api,
   type AtlasDatabase,
 } from "../src";
@@ -117,10 +118,14 @@ describe("the API", () => {
     });
   });
 
-  test("serves the dataset", async () => {
+  test("serves the dataset with the last event it includes", async () => {
     const response = await call("/api/dataset");
     expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(response.headers.get(sequenceHeader)).toBe("0");
     expect(await response.json()).toEqual(sampleDataset);
+    const stored = appendEvent(database, statusChange);
+    const after = await call("/api/dataset");
+    expect(after.headers.get(sequenceHeader)).toBe(String(stored.sequence));
   });
 
   test("leaves paths outside /api/ to the caller", async () => {
@@ -175,6 +180,26 @@ describe("the API", () => {
 
   test("refuses a sequence that is not a number", async () => {
     expect((await call("/api/events?after=first")).status).toBe(400);
+  });
+
+  test("a page opening the stream names the last event it has in ?after=", async () => {
+    const first = appendEvent(database, scriptedEvents[0]);
+    const second = appendEvent(database, scriptedEvents[1]);
+    const controller = new AbortController();
+    const response = await call(`/api/stream?after=${first.sequence}`, {
+      signal: controller.signal,
+    });
+    const reader = response.body!.getReader();
+    const decoder = new TextDecoder();
+    let text = "";
+    while (!text.includes(": connected")) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      text += decoder.decode(value);
+    }
+    expect(text).toStartWith(`id: ${second.sequence}\n`);
+    expect(text).not.toContain(`id: ${first.sequence}\n`);
+    controller.abort();
   });
 
   test("streams each new event, and what a reconnecting reader missed", async () => {

@@ -18,6 +18,7 @@
   "dependencies": {
     "@atlas/core": "workspace:*",
     "@atlas/fixtures": "workspace:*",
+    "@atlas/web": "workspace:*",
     "drizzle-orm": "^0.45.0"
   },
   "devDependencies": {

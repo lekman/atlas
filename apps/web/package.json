@@ -1,0 +1,28 @@
+{
+  "name": "@atlas/web",
+  "version": "0.0.0",
+  "description": "The Atlas web app: the full view on live data, served by the Atlas server over the tailnet",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "exports": {
+    "./index.html": "./index.html"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "bun test tests/"
+  },
+  "dependencies": {
+    "@atlas/core": "workspace:*",
+    "@atlas/ui": "workspace:*",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
+  "devDependencies": {
+    "@atlas/fixtures": "workspace:*",
+    "@types/bun": "^1.3",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
+    "typescript": "^6.0"
+  }
+}

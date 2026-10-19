@@ -3,6 +3,7 @@
  * counts only, never the text of a record or an event.
  */
 import { sampleDataset } from "@atlas/fixtures";
+import webApp from "@atlas/web/index.html";
 
 import rootPackage from "../../../package.json" with { type: "json" };
 import { createApi } from "./api";
@@ -33,6 +34,9 @@ const server = Bun.serve({
   port: configuration.port,
   // The event stream stays open; Bun's default idle timeout would cut it.
   idleTimeout: 0,
+  // Bun bundles the web app once at start, minified, rather than on each request.
+  development: false,
+  routes: { "/": webApp },
   async fetch(request) {
     const response =
       (await api.handle(request)) ?? new Response("Not found", { status: 404 });
