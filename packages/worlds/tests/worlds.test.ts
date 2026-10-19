@@ -10,6 +10,7 @@ const vocabularyKeys = [
   "client",
   "clients",
   "requirement",
+  "workstream",
   "item",
   "agent",
   "agents",

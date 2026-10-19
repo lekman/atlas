@@ -19,6 +19,8 @@ import {
   pulsePhase,
   setWorldTransform,
   withAlpha,
+  workstreamCaption,
+  workstreamCaptionRise,
 } from "../paint";
 import { seededRandom } from "../random";
 import type { PaintContext, WorldPainter } from "../types";
@@ -421,18 +423,69 @@ export const astronomerPainter: WorldPainter = {
     }
   },
 
+  workstream(paint, marker) {
+    const { context } = paint;
+    const { x, y } = marker.position;
+    const unsorted = marker.workstreamId === null;
+    // A space station: a ring on four spokes, with a panel either side.
+    // Work with no workstream gathers at a bare, dashed ring instead.
+    context.save();
+    context.translate(x, y);
+    context.strokeStyle = unsorted ? "rgba(159,214,239,0.6)" : "#9fd6ef";
+    context.lineWidth = pixels(paint, 1.4);
+    if (unsorted) context.setLineDash([pixels(paint, 3), pixels(paint, 3)]);
+    context.beginPath();
+    context.arc(0, 0, 11, 0, Math.PI * 2);
+    context.stroke();
+    context.setLineDash([]);
+    if (!unsorted) {
+      context.beginPath();
+      for (let spoke = 0; spoke < 4; spoke++) {
+        const angle = Math.PI / 4 + (spoke * Math.PI) / 2;
+        context.moveTo(Math.cos(angle) * 3, Math.sin(angle) * 3);
+        context.lineTo(Math.cos(angle) * 11, Math.sin(angle) * 11);
+      }
+      context.moveTo(-11, 0);
+      context.lineTo(-16, 0);
+      context.moveTo(11, 0);
+      context.lineTo(16, 0);
+      context.stroke();
+      context.fillStyle = "rgba(94,220,255,0.35)";
+      context.fillRect(-25, -5, 9, 10);
+      context.fillRect(16, -5, 9, 10);
+      context.strokeRect(-25, -5, 9, 10);
+      context.strokeRect(16, -5, 9, 10);
+      context.fillStyle = "#e5fbff";
+      context.beginPath();
+      context.arc(0, 0, 2.6, 0, Math.PI * 2);
+      context.fill();
+    }
+    context.restore();
+    if (isFull(paint) && paint.camera.scale > labelScale.requirement) {
+      label(
+        paint,
+        workstreamCaption(marker).toUpperCase(),
+        x,
+        y - workstreamCaptionRise,
+        {
+          size: 9.5,
+          font: type.mono,
+          colour: "#bde8ff",
+          align: "center",
+          baseline: "bottom",
+          letterSpacing: 0.6,
+        },
+      );
+    }
+  },
+
   link(paint, item) {
     const { context, scene } = paint;
     const from = item.requirementId
       ? scene.layout.fixed.get(item.requirementId)
       : undefined;
     if (!from) return;
-    const to = itemPosition(
-      scene.layout,
-      item,
-      paint.time,
-      paint.reducedMotion,
-    );
+    const to = itemPosition(scene.layout, item);
     context.strokeStyle = "rgba(94,220,255,0.12)";
     context.lineWidth = pixels(paint, 1);
     context.beginPath();
@@ -443,12 +496,7 @@ export const astronomerPainter: WorldPainter = {
 
   item(paint, item) {
     const { context, scene } = paint;
-    const point = itemPosition(
-      scene.layout,
-      item,
-      paint.time,
-      paint.reducedMotion,
-    );
+    const point = itemPosition(scene.layout, item);
     if (!item.requirementId) {
       const centre = scene.layout.clients.get(item.clientId);
       if (centre) {
@@ -554,7 +602,7 @@ export const astronomerPainter: WorldPainter = {
       (item) => item.id === question.blocks,
     );
     if (blocked) {
-      const to = itemPosition(scene.layout, blocked, time, reducedMotion);
+      const to = itemPosition(scene.layout, blocked);
       context.setLineDash([pixels(paint, 2), pixels(paint, 4)]);
       context.strokeStyle = withAlpha(palette.status.waiting, 0.5);
       context.lineWidth = pixels(paint, 1);
@@ -725,7 +773,7 @@ export const astronomerPainter: WorldPainter = {
   },
 
   effect(paint, effect, progress) {
-    const { context, scene, time, reducedMotion } = paint;
+    const { context, scene, reducedMotion } = paint;
     const fadeOut = Math.min(1, (1 - progress) * 2);
     if (effect.kind === "message") {
       const from = scene.motions.get(effect.from)?.position;
@@ -760,7 +808,7 @@ export const astronomerPainter: WorldPainter = {
         (item) => item.id === effect.recordId,
       );
       const point = target
-        ? itemPosition(scene.layout, target, time, reducedMotion)
+        ? itemPosition(scene.layout, target)
         : scene.layout.fixed.get(effect.recordId);
       if (!point) return;
       const clientId =

@@ -10,16 +10,24 @@ import type {
   Decision,
   Question,
   Requirement,
+  Workstream,
 } from "./model";
 import { attentionStatuses, YOU } from "./model";
 
 export type RecordKind =
-  "agent" | "group" | "requirement" | "item" | "question" | "decision";
+  | "agent"
+  | "group"
+  | "requirement"
+  | "workstream"
+  | "item"
+  | "question"
+  | "decision";
 
 export type AnyRecord =
   | { kind: "agent"; record: Agent }
   | { kind: "group"; record: AgentGroup }
   | { kind: "requirement"; record: Requirement }
+  | { kind: "workstream"; record: Workstream }
   | { kind: "item"; record: BacklogItem }
   | { kind: "question"; record: Question }
   | { kind: "decision"; record: Decision };
@@ -31,6 +39,8 @@ export function findRecord(dataset: Dataset, id: string): AnyRecord | null {
   if (group) return { kind: "group", record: group };
   const requirement = dataset.requirements.find((record) => record.id === id);
   if (requirement) return { kind: "requirement", record: requirement };
+  const workstream = dataset.workstreams.find((record) => record.id === id);
+  if (workstream) return { kind: "workstream", record: workstream };
   const item = dataset.items.find((record) => record.id === id);
   if (item) return { kind: "item", record: item };
   const question = dataset.questions.find((record) => record.id === id);
@@ -56,6 +66,25 @@ export function agentsOfClient(dataset: Dataset, clientId: string): Agent[] {
   );
 }
 
+/**
+ * A client's workstreams in the order the map places them: by `order`,
+ * lowest first, then by title. A workstream without an order comes after
+ * those with one.
+ */
+export function workstreamsOfClient(
+  dataset: Dataset,
+  clientId: string,
+): Workstream[] {
+  return dataset.workstreams
+    .filter((workstream) => workstream.clientId === clientId)
+    .sort(
+      (a, b) =>
+        (a.order ?? Number.POSITIVE_INFINITY) -
+          (b.order ?? Number.POSITIVE_INFINITY) ||
+        a.title.localeCompare(b.title),
+    );
+}
+
 /** Every reference in the dataset that names a record that does not exist. */
 export function findBrokenReferences(dataset: Dataset): string[] {
   const problems: string[] = [];
@@ -66,6 +95,7 @@ export function findBrokenReferences(dataset: Dataset): string[] {
     ...dataset.groups,
     ...dataset.agents,
     ...dataset.requirements,
+    ...dataset.workstreams,
     ...dataset.items,
     ...dataset.questions,
     ...dataset.decisions,
@@ -92,6 +122,9 @@ export function findBrokenReferences(dataset: Dataset): string[] {
   const requirementIds = new Set(
     dataset.requirements.map((requirement) => requirement.id),
   );
+  const workstreamIds = new Set(
+    dataset.workstreams.map((workstream) => workstream.id),
+  );
   const itemIds = new Set(dataset.items.map((item) => item.id));
   const workIds = new Set([...requirementIds, ...itemIds]);
 
@@ -104,9 +137,19 @@ export function findBrokenReferences(dataset: Dataset): string[] {
   }
   for (const requirement of dataset.requirements)
     need(requirement.id, "clientId", requirement.clientId, clientIds);
+  for (const workstream of dataset.workstreams)
+    need(workstream.id, "clientId", workstream.clientId, clientIds);
   for (const item of dataset.items) {
     need(item.id, "clientId", item.clientId, clientIds);
     need(item.id, "requirementId", item.requirementId, requirementIds);
+    need(item.id, "workstreamId", item.workstreamId, workstreamIds);
+    const workstream = dataset.workstreams.find(
+      (candidate) => candidate.id === item.workstreamId,
+    );
+    if (workstream && workstream.clientId !== item.clientId)
+      problems.push(
+        `${item.id}.workstreamId names ${workstream.id}, which belongs to another client`,
+      );
   }
   for (const question of dataset.questions) {
     need(question.id, "clientId", question.clientId, clientIds);

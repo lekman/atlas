@@ -12,7 +12,7 @@ import type {
   Reach,
   Runtime,
 } from "@atlas/core";
-import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 const governed = {
   id: text().primaryKey(),
@@ -65,12 +65,23 @@ export const requirements = sqliteTable("requirements", {
   state: text().$type<"open" | "done">().notNull(),
 });
 
+export const workstreams = sqliteTable("workstreams", {
+  ...governed,
+  clientId: text("client_id")
+    .notNull()
+    .references(() => clients.id),
+  title: text().notNull(),
+  summary: text(),
+  order: real(),
+});
+
 export const items = sqliteTable("items", {
   ...governed,
   clientId: text("client_id")
     .notNull()
     .references(() => clients.id),
   requirementId: text("requirement_id"),
+  workstreamId: text("workstream_id"),
   title: text().notNull(),
   summary: text(),
   state: text().$type<BacklogItem["state"]>().notNull(),

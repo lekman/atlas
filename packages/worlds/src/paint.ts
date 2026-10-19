@@ -5,7 +5,12 @@
 import { clientOfAgent } from "@atlas/core";
 
 import { worldToScreen, type Point } from "./camera";
-import { decisionPosition, itemPosition, questionPosition } from "./layout";
+import {
+  decisionPosition,
+  itemPosition,
+  questionPosition,
+  type WorkstreamMarker,
+} from "./layout";
 import { paletteFor } from "./lighting";
 import type { PaintContext, World } from "./types";
 
@@ -44,11 +49,16 @@ export function paintScene(paint: PaintContext, world: World): HitTarget[] {
     else painter.client(paint, client);
   }
   for (const item of dataset.items)
-    if (item.requirementId) painter.link(paint, item);
+    if (item.requirementId && layout.shown.has(item.id))
+      painter.link(paint, item);
   for (const requirement of dataset.requirements) {
     painter.requirement(paint, requirement);
     const point = layout.fixed.get(requirement.id);
     if (point) hit(requirement.id, point, 18);
+  }
+  for (const marker of layout.markers) {
+    painter.workstream(paint, marker);
+    if (marker.workstreamId) hit(marker.workstreamId, marker.position, 16);
   }
   for (const decision of dataset.decisions) {
     const appearedAt = scene.decidedAt.get(decision.id);
@@ -58,8 +68,9 @@ export function paintScene(paint: PaintContext, world: World): HitTarget[] {
     hit(decision.id, decisionPosition(layout, dataset, decision), 14);
   }
   for (const item of dataset.items) {
+    if (!layout.shown.has(item.id)) continue;
     painter.item(paint, item);
-    hit(item.id, itemPosition(layout, item, time, reducedMotion), 12);
+    hit(item.id, itemPosition(layout, item), 12);
   }
   for (const question of dataset.questions) {
     const answeredAt = scene.answeredAt.get(question.id);
@@ -204,6 +215,22 @@ export function curveBetween(
     }),
   };
 }
+
+/**
+ * The words above a workstream marker: its title, and how many of its items
+ * on the map are not drawn. Plain words in every world.
+ */
+export function workstreamCaption(marker: WorkstreamMarker): string {
+  return marker.more > 0
+    ? `${marker.title} · ${marker.more} more`
+    : marker.title;
+}
+
+/**
+ * How far above its marker a workstream's caption sits, in world units:
+ * clear of the top item in its group, whose label shows only further in.
+ */
+export const workstreamCaptionRise = 56;
 
 /** Labels for work appear only when zoomed in far enough to read them. */
 export const labelScale = {

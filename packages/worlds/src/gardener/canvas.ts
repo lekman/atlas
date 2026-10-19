@@ -27,6 +27,8 @@ import {
   setScreenTransform,
   setWorldTransform,
   withAlpha,
+  workstreamCaption,
+  workstreamCaptionRise,
   type LabelOptions,
 } from "../paint";
 import { hashString, seededRandom } from "../random";
@@ -763,6 +765,52 @@ export const gardenerPainter: WorldPainter = {
     }
   },
 
+  workstream(paint, marker) {
+    const { context } = paint;
+    const { palette, washes, shadow } = gardenLook(paint.lighting);
+    const { x, y } = marker.position;
+    const unsorted = marker.workstreamId === null;
+    // A cold frame: a glazed box the young plants beside it came from.
+    // Unsorted work gathers at an open, dashed frame instead.
+    context.save();
+    context.translate(x, y);
+    if (!unsorted) {
+      context.fillStyle = shadow;
+      context.fillRect(-11, -6, 24, 16);
+      context.fillStyle = withAlpha(washes.paperLight, 0.85);
+      context.fillRect(-13, -8, 24, 16);
+    }
+    context.strokeStyle = palette.ink;
+    context.lineWidth = pixels(paint, 1.2);
+    if (unsorted) context.setLineDash([pixels(paint, 3), pixels(paint, 3)]);
+    context.strokeRect(-13, -8, 24, 16);
+    context.setLineDash([]);
+    if (!unsorted) {
+      context.beginPath();
+      context.moveTo(-5, -8);
+      context.lineTo(-5, 8);
+      context.moveTo(3, -8);
+      context.lineTo(3, 8);
+      context.stroke();
+    }
+    context.restore();
+    if (isFull(paint) && paint.camera.scale > labelScale.requirement) {
+      lettering(
+        paint,
+        workstreamCaption(marker),
+        x,
+        y - workstreamCaptionRise,
+        {
+          size: 12,
+          font: type.display,
+          colour: palette.ink,
+          align: "center",
+          baseline: "bottom",
+        },
+      );
+    }
+  },
+
   link(paint, item) {
     const { context, scene } = paint;
     const from = item.requirementId
@@ -770,12 +818,7 @@ export const gardenerPainter: WorldPainter = {
       : undefined;
     if (!from) return;
     const { washes } = gardenLook(paint.lighting);
-    const to = itemPosition(
-      scene.layout,
-      item,
-      paint.time,
-      paint.reducedMotion,
-    );
+    const to = itemPosition(scene.layout, item);
     // A gardener's string line, from the row marker to the plant.
     context.strokeStyle = withAlpha(washes.wood, 0.38);
     context.lineWidth = pixels(paint, 0.8);
@@ -787,12 +830,7 @@ export const gardenerPainter: WorldPainter = {
 
   item(paint, item) {
     const { context, scene } = paint;
-    const point = itemPosition(
-      scene.layout,
-      item,
-      paint.time,
-      paint.reducedMotion,
-    );
+    const point = itemPosition(scene.layout, item);
     const { palette } = gardenLook(paint.lighting);
     const high = item.priority === "high";
     const twist = (hashString(item.id) % 628) / 100;
@@ -848,13 +886,7 @@ export const gardenerPainter: WorldPainter = {
       time,
       reducedMotion,
     );
-    const blocked = workPosition(
-      scene.layout,
-      scene.dataset,
-      question.blocks,
-      time,
-      reducedMotion,
-    );
+    const blocked = workPosition(scene.layout, scene.dataset, question.blocks);
     const { palette, washes, night } = gardenLook(paint.lighting);
     const blown = 1 - fade;
     context.save();
@@ -1211,7 +1243,7 @@ export const gardenerPainter: WorldPainter = {
         (item) => item.id === effect.recordId,
       );
       const point = target
-        ? itemPosition(scene.layout, target, time, reducedMotion)
+        ? itemPosition(scene.layout, target)
         : scene.layout.fixed.get(effect.recordId);
       if (!point) return;
       const clientId =

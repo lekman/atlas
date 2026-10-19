@@ -9,6 +9,7 @@ import type {
 } from "@atlas/core";
 
 import type { Camera, Point } from "./camera";
+import type { WorkstreamMarker } from "./layout";
 import type { Effect, Motion, Scene } from "./scene";
 
 /** What a world calls each thing. Plural forms are spelled out, never derived. */
@@ -20,6 +21,8 @@ export interface Vocabulary {
   client: string;
   clients: string;
   requirement: string;
+  /** The marker a client's work is grouped around: buoy, space station. */
+  workstream: string;
   item: string;
   agent: string;
   agents: string;
@@ -113,6 +116,11 @@ export interface WorldPainter {
   home(paint: PaintContext, home: Client): void;
   client(paint: PaintContext, client: Client): void;
   requirement(paint: PaintContext, requirement: Requirement): void;
+  /**
+   * A workstream's marker, its title and the count of items it holds but
+   * does not draw. The unsorted marker comes here too, with no workstream id.
+   */
+  workstream(paint: PaintContext, marker: WorkstreamMarker): void;
   /** The line from a requirement to a backlog item that serves it. */
   link(paint: PaintContext, item: BacklogItem): void;
   item(paint: PaintContext, item: BacklogItem): void;

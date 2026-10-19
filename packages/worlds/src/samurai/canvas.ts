@@ -30,6 +30,8 @@ import {
   setScreenTransform,
   setWorldTransform,
   withAlpha,
+  workstreamCaption,
+  workstreamCaptionRise,
 } from "../paint";
 import { hashString, seededRandom } from "../random";
 import type { Palette, PaintContext, WorldPainter } from "../types";
@@ -1376,18 +1378,62 @@ export const samuraiPainter: WorldPainter = {
     }
   },
 
+  workstream(paint, marker) {
+    const { context } = paint;
+    const look = lookOf(paint);
+    const { x, y } = marker.position;
+    const unsorted = marker.workstreamId === null;
+    // A camp: a field tent behind its curtain line. Unsorted work gathers
+    // at an empty, dotted ring of ground instead.
+    context.save();
+    context.translate(x, y);
+    context.fillStyle = look.shade(0.2);
+    context.beginPath();
+    context.ellipse(0, 9, 16, 4.5, 0, 0, Math.PI * 2);
+    context.fill();
+    context.strokeStyle = look.sumi;
+    context.lineWidth = pixels(paint, 1.3);
+    if (unsorted) {
+      context.setLineDash([0, pixels(paint, 4)]);
+      context.lineCap = "round";
+      context.lineWidth = pixels(paint, 2);
+      context.beginPath();
+      context.arc(0, 2, 9, 0, Math.PI * 2);
+      context.stroke();
+    } else {
+      context.fillStyle = look.paper;
+      context.beginPath();
+      context.moveTo(-12, 9);
+      context.lineTo(0, -10);
+      context.lineTo(12, 9);
+      context.closePath();
+      context.fill();
+      context.stroke();
+      context.beginPath();
+      context.moveTo(0, -10);
+      context.lineTo(0, 9);
+      context.stroke();
+    }
+    context.restore();
+    if (isFull(paint) && paint.camera.scale > labelScale.requirement) {
+      text(paint, workstreamCaption(marker), x, y - workstreamCaptionRise, {
+        size: 12,
+        font: type.body,
+        colour: look.palette.ink,
+        align: "center",
+        baseline: "bottom",
+        italic: unsorted,
+      });
+    }
+  },
+
   link(paint, item) {
     const { context, scene } = paint;
     const from = item.requirementId
       ? scene.layout.fixed.get(item.requirementId)
       : undefined;
     if (!from) return;
-    const to = itemPosition(
-      scene.layout,
-      item,
-      paint.time,
-      paint.reducedMotion,
-    );
+    const to = itemPosition(scene.layout, item);
     context.save();
     context.setLineDash([0, pixels(paint, 5)]);
     context.lineCap = "round";
@@ -1402,12 +1448,7 @@ export const samuraiPainter: WorldPainter = {
 
   item(paint, item) {
     const { context, scene } = paint;
-    const point = itemPosition(
-      scene.layout,
-      item,
-      paint.time,
-      paint.reducedMotion,
-    );
+    const point = itemPosition(scene.layout, item);
     // A campaign is a stone on the board: black under way, white not begun,
     // half and half in review.
     const radius = item.priority === "high" ? 8.5 : 6.5;
@@ -1495,13 +1536,7 @@ export const samuraiPainter: WorldPainter = {
     context.save();
     context.globalAlpha = fade;
 
-    const blocked = workPosition(
-      scene.layout,
-      scene.dataset,
-      question.blocks,
-      time,
-      reducedMotion,
-    );
+    const blocked = workPosition(scene.layout, scene.dataset, question.blocks);
     if (blocked) {
       context.save();
       context.setLineDash([0, pixels(paint, 5)]);
@@ -1730,7 +1765,7 @@ export const samuraiPainter: WorldPainter = {
   },
 
   effect(paint, effect, progress) {
-    const { context, scene, time, reducedMotion } = paint;
+    const { context, scene, reducedMotion } = paint;
     const look = lookOf(paint);
     const ink = look.ink;
     const fadeOut = Math.min(1, (1 - progress) * 2);
@@ -1782,7 +1817,7 @@ export const samuraiPainter: WorldPainter = {
         (item) => item.id === effect.recordId,
       );
       const point = target
-        ? itemPosition(scene.layout, target, time, reducedMotion)
+        ? itemPosition(scene.layout, target)
         : scene.layout.fixed.get(effect.recordId);
       if (!point) return;
       const clientId =

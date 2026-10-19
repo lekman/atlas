@@ -71,6 +71,8 @@ export interface AtlasShellProps {
   initialLighting?: LightingPreference;
   /** Opens an inspector card on this record at start, for stories and deep links. */
   initialSelection?: string;
+  /** Opens the full view zoomed in to this client, for stories and deep links. */
+  initialClient?: string;
   /** Remember the chosen world, lighting and sound settings in this browser. */
   remember?: boolean;
   /** An inspector action. The app sends it to the agent; stories show a toast. */
@@ -193,7 +195,9 @@ export function AtlasShell(props: AtlasShellProps) {
   const [zoom, setZoom] = useState<{
     clientId: string;
     request: number;
-  } | null>(null);
+  } | null>(
+    props.initialClient ? { clientId: props.initialClient, request: 0 } : null,
+  );
   const [focus, setFocus] = useState<string | null>(
     props.initialSelection ?? null,
   );

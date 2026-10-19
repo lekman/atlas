@@ -8,6 +8,7 @@ export const astronomerVocabulary: Vocabulary = {
   client: "star system",
   clients: "star systems",
   requirement: "planet",
+  workstream: "space station",
   item: "moon",
   agent: "probe",
   agents: "probes",

@@ -27,6 +27,8 @@ import {
   setScreenTransform,
   setWorldTransform,
   withAlpha,
+  workstreamCaption,
+  workstreamCaptionRise,
 } from "../paint";
 import { seededRandom } from "../random";
 import type { PaintContext, WorldPainter } from "../types";
@@ -475,18 +477,69 @@ export const marinerPainter: WorldPainter = {
     }
   },
 
+  workstream(paint, marker) {
+    const { context } = paint;
+    const palette = paletteOf(paint);
+    const { x, y } = marker.position;
+    const unsorted = marker.workstreamId === null;
+    // A buoy riding on its wake: a can with a top mark, in the chart's own
+    // inks so it never reads as a status. Unsorted work gathers at a plain
+    // mooring ring instead.
+    context.save();
+    context.translate(x, y);
+    context.strokeStyle = withAlpha(palette.accent, 0.45);
+    context.lineWidth = pixels(paint, 1);
+    context.beginPath();
+    context.ellipse(0, 9, 15, 4.5, 0, 0, Math.PI * 2);
+    context.stroke();
+    context.strokeStyle = palette.ink;
+    context.lineWidth = pixels(paint, 1.4);
+    if (unsorted) {
+      context.beginPath();
+      context.arc(0, 2, 7, 0, Math.PI * 2);
+      context.stroke();
+    } else {
+      context.fillStyle = palette.accent;
+      context.beginPath();
+      context.moveTo(-7, 8);
+      context.lineTo(-5, -6);
+      context.lineTo(5, -6);
+      context.lineTo(7, 8);
+      context.closePath();
+      context.fill();
+      context.stroke();
+      context.fillStyle =
+        paint.lighting === "night" ? palette.ground : "#f1e8d2";
+      context.fillRect(-6, -1, 12, 3);
+      context.beginPath();
+      context.moveTo(0, -6);
+      context.lineTo(0, -13);
+      context.stroke();
+      context.fillStyle = palette.ink;
+      context.beginPath();
+      context.arc(0, -15, 2.8, 0, Math.PI * 2);
+      context.fill();
+    }
+    context.restore();
+    if (isFull(paint) && paint.camera.scale > labelScale.requirement) {
+      label(paint, workstreamCaption(marker), x, y - workstreamCaptionRise, {
+        size: 12,
+        font: type.mono,
+        colour: palette.ink,
+        align: "center",
+        baseline: "bottom",
+        italic: unsorted,
+      });
+    }
+  },
+
   link(paint, item) {
     const { context, scene } = paint;
     const from = item.requirementId
       ? scene.layout.fixed.get(item.requirementId)
       : undefined;
     if (!from) return;
-    const to = itemPosition(
-      scene.layout,
-      item,
-      paint.time,
-      paint.reducedMotion,
-    );
+    const to = itemPosition(scene.layout, item);
     context.setLineDash([pixels(paint, 2), pixels(paint, 4)]);
     context.strokeStyle = inksOf(paint).link;
     context.lineWidth = pixels(paint, 1);
@@ -500,12 +553,7 @@ export const marinerPainter: WorldPainter = {
   item(paint, item) {
     const { context, scene } = paint;
     const ink = inksOf(paint);
-    const point = itemPosition(
-      scene.layout,
-      item,
-      paint.time,
-      paint.reducedMotion,
-    );
+    const point = itemPosition(scene.layout, item);
     const size = item.priority === "high" ? 8 : 6.5;
     context.save();
     context.translate(point.x, point.y);
@@ -793,7 +841,7 @@ export const marinerPainter: WorldPainter = {
   },
 
   effect(paint, effect, progress) {
-    const { context, scene, time, reducedMotion } = paint;
+    const { context, scene, reducedMotion } = paint;
     const ink = inksOf(paint);
     const palette = paletteOf(paint);
     const fadeOut = Math.min(1, (1 - progress) * 2);
@@ -842,7 +890,7 @@ export const marinerPainter: WorldPainter = {
         (item) => item.id === effect.recordId,
       );
       const point = target
-        ? itemPosition(scene.layout, target, time, reducedMotion)
+        ? itemPosition(scene.layout, target)
         : scene.layout.fixed.get(effect.recordId);
       if (!point) return;
       const clientId =

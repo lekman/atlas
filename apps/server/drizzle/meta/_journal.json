@@ -15,6 +15,13 @@
       "when": 1792412619933,
       "tag": "0001_machines",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1792414227389,
+      "tag": "0002_workstreams",
+      "breakpoints": true
     }
   ]
 }

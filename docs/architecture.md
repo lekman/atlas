@@ -52,9 +52,16 @@ every world.
 | Agent group  | A group of agents serving one client                                       |
 | Agent        | Account, host, how it can be reached, status, what it works on, a note     |
 | Requirement  | What a client needs to be true                                             |
-| Backlog item | Work, optionally serving a requirement, with state and priority            |
+| Workstream   | A subject a client's work is grouped under, and its place among the others |
+| Backlog item | Work, optionally serving a requirement and in a workstream, with state     |
 | Question     | What blocks a requirement or item, and who must answer                     |
 | Decision     | What was decided, what it settles, the question it came from               |
+
+The map draws a backlog item only when it is in progress or in review, or
+planned for a day and not done. Each workstream draws at most five of
+those, the most urgent first, and counts the rest on its marker. Work
+with no workstream gathers at an "Unsorted" marker. Unscheduled and done
+work stays in the data for lists and the day plan.
 
 Everything that changes the picture is an **event**: a message between
 agents, an event from an outside system, a status change, a question

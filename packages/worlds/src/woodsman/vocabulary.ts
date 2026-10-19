@@ -8,6 +8,7 @@ export const woodsmanVocabulary: Vocabulary = {
   client: "clearing",
   clients: "clearings",
   requirement: "waymark",
+  workstream: "signpost",
   item: "cairn",
   agent: "scout",
   agents: "scouts",
