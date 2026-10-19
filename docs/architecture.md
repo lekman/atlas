@@ -106,9 +106,23 @@ Cloud sessions are never on the tailnet and never connect. They have never
 had access to the dashboard either.
 
 `tailscale whois` was checked on Tailscale 1.104.1: it returns the node's
-stable id, name, key and key expiry, and the user. Not yet checked: whether
-the server still sees the caller's tailnet address behind Tailscale Serve,
-or must listen on its tailnet address directly to make this lookup.
+stable id, name, key and key expiry, and the user.
+
+What the server sees of the caller was checked on Tailscale 1.102.4 on the
+Mac mini, with a Bun server that echoed its remote address and headers:
+
+| Setup                                            | Remote address      | Caller's tailnet address                                  |
+| ------------------------------------------------ | ------------------- | --------------------------------------------------------- |
+| Behind `tailscale serve`, listening on 127.0.0.1 | 127.0.0.1           | In `X-Forwarded-For`, with the `Tailscale-User-*` headers |
+| Listening on the tailnet address directly        | The tailnet address | The remote address itself                                 |
+
+Serve replaced a forged `X-Forwarded-For` and a forged
+`Tailscale-User-Login` with its own values, and `tailscale whois` resolved
+the forwarded address to the calling node's stable id. Two limits remain.
+The caller in this test was the Mac mini itself, not a second machine. And
+behind Serve, any process on the Mac mini can connect to 127.0.0.1 and set
+`X-Forwarded-For` itself, so the forwarded address is only as trustworthy
+as the processes on that host.
 
 ### Versions
 
