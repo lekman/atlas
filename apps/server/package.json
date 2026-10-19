@@ -19,6 +19,7 @@
     "@atlas/core": "workspace:*",
     "@atlas/fixtures": "workspace:*",
     "@atlas/web": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.32.1",
     "drizzle-orm": "^0.45.0"
   },
   "devDependencies": {

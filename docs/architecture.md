@@ -33,7 +33,7 @@ flowchart LR
 | `@atlas/worlds`   | Built. Six worlds: layout, canvas, SVG, sounds         |
 | `@atlas/ui`       | Built. Shell, live map, panels, stories                |
 | `apps/storybook`  | Built. Story tests with axe; published to GitHub Pages |
-| `apps/server`     | Started. SQLite, HTTP API and event stream; no MCP yet |
+| `apps/server`     | Started. SQLite, HTTP API, event stream and MCP        |
 | `apps/web`        | Started. The full view, kept live by the event stream  |
 | `apps/artifact`   | Next                                                   |
 | `apps/plugin`     | Later                                                  |
@@ -79,9 +79,9 @@ left the client's boundary even if no file moved.
 
 ## The Server
 
-`apps/server` holds the database, the HTTP API and the event stream, and
-serves the web app from `apps/web` at `/` on the same origin. MCP, machine
-tokens, Litestream and the import are still to come.
+`apps/server` holds the database, the HTTP API, the event stream and the
+MCP endpoint, and serves the web app from `apps/web` at `/` on the same
+origin. Machine tokens, Litestream and the import are still to come.
 
 | Route              | What it does                                          |
 | ------------------ | ----------------------------------------------------- |
@@ -90,11 +90,30 @@ tokens, Litestream and the import are still to come.
 | `GET /api/events`  | The event log after `?after=<sequence>`, oldest first |
 | `POST /api/events` | Adds one event, writes its effect and streams it      |
 | `GET /api/stream`  | Server-sent events after `?after=`, then each new one |
+| `POST /mcp`        | The MCP tools, over Streamable HTTP                   |
 
 The dataset response names the last event it includes in the
 `x-atlas-sequence` header, and the web app opens the stream from there, so
 no event falls between the two. An event and its effect are written in one transaction, so the log and the
-records never disagree. An event about a missing record is refused with a
+records never disagree. The MCP endpoint is stateless and answers in JSON. Its tools write through
+the same events as `POST /api/events`, so a tool call reaches the log and
+every open view.
+
+| Tool                  | What it does                                                         |
+| --------------------- | -------------------------------------------------------------------- |
+| `list_agents`         | Every agent with its id, client, host and status                     |
+| `report_status`       | Sets the agent's status and note: a `status-change` event            |
+| `send_message`        | A message between two known agents: an `agent-message` event         |
+| `list_my_work`        | The agent's own work, then its client's open work, most urgent first |
+| `list_open_questions` | Open questions, with who must answer                                 |
+| `answer_question`     | Answers a question and records the decision                          |
+
+A session connects with
+`claude mcp add --transport http atlas https://<server>.<tailnet>.ts.net/mcp`.
+A request with an Origin header from another site is refused, so a web page
+cannot call the tools through a browser on the tailnet.
+
+An event about a missing record is refused with a
 404, and a second answer to the same question with a 409. A posted event
 must be `application/json`: another site cannot send that from a browser
 without a preflight, and the server answers no preflight. Until machine
@@ -112,8 +131,8 @@ on the Mac mini from the vault and kept outside this repository.
 
 - **Database:** SQLite in WAL mode with Drizzle for schema and migrations.
   Only the server process opens the file; agents go through MCP.
-- **MCP tools:** `report_status`, `claim_item`, `ask_question`,
-  `record_decision`, `link`, `list_my_work`, `list_open_questions`.
+- **MCP tools still to come:** `claim_item`, `ask_question`, `link`, and the
+  task tools from the plan (`task_add`, `task_update`, `task_complete`).
 - **Network:** Tailscale Serve on the tailnet only, with Funnel off. Nothing
   reaches the server from outside the tailnet. People are identified by
   Tailscale's identity headers; agents as below.

@@ -41,12 +41,12 @@ name: `bun test -t 'substring'`.
 | `packages/fixtures` | The invented dataset and a scripted day of events             |
 | `packages/worlds`   | Layout, scene, canvas and SVG renderers and sounds, per world |
 | `packages/ui`       | React components and their stories                            |
-| `apps/server`       | Bun, SQLite and the HTTP API, seeded with the invented data   |
+| `apps/server`       | Bun, SQLite, the HTTP API and the MCP tools                   |
 | `apps/web`          | The web app the server serves: the full view on live data     |
 | `apps/storybook`    | Storybook configuration, story tests, the Pages build         |
 | `docs/`             | Architecture, worlds, contributing, repository settings       |
 
-Planned next, not yet here: MCP and Litestream in `apps/server`, the
+Planned next, not yet here: machine tokens and Litestream in `apps/server`, the
 installable iPhone app (a PWA) in `apps/web`, `apps/artifact` (the Claude
 desktop sidebar build) and `apps/plugin` (a thin Claude Code plugin). See [Architecture](docs/architecture.md).
 
