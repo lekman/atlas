@@ -11,8 +11,21 @@ export interface Configuration {
   databasePath: string;
   hostname: string;
   port: number;
-  /** Seed the invented dataset when the database is empty. */
-  seedFixtures: boolean;
+  /**
+   * What to write into an empty database: the invented dataset, a dataset
+   * from a JSON file kept outside the repository, or nothing.
+   */
+  seed: Seed;
+}
+
+export type Seed =
+  { kind: "none" } | { kind: "fixtures" } | { kind: "file"; path: string };
+
+function readSeed(value: string | undefined): Seed {
+  if (!value) return { kind: "none" };
+  if (value === "fixtures") return { kind: "fixtures" };
+  if (value.endsWith(".json")) return { kind: "file", path: value };
+  throw new Error("ATLAS_SEED must be fixtures or the path of a .json file");
 }
 
 export function readConfiguration(
@@ -27,6 +40,6 @@ export function readConfiguration(
       join(homedir(), "Library", "Application Support", "Atlas", "atlas.db"),
     hostname: environment.ATLAS_HOSTNAME ?? "127.0.0.1",
     port,
-    seedFixtures: environment.ATLAS_SEED === "fixtures",
+    seed: readSeed(environment.ATLAS_SEED),
   };
 }
