@@ -118,3 +118,18 @@ export const events = sqliteTable("events", {
   type: text().$type<AtlasEvent["type"]>().notNull(),
   event: text({ mode: "json" }).$type<AtlasEvent>().notNull(),
 });
+
+/**
+ * A machine allowed to call Atlas. Its token is stored only as a SHA-256
+ * hash, and is accepted only from the Tailscale node it was issued to.
+ */
+export const machines = sqliteTable("machines", {
+  id: text().primaryKey(),
+  /** The Tailscale node's stable id, as `tailscale whois` reports it. */
+  nodeStableId: text("node_stable_id").notNull(),
+  tokenHash: text("token_hash").notNull().unique(),
+  /** The client ids the machine may see, or `["*"]` for every client. */
+  clients: text({ mode: "json" }).$type<string[]>().notNull(),
+  issuedAt: text("issued_at").notNull(),
+  revokedAt: text("revoked_at"),
+});

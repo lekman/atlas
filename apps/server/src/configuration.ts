@@ -16,6 +16,8 @@ export interface Configuration {
    * from a JSON file kept outside the repository, or nothing.
    */
   seed: Seed;
+  /** Refuse callers without a machine token or a Tailscale Serve identity. */
+  requireTokens: boolean;
 }
 
 export type Seed =
@@ -41,5 +43,6 @@ export function readConfiguration(
     hostname: environment.ATLAS_HOSTNAME ?? "127.0.0.1",
     port,
     seed: readSeed(environment.ATLAS_SEED),
+    requireTokens: environment.ATLAS_REQUIRE_TOKENS === "true",
   };
 }
