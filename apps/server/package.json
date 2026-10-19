@@ -1,0 +1,28 @@
+{
+  "name": "@atlas/server",
+  "version": "0.0.0",
+  "description": "The Atlas server: SQLite, the HTTP API and the event stream, on the Mac mini over Tailscale",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "start": "bun src/main.ts",
+    "migrations": "drizzle-kit generate",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test tests/"
+  },
+  "dependencies": {
+    "@atlas/core": "workspace:*",
+    "@atlas/fixtures": "workspace:*",
+    "drizzle-orm": "^0.45.0"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3",
+    "drizzle-kit": "^0.31.0",
+    "typescript": "^6.0"
+  }
+}
