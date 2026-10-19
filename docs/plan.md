@@ -48,6 +48,15 @@ reworded title updates the same task. The importer never invents a key.
 4. Cutover, one way. The database is the master copy, and the dashboard is
    regenerated from it as a read-only view headed "edit in Atlas".
 
+Tickets in each client's tracker (Jira, Monday.com or GitHub Issues) move
+the same way, one session group at a time. The group's own session maps
+its tracker into Atlas records with the connector it already has, then
+calls the MCP tools: a dry run first, then the import after you approve its
+counts. The tracker key is the record's identity, so running it again
+updates and never duplicates. This goes through MCP and not a separate
+package, so every machine uses the tools the server serves today and
+nothing extra needs installing or updating.
+
 The vault reaches the Mac mini through Obsidian Sync: the Mac mini runs
 Obsidian with its own copy of the vault. The importer and the details
 reader read that folder as Sync updates it, and the regenerated dashboard is
@@ -61,13 +70,16 @@ An `atlas` plugin in `lekman/ai-toolkit` takes over everything that writes
 the dashboard today, and the old skills retire in the same release so
 nothing clashes.
 
-| Today                                                                                  | Becomes                                                   |
-| -------------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| Planner skills: archive, execute, goal, morning, next, plan, pull, sync, today, triage | Atlas skills calling the MCP tools                        |
-| Obsidian dashboard skills: add, dashboard, focus, sync-todo, tick, wrapup              | Atlas skills                                              |
-| The planner's shape, roll-forward, move and archive scripts                            | Server logic: days promote themselves; done work archives |
-| The dashboard guard hook                                                               | A guard against any write to the generated file           |
-| `wrap:day`, `commander:plan-check`                                                     | Read from Atlas                                           |
+| Today                                                                                  | Becomes                                                                                      |
+| -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Planner skills: archive, execute, goal, morning, next, plan, pull, sync, today, triage | Atlas skills calling the MCP tools                                                           |
+| Obsidian dashboard skills: add, dashboard, focus, sync-todo, tick, wrapup              | Atlas skills                                                                                 |
+| The planner's shape, roll-forward, move and archive scripts                            | Server logic: days promote themselves; done work archives                                    |
+| The dashboard guard hook                                                               | A guard against any write to the generated file                                              |
+| `wrap:day`, `commander:plan-check`                                                     | Read from Atlas                                                                              |
+| `commander:roll-call` and the standalone `roll-call` skill                             | Read agent state from Atlas, which agents send themselves with `report_status`               |
+| `commander:dispatch`, `commander:notify`, the handoff ledger                           | Write to Atlas: a dispatch is an item and a claim, a notice is a needs-you entry             |
+| `commander:nudge`, `commander:scale`, the commander agent                              | Unchanged, because they control sessions, not data. They read Atlas instead of the dashboard |
 
 The MCP tools: `task_add`, `task_update`, `task_complete`, `day_note_set`
 and `calendar_add`.

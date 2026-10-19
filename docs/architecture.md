@@ -82,10 +82,44 @@ left the client's boundary even if no file moved.
 - **Database:** SQLite in WAL mode with Drizzle for schema and migrations.
   Only the server process opens the file; agents go through MCP.
 - **MCP tools:** `report_status`, `claim_item`, `ask_question`,
-  `record_decision`, `link`, `list_my_work`, `list_open_questions`. Each
-  agent gets its own token, scoped to the clients it may see.
-- **Network:** Tailscale Serve on the tailnet only, with Funnel off. People
-  are identified by Tailscale's identity headers; agents by their tokens.
+  `record_decision`, `link`, `list_my_work`, `list_open_questions`.
+- **Network:** Tailscale Serve on the tailnet only, with Funnel off. Nothing
+  reaches the server from outside the tailnet. People are identified by
+  Tailscale's identity headers; agents as below.
+
+### Who May Connect
+
+Agents reach the database only through MCP, then the API, over the tailnet.
+Each machine proves who it is twice, and no password is shared between
+machines.
+
+| Layer          | What it checks                                                                                                                                  |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Tailscale node | The server asks the local Tailscale daemon which node owns the caller's address, as `tailscale whois` does, and reads its stable id             |
+| Machine token  | Atlas issues one token for each machine, bound to that node's stable id and scoped to the clients the machine may see. It rotates on a schedule |
+
+A token copied to another machine fails, because its node does not match.
+Every agent on a machine names itself in `report_status`, so the map still
+shows each agent apart.
+
+Cloud sessions are never on the tailnet and never connect. They have never
+had access to the dashboard either.
+
+`tailscale whois` was checked on Tailscale 1.104.1: it returns the node's
+stable id, name, key and key expiry, and the user. Not yet checked: whether
+the server still sees the caller's tailnet address behind Tailscale Serve,
+or must listen on its tailnet address directly to make this lookup.
+
+### Versions
+
+The `atlas` plugin comes from the `ai-toolkit` marketplace with automatic
+updates on, which is a setting on each machine. Over MCP, a session takes
+its tool definitions from the server when it connects, so the tools cannot
+fall behind the server; only the skill text can. A long-running session
+keeps its skills until it restarts, so the server accepts the previous
+tool version for one release and rejects anything older with a message
+that says to restart the session.
+
 - **Secrets:** the macOS Keychain. Never in the repository, never in the
   database.
 - **Host:** a Mac mini with sleep off, restart after power failure, services
