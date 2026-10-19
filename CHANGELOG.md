@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.0](https://github.com/lekman/atlas/compare/v0.2.0...v0.3.0) (2026-10-19)
+
+
+### Features
+
+* **server:** machine tokens bound to Tailscale nodes and scoped to clients ([#22](https://github.com/lekman/atlas/issues/22)) ([5ba025f](https://github.com/lekman/atlas/commit/5ba025f665b193ac9a2e7244d3d03ba79d30dbd9))
+* **server:** MCP endpoint with status, message, work and question tools ([#20](https://github.com/lekman/atlas/issues/20)) ([7179231](https://github.com/lekman/atlas/commit/7179231a54318f376529b7e2774b738e9d0f81d7))
+
 ## [0.2.0](https://github.com/lekman/atlas/compare/v0.1.0...v0.2.0) (2026-10-19)
 
 
