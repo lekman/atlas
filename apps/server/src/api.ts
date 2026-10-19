@@ -9,10 +9,14 @@
  * | GET  /api/events   | The event log after `?after=<sequence>`, oldest first   |
  * | POST /api/events   | Adds one event, writes its effect and streams it        |
  * | GET  /api/stream   | Server-sent events after `?after=`, then each new one   |
+ * | POST /mcp          | The MCP tools agents call (see `mcp.ts`)                |
  */
 import { ZodError } from "zod/v4";
 
+import type { AtlasEvent } from "@atlas/core";
+
 import type { AtlasDatabase } from "./database";
+import { handleMcp } from "./mcp";
 import {
   appendEvent,
   EventRejected,
@@ -53,7 +57,7 @@ export interface ApiOptions {
 }
 
 export interface Api {
-  /** Answers a request under `/api/`, or returns `undefined` for any other path. */
+  /** Answers a request under `/api/` or to `/mcp`, or returns `undefined` for any other path. */
   handle(request: Request): Promise<Response | undefined>;
   /** How many streams are open. */
   listeners(): number;
@@ -65,8 +69,11 @@ export function createApi({ database, version }: ApiOptions): Api {
   const streams = new Set<(stored: StoredEvent) => void>();
   const closers = new Set<() => void>();
 
-  function broadcast(stored: StoredEvent) {
+  /** Stores an event and streams it to every open view. */
+  function record(event: AtlasEvent): StoredEvent {
+    const stored = appendEvent(database, event);
     for (const send of streams) send(stored);
+    return stored;
   }
 
   function stream(request: Request): Response {
@@ -144,9 +151,7 @@ export function createApi({ database, version }: ApiOptions): Api {
       return problem(400, "the body is not JSON");
     }
     try {
-      const stored = appendEvent(database, body);
-      broadcast(stored);
-      return json(stored, 201);
+      return json(record(body as AtlasEvent), 201);
     } catch (error) {
       if (error instanceof ZodError)
         return problem(400, "the event does not match the model", error.issues);
@@ -159,6 +164,8 @@ export function createApi({ database, version }: ApiOptions): Api {
   return {
     async handle(request) {
       const url = new URL(request.url);
+      if (url.pathname === "/mcp")
+        return handleMcp(request, { database, version, record });
       if (!url.pathname.startsWith("/api/") && url.pathname !== "/api")
         return undefined;
       const route = `${request.method} ${url.pathname}`;

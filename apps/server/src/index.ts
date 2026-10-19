@@ -16,3 +16,4 @@ export {
   seedDataset,
   type StoredEvent,
 } from "./store";
+export { createMcpServer, handleMcp, type McpOptions } from "./mcp";
