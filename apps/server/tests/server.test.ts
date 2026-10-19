@@ -1,9 +1,18 @@
 import { applyEvent, type AtlasEvent } from "@atlas/core";
-import { sampleDataset, sampleScript } from "@atlas/fixtures";
+import { busyDataset, sampleDataset, sampleScript } from "@atlas/fixtures";
 import { afterAll, beforeEach, describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { Database } from "bun:sqlite";
+import {
+  cpSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { drizzle } from "drizzle-orm/bun-sqlite";
+import { migrate } from "drizzle-orm/bun-sqlite/migrator";
 
 import {
   appendEvent,
@@ -42,6 +51,27 @@ beforeEach(() => {
 describe("the store", () => {
   test("reads back exactly the dataset it was seeded with", () => {
     expect(readDataset(database)).toEqual(sampleDataset);
+  });
+
+  test("reads back workstreams, and the items grouped under them", () => {
+    const busy = openDatabase(":memory:");
+    seedDataset(busy, busyDataset);
+    const read = readDataset(busy);
+    expect(read).toEqual(busyDataset);
+    expect(read.workstreams.length).toBeGreaterThan(10);
+    expect(read.items.some((item) => item.workstreamId)).toBe(true);
+    expect(read.items.some((item) => !item.workstreamId)).toBe(true);
+  });
+
+  test("reads a dataset with no workstreams", () => {
+    const none = openDatabase(":memory:");
+    const plain = {
+      ...sampleDataset,
+      workstreams: [],
+      items: sampleDataset.items.map(({ workstreamId: _, ...item }) => item),
+    };
+    seedDataset(none, plain);
+    expect(readDataset(none)).toEqual(plain);
   });
 
   test("an empty database says so, and seeding twice is refused", () => {
@@ -233,6 +263,53 @@ describe("the API", () => {
   });
 });
 
+describe("a database from before workstreams", () => {
+  const directory = mkdtempSync(join(tmpdir(), "atlas-upgrade-"));
+  afterAll(() => rmSync(directory, { recursive: true, force: true }));
+
+  test("keeps its records when the workstreams migration runs", () => {
+    // The migrations as they were before 0002: the first two, and a journal
+    // that names only them.
+    const migrations = join(import.meta.dir, "..", "drizzle");
+    const before = join(directory, "drizzle");
+    cpSync(migrations, before, { recursive: true });
+    rmSync(join(before, "0002_workstreams.sql"));
+    const journalPath = join(before, "meta", "_journal.json");
+    const journal = JSON.parse(readFileSync(journalPath, "utf8")) as {
+      entries: Array<{ tag: string }>;
+    };
+    journal.entries = journal.entries.filter(
+      (entry) => entry.tag !== "0002_workstreams",
+    );
+    writeFileSync(journalPath, JSON.stringify(journal));
+
+    const path = join(directory, "atlas.db");
+    const old = new Database(path, { create: true });
+    migrate(drizzle({ client: old }), { migrationsFolder: before });
+    old.run(
+      "INSERT INTO clients (id, classification, boundary, name, home) VALUES ('ashgrove', 'internal', 'home-server', 'Ashgrove Consulting', 1)",
+    );
+    old.run(
+      "INSERT INTO items (id, classification, boundary, client_id, title, state, priority) VALUES ('send-invoices', 'internal', 'home-server', 'ashgrove', 'Send October invoices', 'doing', 'high')",
+    );
+    old.close();
+
+    const upgraded = readDataset(openDatabase(path));
+    expect(upgraded.workstreams).toEqual([]);
+    expect(upgraded.items).toEqual([
+      {
+        id: "send-invoices",
+        classification: "internal",
+        boundary: "home-server",
+        clientId: "ashgrove",
+        title: "Send October invoices",
+        state: "doing",
+        priority: "high",
+      },
+    ]);
+  });
+});
+
 describe("a seed file", () => {
   const directory = mkdtempSync(join(tmpdir(), "atlas-seed-"));
   afterAll(() => rmSync(directory, { recursive: true, force: true }));
@@ -243,6 +320,13 @@ describe("a seed file", () => {
     const empty = openDatabase(":memory:");
     seedDataset(empty, await readSeedFile(path));
     expect(readDataset(empty)).toEqual(sampleDataset);
+  });
+
+  test("written before workstreams existed, is still read", async () => {
+    const path = join(directory, "older.json");
+    const { workstreams: _, ...older } = sampleDataset;
+    await Bun.write(path, JSON.stringify(older));
+    expect((await readSeedFile(path)).workstreams).toEqual([]);
   });
 
   test("is refused when missing or not a dataset", async () => {

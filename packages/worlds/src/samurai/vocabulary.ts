@@ -8,6 +8,7 @@ export const samuraiVocabulary: Vocabulary = {
   client: "clan",
   clients: "clans",
   requirement: "objective",
+  workstream: "camp",
   item: "campaign",
   agent: "retainer",
   agents: "retainers",

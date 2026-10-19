@@ -28,6 +28,7 @@ export function readDataset(database: AtlasDatabase): Dataset {
       .from(schema.requirements)
       .all()
       .map(present),
+    workstreams: database.select().from(schema.workstreams).all().map(present),
     items: database.select().from(schema.items).all().map(present),
     questions: database.select().from(schema.questions).all().map(present),
     decisions: database.select().from(schema.decisions).all().map(present),
@@ -79,6 +80,8 @@ export function seedDataset(database: AtlasDatabase, input: Dataset): void {
         .insert(schema.requirements)
         .values(dataset.requirements)
         .run();
+    if (dataset.workstreams.length)
+      transaction.insert(schema.workstreams).values(dataset.workstreams).run();
     if (dataset.items.length)
       transaction.insert(schema.items).values(dataset.items).run();
     if (dataset.questions.length)

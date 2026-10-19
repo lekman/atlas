@@ -13,6 +13,7 @@ export const doctorVocabulary: Vocabulary = {
   client: "hospital",
   clients: "hospitals",
   requirement: "department",
+  workstream: "ward",
   item: "admission",
   agent: "staff member",
   agents: "staff",

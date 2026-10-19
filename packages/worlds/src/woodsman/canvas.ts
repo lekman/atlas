@@ -22,6 +22,8 @@ import {
   setScreenTransform,
   setWorldTransform,
   withAlpha,
+  workstreamCaption,
+  workstreamCaptionRise,
 } from "../paint";
 import { hashString, seededRandom } from "../random";
 import type { PaintContext, WorldPainter } from "../types";
@@ -1051,18 +1053,56 @@ export const woodsmanPainter: WorldPainter = {
     }
   },
 
+  workstream(paint, marker) {
+    const { context } = paint;
+    const { x, y } = marker.position;
+    const unsorted = marker.workstreamId === null;
+    // A signpost: a board on a post. Unsorted work gathers at a bare post.
+    context.save();
+    context.translate(x, y);
+    context.strokeStyle = palette.ink;
+    context.lineWidth = Math.max(1.8, pixels(paint, 1.5));
+    context.lineJoin = "round";
+    context.beginPath();
+    context.moveTo(0, 12);
+    context.lineTo(0, unsorted ? -10 : -6);
+    context.stroke();
+    if (unsorted) {
+      context.beginPath();
+      context.arc(0, -12, 3, 0, Math.PI * 2);
+      context.stroke();
+    } else {
+      context.fillStyle = "#fbf8ee";
+      context.beginPath();
+      context.moveTo(-11, -14);
+      context.lineTo(9, -14);
+      context.lineTo(14, -9);
+      context.lineTo(9, -4);
+      context.lineTo(-11, -4);
+      context.closePath();
+      context.fill();
+      context.stroke();
+    }
+    context.restore();
+    if (isFull(paint) && paint.camera.scale > labelScale.requirement) {
+      text(paint, workstreamCaption(marker), x, y - workstreamCaptionRise, {
+        size: 12,
+        font: type.body,
+        colour: palette.ink,
+        align: "center",
+        baseline: "bottom",
+        italic: unsorted,
+      });
+    }
+  },
+
   link(paint, item) {
     const { context, scene } = paint;
     const from = item.requirementId
       ? scene.layout.fixed.get(item.requirementId)
       : undefined;
     if (!from) return;
-    const to = itemPosition(
-      scene.layout,
-      item,
-      paint.time,
-      paint.reducedMotion,
-    );
+    const to = itemPosition(scene.layout, item);
     context.setLineDash([pixels(paint, 1), pixels(paint, 3)]);
     context.strokeStyle = "rgba(59,42,26,0.4)";
     context.lineWidth = pixels(paint, 1);
@@ -1077,12 +1117,7 @@ export const woodsmanPainter: WorldPainter = {
 
   item(paint, item) {
     const { context, scene } = paint;
-    const point = itemPosition(
-      scene.layout,
-      item,
-      paint.time,
-      paint.reducedMotion,
-    );
+    const point = itemPosition(scene.layout, item);
     const unit =
       (item.priority === "high" ? 1.2 : 1) *
       Math.max(1.25, pixels(paint, 0.48));
@@ -1375,7 +1410,7 @@ export const woodsmanPainter: WorldPainter = {
         (item) => item.id === effect.recordId,
       );
       const point = target
-        ? itemPosition(scene.layout, target, time, reducedMotion)
+        ? itemPosition(scene.layout, target)
         : scene.layout.fixed.get(effect.recordId);
       if (!point) return;
       const clientId =

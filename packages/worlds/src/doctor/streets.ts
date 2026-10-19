@@ -36,8 +36,9 @@ export const hospitalReach = 330;
 export const bayDistance = 200;
 /**
  * How far round from a place's outward direction the bay sits. The layout
- * puts departments within 1.2 radians of outward, recorded diagnoses from
- * 2.1 radians on, and admissions opposite, so this is the one clear gap.
+ * puts departments above and below the centre, recorded diagnoses round
+ * its upper left and wards in a column either side, so a bay this far
+ * round can pass close to a ward.
  */
 const bayTurn = -2.2;
 const frontageGap = 40;

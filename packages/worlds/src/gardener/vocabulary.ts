@@ -8,6 +8,7 @@ export const gardenerVocabulary: Vocabulary = {
   client: "bed",
   clients: "beds",
   requirement: "seed row",
+  workstream: "cold frame",
   item: "plant",
   agent: "bee",
   agents: "bees",

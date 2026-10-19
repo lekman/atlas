@@ -175,9 +175,7 @@ export class Scene {
     const firstItem = this.dataset.items.find(
       (item) => item.id === agent.workingOn[0],
     );
-    const near = firstItem
-      ? itemPosition(this.layout, firstItem, time, reducedMotion)
-      : null;
+    const near = firstItem ? itemPosition(this.layout, firstItem) : null;
 
     switch (agent.status) {
       case "running": {

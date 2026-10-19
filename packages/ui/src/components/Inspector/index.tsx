@@ -1,4 +1,10 @@
-import { clientOfAgent, findRecord, type Dataset } from "@atlas/core";
+import {
+  clientOfAgent,
+  findRecord,
+  isOnMap,
+  orderByUrgency,
+  type Dataset,
+} from "@atlas/core";
 import type { World } from "@atlas/worlds";
 import { useId, type ReactNode } from "react";
 
@@ -15,7 +21,7 @@ export interface InspectorProps {
   dataset: Dataset;
   /** Whose words name the record; the real term is shown beneath. */
   world: World;
-  /** The record to show: an agent, group, requirement, item, question or decision. */
+  /** The record to show: an agent, group, requirement, workstream, item, question or decision. */
   id: string;
   /** The close button was pressed. */
   onClose(): void;
@@ -29,6 +35,7 @@ const realTerm = {
   agent: "Agent",
   group: "Agent group",
   requirement: "Requirement",
+  workstream: "Workstream",
   item: "Backlog item",
   question: "Open question",
   decision: "Decision",
@@ -126,6 +133,27 @@ export function Inspector({
       actions = [["open-record", "Open record"]];
       break;
     }
+    case "workstream": {
+      const workstream = found.record;
+      const work = dataset.items.filter(
+        (item) => item.workstreamId === workstream.id,
+      );
+      const onMap = orderByUrgency(work.filter(isOnMap));
+      const offMap = work.filter((item) => !isOnMap(item));
+      themed = vocabulary.workstream;
+      title = workstream.title;
+      client = clientName(workstream.clientId);
+      subtitle = `${realTerm.workstream} · ${onMap.length} on the map`;
+      if (workstream.summary) rows.push(["About", workstream.summary]);
+      if (onMap.length)
+        rows.push(["Most urgent", onMap.map((item) => link(item.id))]);
+      if (offMap.length)
+        rows.push([
+          "Not drawn",
+          `${offMap.length} done or not yet planned for a day`,
+        ]);
+      break;
+    }
     case "item": {
       const item = found.record;
       themed = vocabulary.item;
@@ -133,6 +161,8 @@ export function Inspector({
       client = clientName(item.clientId);
       subtitle = `${realTerm.item} · ${item.state}${item.priority === "high" ? " · high priority" : ""}`;
       if (item.requirementId) rows.push(["For", link(item.requirementId)]);
+      if (item.workstreamId)
+        rows.push([vocabulary.workstream, link(item.workstreamId)]);
       const blockers = dataset.questions.filter(
         (question) => question.blocks === item.id && question.state === "open",
       );

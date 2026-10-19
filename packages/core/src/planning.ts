@@ -110,6 +110,37 @@ export function orderTasks(items: readonly BacklogItem[]): BacklogItem[] {
     .map(({ item }) => item);
 }
 
+/**
+ * Whether the map draws an item: work in progress or in review, or work
+ * planned for a day and not yet done. Unscheduled backlog and done work stay
+ * in the data, for lists and the day plan, but never reach the map.
+ */
+export function isOnMap(item: BacklogItem): boolean {
+  if (item.state === "done") return false;
+  if (item.state === "doing" || item.state === "review") return true;
+  return item.scheduledFor !== undefined;
+}
+
+/**
+ * Open work, most urgent first: by the priority a task is shown with (high,
+ * normal, low), then by the day it is planned for, earliest first, with
+ * unscheduled work last. Done work is left out; ties keep their given
+ * order. The map uses it to pick which items a workstream draws.
+ */
+export function orderByUrgency(items: readonly BacklogItem[]): BacklogItem[] {
+  const day = (item: BacklogItem) => item.scheduledFor ?? "9999-12-31";
+  return items
+    .map((item, index) => ({ item, index }))
+    .filter(({ item }) => item.state !== "done")
+    .sort(
+      (a, b) =>
+        priorityRank[priorityOf(a.item)] - priorityRank[priorityOf(b.item)] ||
+        day(a.item).localeCompare(day(b.item)) ||
+        a.index - b.index,
+    )
+    .map(({ item }) => item);
+}
+
 export interface ClientDay {
   clientId: string;
   items: BacklogItem[];

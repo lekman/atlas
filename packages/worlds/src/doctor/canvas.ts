@@ -24,6 +24,8 @@ import {
   setScreenTransform,
   setWorldTransform,
   withAlpha,
+  workstreamCaption,
+  workstreamCaptionRise,
 } from "../paint";
 import type { PaintContext, WorldPainter } from "../types";
 import {
@@ -345,9 +347,9 @@ function tick(
   context.stroke();
 }
 
-/** The admissions annex: where admissions without a department wait. */
-function drawAdmissions(paint: PaintContext, area: Rectangle, home: boolean) {
-  const { palette, shade, accent } = toneOf(paint.lighting);
+/** A ward's floor: where its admissions wait, beside the ward's sign. */
+function drawWard(paint: PaintContext, area: Rectangle) {
+  const { shade, accent } = toneOf(paint.lighting);
   const { context } = paint;
   roundedRectangle(
     context,
@@ -367,21 +369,6 @@ function drawAdmissions(paint: PaintContext, area: Rectangle, home: boolean) {
   roundedRectangle(context, area, 14);
   context.fillStyle = shade.floor;
   context.fill();
-  if (isFull(paint) && paint.camera.scale > labelScale.requirement) {
-    label(
-      paint,
-      home ? "Reception" : "Admissions",
-      (area.left + area.right) / 2,
-      area.top - 10,
-      {
-        size: 9.5,
-        font: type.mono,
-        colour: palette.mute,
-        align: "center",
-        baseline: "bottom",
-      },
-    );
-  }
 }
 
 /** The Practice: a small clinic with a hipped roof, a lit window and a door light. */
@@ -614,7 +601,7 @@ export const doctorPainter: WorldPainter = {
     const plan = planOf(paint, home.id);
     if (!plan) return;
     drawGrounds(paint, plan);
-    if (plan.admissions) drawAdmissions(paint, plan.admissions, true);
+    for (const ward of plan.wards) drawWard(paint, ward);
     for (const room of plan.departments) drawLink(paint, plan.centre, room, 28);
     drawPractice(paint, plan);
   },
@@ -623,7 +610,7 @@ export const doctorPainter: WorldPainter = {
     const plan = planOf(paint, client.id);
     if (!plan) return;
     drawGrounds(paint, plan);
-    if (plan.admissions) drawAdmissions(paint, plan.admissions, false);
+    for (const ward of plan.wards) drawWard(paint, ward);
     drawLink(paint, plan.centre, plan.spoke.bay, 18);
     for (const room of plan.departments) drawLink(paint, plan.centre, room, 34);
     drawMainBlock(paint, plan.centre, mainBlock);
@@ -677,6 +664,53 @@ export const doctorPainter: WorldPainter = {
     }
   },
 
+  workstream(paint, marker) {
+    const { palette, shade, accent } = toneOf(paint.lighting);
+    const { context } = paint;
+    const { x, y } = marker.position;
+    const unsorted = marker.workstreamId === null;
+    // A ward: a small block with its sign. Unsorted work waits at an
+    // outlined bay instead.
+    context.save();
+    context.translate(x, y);
+    context.lineWidth = pixels(paint, 1.3);
+    if (unsorted) {
+      context.strokeStyle = accent(0.8);
+      context.setLineDash([pixels(paint, 3), pixels(paint, 3)]);
+      context.strokeRect(-11, -9, 22, 18);
+      context.setLineDash([]);
+    } else {
+      context.fillStyle = shade.roof;
+      context.strokeStyle = accent(0.9);
+      context.fillRect(-12, -10, 24, 20);
+      context.strokeRect(-12, -10, 24, 20);
+      // A bed on the sign, never a cross: see buildings.ts.
+      context.strokeStyle = palette.ink;
+      context.lineWidth = pixels(paint, 1.6);
+      context.beginPath();
+      context.moveTo(-7, -4);
+      context.lineTo(-7, 5);
+      context.moveTo(-7, 2);
+      context.lineTo(7, 2);
+      context.lineTo(7, 5);
+      context.stroke();
+      context.fillStyle = palette.ink;
+      context.fillRect(-5, -2, 4, 3);
+      context.fillRect(0, -1, 7, 3);
+    }
+    context.restore();
+    if (isFull(paint) && paint.camera.scale > labelScale.requirement) {
+      label(paint, workstreamCaption(marker), x, y - workstreamCaptionRise, {
+        size: 10,
+        font: type.mono,
+        colour: palette.ink,
+        align: "center",
+        baseline: "bottom",
+        italic: unsorted,
+      });
+    }
+  },
+
   link(paint, item) {
     const { accent } = toneOf(paint.lighting);
     const { context, scene } = paint;
@@ -684,12 +718,7 @@ export const doctorPainter: WorldPainter = {
       ? scene.layout.fixed.get(item.requirementId)
       : undefined;
     if (!from) return;
-    const to = itemPosition(
-      scene.layout,
-      item,
-      paint.time,
-      paint.reducedMotion,
-    );
+    const to = itemPosition(scene.layout, item);
     context.strokeStyle = accent(0.14);
     context.lineWidth = pixels(paint, 1);
     context.beginPath();
@@ -701,12 +730,7 @@ export const doctorPainter: WorldPainter = {
   item(paint, item) {
     const { shade } = toneOf(paint.lighting);
     const { scene } = paint;
-    const point = itemPosition(
-      scene.layout,
-      item,
-      paint.time,
-      paint.reducedMotion,
-    );
+    const point = itemPosition(scene.layout, item);
     const from = item.requirementId
       ? scene.layout.fixed.get(item.requirementId)
       : scene.layout.clients.get(item.clientId);
@@ -737,7 +761,7 @@ export const doctorPainter: WorldPainter = {
       (item) => item.id === question.blocks,
     );
     if (blocked) {
-      const to = itemPosition(scene.layout, blocked, time, reducedMotion);
+      const to = itemPosition(scene.layout, blocked);
       context.setLineDash([pixels(paint, 2), pixels(paint, 4)]);
       context.strokeStyle = withAlpha(shade.sample, 0.45);
       context.lineWidth = pixels(paint, 1);
@@ -1126,7 +1150,7 @@ export const doctorPainter: WorldPainter = {
         (item) => item.id === effect.recordId,
       );
       const point = target
-        ? itemPosition(scene.layout, target, time, reducedMotion)
+        ? itemPosition(scene.layout, target)
         : scene.layout.fixed.get(effect.recordId);
       if (!point) return;
       const clientId =

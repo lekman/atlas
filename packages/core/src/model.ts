@@ -109,6 +109,23 @@ export const Requirement = z.object({
 });
 export type Requirement = z.infer<typeof Requirement>;
 
+/**
+ * A subject a client's work is grouped under, such as "Billing" or "Data
+ * platform". The map draws each one as a marker beside its client, with
+ * the most urgent open items around it, so a client with a hundred items
+ * still reads as a handful of groups.
+ */
+export const Workstream = z.object({
+  ...governed,
+  clientId: Identifier,
+  title: z.string().min(1),
+  /** A sentence on what the workstream covers. */
+  summary: z.string().optional(),
+  /** Where it sits among its client's workstreams: lower comes first. */
+  order: z.number().optional(),
+});
+export type Workstream = z.infer<typeof Workstream>;
+
 /** A calendar date, `2026-10-18`. Days are the unit of planning. */
 export const IsoDate = z.iso.date();
 export type IsoDate = z.infer<typeof IsoDate>;
@@ -157,6 +174,8 @@ export const BacklogItem = z.object({
   ...governed,
   clientId: Identifier,
   requirementId: Identifier.optional(),
+  /** The workstream it is grouped under. Absent means unsorted. */
+  workstreamId: Identifier.optional(),
   title: z.string().min(1),
   /** The prose after the title: what the task is, in a sentence or two. */
   summary: z.string().optional(),
@@ -297,6 +316,11 @@ export const Dataset = z.object({
   groups: z.array(AgentGroup),
   agents: z.array(Agent),
   requirements: z.array(Requirement),
+  /**
+   * Empty when absent, so a seed file or a server written before
+   * workstreams existed still reads.
+   */
+  workstreams: z.array(Workstream).default([]),
   items: z.array(BacklogItem),
   questions: z.array(Question),
   decisions: z.array(Decision),

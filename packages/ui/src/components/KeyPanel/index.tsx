@@ -16,6 +16,7 @@ export function KeyPanel({ world }: KeyPanelProps) {
     ["Home", `${vocabulary.homeName}, the ${vocabulary.home}`],
     ["Client", vocabulary.client],
     ["Requirement", vocabulary.requirement],
+    ["Workstream", vocabulary.workstream],
     ["Backlog item", vocabulary.item],
     ["Agent", vocabulary.agent],
     ["Open question", vocabulary.question],

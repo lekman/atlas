@@ -9,8 +9,10 @@ import {
   ImportReport,
   isCarriedOver,
   isNotWorthIt,
+  isOnMap,
   nextDay,
   notWorthIt,
+  orderByUrgency,
   orderTasks,
   priorityFrom,
   priorityOf,
@@ -103,6 +105,58 @@ describe("bands", () => {
         today,
       ),
     ).toBe(false);
+  });
+});
+
+describe("what the map draws", () => {
+  it("draws work in progress or in review, planned or not", () => {
+    expect(isOnMap(task("a", { state: "doing" }))).toBe(true);
+    expect(isOnMap(task("b", { state: "review" }))).toBe(true);
+  });
+
+  it("draws work not started only when it is planned for a day", () => {
+    expect(isOnMap(task("a", { state: "todo" }))).toBe(false);
+    expect(
+      isOnMap(task("b", { state: "todo", scheduledFor: "2026-10-20" })),
+    ).toBe(true);
+  });
+
+  it("never draws done work, even with a day", () => {
+    expect(
+      isOnMap(task("a", { state: "done", scheduledFor: "2026-10-18" })),
+    ).toBe(false);
+  });
+
+  it("orders open work by priority, then day, unscheduled last", () => {
+    const ordered = orderByUrgency([
+      task("low-today", { priority: "low", scheduledFor: "2026-10-19" }),
+      task("normal-none", { priority: "normal" }),
+      task("normal-later", { priority: "normal", scheduledFor: "2026-10-25" }),
+      task("high-none", { priority: "high" }),
+      task("normal-sooner", {
+        priority: "normal",
+        scheduledFor: "2026-10-20",
+      }),
+      task("high-done", { priority: "high", state: "done" }),
+    ]);
+    expect(ordered.map((item) => item.id)).toEqual([
+      "high-none",
+      "normal-sooner",
+      "normal-later",
+      "normal-none",
+      "low-today",
+    ]);
+  });
+
+  it("orders by the priority a sized task is shown with", () => {
+    const ordered = orderByUrgency([
+      task("marked-high", { priority: "high" }),
+      task("sized-high", { priority: "low", value: 13, effort: "XS" }),
+    ]);
+    expect(ordered.map((item) => item.id)).toEqual([
+      "marked-high",
+      "sized-high",
+    ]);
   });
 });
 

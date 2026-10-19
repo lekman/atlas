@@ -8,6 +8,7 @@ export const marinerVocabulary: Vocabulary = {
   client: "island",
   clients: "islands",
   requirement: "anchorage",
+  workstream: "buoy",
   item: "cargo",
   agent: "vessel",
   agents: "vessels",

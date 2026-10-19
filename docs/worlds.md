@@ -27,6 +27,7 @@ choices: [Mariner](worlds/mariner.md), [Woodsman](worlds/woodsman.md),
 | -------------- | -------------------- | ------------ | ------------------------- |
 | Client         | Star system          | Island       | Clearing                  |
 | Requirement    | Planet               | Anchorage    | Waymark                   |
+| Workstream     | Space station        | Buoy         | Signpost                  |
 | Backlog item   | Moon                 | Cargo        | Cairn                     |
 | Agent          | Probe                | Vessel       | Scout                     |
 | Open question  | Comet                | Fog bank     | Unmarked fork             |
@@ -39,6 +40,7 @@ choices: [Mariner](worlds/mariner.md), [Woodsman](worlds/woodsman.md),
 | -------------- | --------------- | -------------- | ------------------- |
 | Client         | Bed             | Clan           | Hospital            |
 | Requirement    | Seed row        | Objective      | Department          |
+| Workstream     | Cold frame      | Camp           | Ward                |
 | Backlog item   | Plant           | Campaign       | Admission (a bed)   |
 | Agent          | Bee             | Retainer       | Staff member        |
 | Open question  | Dandelion clock | Scout's report | Pending test result |
@@ -66,6 +68,21 @@ choices: [Mariner](worlds/mariner.md), [Woodsman](worlds/woodsman.md),
 | blocked  | parched             | besieged              | on hold             |
 | error    | blighted            | wounded               | escalated           |
 | idle     | resting in the hive | at rest               | in the staff room   |
+
+### How Work Is Drawn
+
+A client's work is grouped by workstream. Each workstream is a marker
+beside its client, in two columns either side of it in landscape and one
+column through it in portrait. Beside each marker sit at most five items,
+the most urgent first: high priority before normal before low, then the
+earliest planned day, with unscheduled work last. The marker's caption
+counts the rest ("Quality · 3 more"). Work with no workstream gathers at a
+marker called Unsorted, in every world.
+
+Only work in progress or in review, or planned for a day and not done, is
+drawn. Requirements sit in the space between the columns, decisions close
+in to the client, and an open question floats left of the marker of the
+item it blocks.
 
 ## Day and Night
 

@@ -1,7 +1,7 @@
 /**
  * The buildings of the district: each hospital's grounds, main block and
  * helipad, its wings out to its departments, its ambulance bay, car park and
- * admissions annex; and The Practice, a modest clinic with a car park and a
+ * ward for each workstream; and The Practice, a modest clinic with a car park and a
  * garden. Where things go is worked out once per layout and kept; how they
  * are drawn is below.
  *
@@ -44,8 +44,8 @@ export interface HospitalPlan {
   grounds: Rectangle;
   spoke: Spoke;
   carPark: Rectangle | null;
-  /** The annex where admissions without a department wait. */
-  admissions: Rectangle | null;
+  /** One floor per ward (workstream), under the admissions drawn beside it. */
+  wards: Rectangle[];
   /** Where each department is: the far end of a wing. */
   departments: Point[];
   trees: Tree[];
@@ -87,19 +87,22 @@ export function hospitalPlan(
     .filter((requirement) => requirement.clientId === clientId)
     .map((requirement) => layout.fixed.get(requirement.id))
     .filter((point): point is Point => point !== undefined);
-  const loose = dataset.items
-    .filter((item) => item.clientId === clientId && !item.requirementId)
-    .map((item) => layout.fixed.get(item.id))
-    .filter((point): point is Point => point !== undefined);
-  const admissions =
-    loose.length === 0
-      ? null
-      : {
-          left: Math.min(...loose.map((point) => point.x)) - 34,
-          right: Math.max(...loose.map((point) => point.x)) + 34,
-          top: Math.min(...loose.map((point) => point.y)) - 30,
-          bottom: Math.max(...loose.map((point) => point.y)) + 30,
-        };
+  const wards = layout.markers
+    .filter((marker) => marker.clientId === clientId)
+    .map((marker) => {
+      const points = [
+        marker.position,
+        ...marker.shown
+          .map((id) => layout.fixed.get(id))
+          .filter((point): point is Point => point !== undefined),
+      ];
+      return {
+        left: Math.min(...points.map((point) => point.x)) - 22,
+        right: Math.max(...points.map((point) => point.x)) + 18,
+        top: Math.min(...points.map((point) => point.y)) - 10,
+        bottom: Math.max(...points.map((point) => point.y)) + 10,
+      };
+    });
   const carPark = home
     ? practiceCarPark(spoke)
     : hospitalCarPark(spoke, centre);
@@ -111,14 +114,14 @@ export function hospitalPlan(
     grounds,
     spoke,
     carPark,
-    admissions,
+    wards,
     departments,
     trees: groundsTrees(
       clientId,
       centre,
       grounds,
       home,
-      [...(carPark ? [carPark] : []), ...(admissions ? [admissions] : [])],
+      [...(carPark ? [carPark] : []), ...wards],
       spoke,
     ),
   };

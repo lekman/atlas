@@ -7,11 +7,46 @@
  */
 import { Dataset } from "@atlas/core";
 
+import { sampleToday } from "./day-plan";
+
 const own = { classification: "internal", boundary: "home-server" } as const;
 const confidential = {
   classification: "client-confidential",
   boundary: "home-server",
 } as const;
+
+/**
+ * The workstream each item is grouped under. "launch-issuer" is left out on
+ * purpose, so the map has unsorted work to draw.
+ */
+const workstreamOf: Record<string, string> = {
+  "send-invoices": "ashgrove-billing",
+  "renew-insurance": "ashgrove-cover",
+  "cut-over": "halcyon-go-live",
+  "weekend-drill": "halcyon-go-live",
+  "database-tests": "halcyon-quality",
+  "operations-page": "halcyon-portal",
+  webhooks: "kestrel-partners",
+  "rate-limits": "kestrel-partners",
+  "retention-draft": "kestrel-governance",
+  "device-kpis": "larchwood-demo",
+  "sprint-hours": "larchwood-billing",
+  "risk-assessment": "meridian-release",
+  "flagged-split": "meridian-release",
+  "tls-slice-two": "meridian-harness",
+};
+
+/**
+ * The day each item not yet started is planned for. The map draws only
+ * work in progress or planned for a day, so every item here is on it.
+ */
+const scheduledFor: Record<string, string> = {
+  "renew-insurance": sampleToday,
+  "launch-issuer": sampleToday,
+  "rate-limits": "2026-10-21",
+  "sprint-hours": sampleToday,
+  "tls-slice-two": "2026-10-22",
+};
 
 export const sampleDataset: Dataset = Dataset.parse({
   clients: [
@@ -293,6 +328,19 @@ export const sampleDataset: Dataset = Dataset.parse({
       ...confidential,
     },
   ],
+  workstreams: [
+    workstream("ashgrove-billing", "ashgrove", "Billing", 1, own),
+    workstream("ashgrove-cover", "ashgrove", "Cover and compliance", 2, own),
+    workstream("halcyon-go-live", "halcyon", "Go-live", 1),
+    workstream("halcyon-quality", "halcyon", "Quality", 2),
+    workstream("halcyon-portal", "halcyon", "Operations portal", 3),
+    workstream("kestrel-partners", "kestrel", "Partner integration", 1),
+    workstream("kestrel-governance", "kestrel", "Data governance", 2),
+    workstream("larchwood-demo", "larchwood", "Demo data", 1),
+    workstream("larchwood-billing", "larchwood", "Billing", 2),
+    workstream("meridian-release", "meridian", "Release safety", 1),
+    workstream("meridian-harness", "meridian", "Test harness", 2),
+  ],
   items: [
     item(
       "send-invoices",
@@ -547,8 +595,20 @@ function item(
     state,
     priority,
     ...(requirementId ? { requirementId } : {}),
+    ...(workstreamOf[id] ? { workstreamId: workstreamOf[id] } : {}),
+    ...(scheduledFor[id] ? { scheduledFor: scheduledFor[id] } : {}),
     ...governance,
   };
+}
+
+function workstream(
+  id: string,
+  clientId: string,
+  title: string,
+  order: number,
+  governance: Governance = confidential,
+) {
+  return { id, clientId, title, order, ...governance };
 }
 
 function question(

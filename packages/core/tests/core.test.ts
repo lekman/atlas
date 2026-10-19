@@ -7,9 +7,11 @@ import {
   exportCard,
   findBrokenReferences,
   findPersonalData,
+  findRecord,
   homeOf,
   mayHold,
   needsYou,
+  workstreamsOfClient,
   type BoundaryPolicy,
   type CardRequest,
 } from "../src";
@@ -67,11 +69,21 @@ function sample(): Dataset {
         ...governed,
       },
     ],
+    workstreams: [
+      {
+        id: "go-live",
+        clientId: "acme",
+        title: "Go-live",
+        order: 1,
+        ...governed,
+      },
+    ],
     items: [
       {
         id: "cut-over",
         clientId: "acme",
         requirementId: "one-tenant",
+        workstreamId: "go-live",
         title: "Rehearse the cut-over",
         state: "doing",
         priority: "high",
@@ -108,6 +120,64 @@ describe("dataset", () => {
     expect(findBrokenReferences(broken)).toContain(
       "cut-over.requirementId names unknown missing",
     );
+  });
+
+  it("reads a dataset written before workstreams as having none", () => {
+    const { workstreams: _, ...older } = sample();
+    expect(Dataset.parse(older).workstreams).toEqual([]);
+  });
+
+  it("finds a workstream by its id", () => {
+    expect(findRecord(sample(), "go-live")?.kind).toBe("workstream");
+  });
+
+  it("reports an item grouped under a workstream that does not exist", () => {
+    const broken = sample();
+    broken.items[0] = { ...broken.items[0]!, workstreamId: "missing" };
+    expect(findBrokenReferences(broken)).toContain(
+      "cut-over.workstreamId names unknown missing",
+    );
+  });
+
+  it("reports an item grouped under another client's workstream", () => {
+    const crossed = sample();
+    crossed.workstreams.push({
+      id: "upkeep",
+      clientId: "home",
+      title: "Upkeep",
+      ...governed,
+    });
+    crossed.items[0] = { ...crossed.items[0]!, workstreamId: "upkeep" };
+    expect(findBrokenReferences(crossed)).toContain(
+      "cut-over.workstreamId names upkeep, which belongs to another client",
+    );
+  });
+
+  it("reports a workstream for a client that does not exist", () => {
+    const broken = sample();
+    broken.workstreams[0] = { ...broken.workstreams[0]!, clientId: "nobody" };
+    expect(findBrokenReferences(broken)).toContain(
+      "go-live.clientId names unknown nobody",
+    );
+  });
+
+  it("orders a client's workstreams by order, then title, unordered last", () => {
+    const dataset = sample();
+    dataset.workstreams.push(
+      { id: "billing", clientId: "acme", title: "Billing", ...governed },
+      { id: "audit", clientId: "acme", title: "Audit", ...governed },
+      {
+        id: "first",
+        clientId: "acme",
+        title: "Zebra",
+        order: 0,
+        ...governed,
+      },
+      { id: "elsewhere", clientId: "home", title: "Admin", ...governed },
+    );
+    expect(
+      workstreamsOfClient(dataset, "acme").map((workstream) => workstream.id),
+    ).toEqual(["first", "go-live", "audit", "billing"]);
   });
 
   it("requires exactly one home", () => {

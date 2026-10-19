@@ -1,4 +1,9 @@
-import { sampleDataset, sampleScript } from "@atlas/fixtures";
+import {
+  busyClientId,
+  busyDataset,
+  sampleDataset,
+  sampleScript,
+} from "@atlas/fixtures";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import type { ReactNode } from "react";
 import { expect, userEvent, within } from "storybook/test";
@@ -74,6 +79,35 @@ export const AstronomerFullPage: Story = {
 export const MarinerFullPage: Story = {
   name: "Mariner, Full Page",
   args: { initialWorld: "mariner", initialMode: "full" },
+};
+
+/**
+ * A client with about a hundred items, zoomed in. Work is grouped by
+ * workstream: a space station each, with at most five of its most urgent
+ * items drawn and a count of the rest. Done and unscheduled work stay off
+ * the map.
+ */
+export const AstronomerBusyClient: Story = {
+  name: "Astronomer, Busy Client",
+  args: {
+    dataset: busyDataset,
+    script: [],
+    initialWorld: "astronomer",
+    initialMode: "full",
+    initialClient: busyClientId,
+  },
+};
+
+/** The same busy client in Mariner: a buoy for each workstream, its cargo beside it. */
+export const MarinerBusyClient: Story = {
+  name: "Mariner, Busy Client",
+  args: {
+    dataset: busyDataset,
+    script: [],
+    initialWorld: "mariner",
+    initialMode: "full",
+    initialClient: busyClientId,
+  },
 };
 
 /** A question open in the inspector, with Answer first. */
