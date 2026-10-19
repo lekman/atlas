@@ -1,6 +1,9 @@
 import { applyEvent, type AtlasEvent } from "@atlas/core";
 import { sampleDataset, sampleScript } from "@atlas/fixtures";
-import { beforeEach, describe, expect, test } from "bun:test";
+import { afterAll, beforeEach, describe, expect, test } from "bun:test";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import {
   appendEvent,
@@ -11,6 +14,7 @@ import {
   openDatabase,
   readConfiguration,
   readDataset,
+  readSeedFile,
   seedDataset,
   sequenceHeader,
   type Api,
@@ -229,19 +233,49 @@ describe("the API", () => {
   });
 });
 
+describe("a seed file", () => {
+  const directory = mkdtempSync(join(tmpdir(), "atlas-seed-"));
+  afterAll(() => rmSync(directory, { recursive: true, force: true }));
+
+  test("is read and checked against the model", async () => {
+    const path = join(directory, "seed.json");
+    await Bun.write(path, JSON.stringify(sampleDataset));
+    const empty = openDatabase(":memory:");
+    seedDataset(empty, await readSeedFile(path));
+    expect(readDataset(empty)).toEqual(sampleDataset);
+  });
+
+  test("is refused when missing or not a dataset", async () => {
+    const path = join(directory, "broken.json");
+    await Bun.write(path, JSON.stringify({ clients: "none" }));
+    await expect(readSeedFile(path)).rejects.toThrow();
+    await expect(readSeedFile(join(directory, "absent.json"))).rejects.toThrow(
+      "no seed file",
+    );
+  });
+});
+
 describe("the configuration", () => {
   test("listens on the loopback address unless told otherwise", () => {
     const configuration = readConfiguration({});
     expect(configuration.hostname).toBe("127.0.0.1");
     expect(configuration.port).toBe(7400);
-    expect(configuration.seedFixtures).toBe(false);
+    expect(configuration.seed).toEqual({ kind: "none" });
     expect(configuration.databasePath).toEndWith("Atlas/atlas.db");
   });
 
   test("reads the environment and refuses a bad port", () => {
     expect(
       readConfiguration({ ATLAS_PORT: "7500", ATLAS_SEED: "fixtures" }),
-    ).toMatchObject({ port: 7500, seedFixtures: true });
+    ).toMatchObject({ port: 7500, seed: { kind: "fixtures" } });
     expect(() => readConfiguration({ ATLAS_PORT: "port" })).toThrow();
+  });
+
+  test("seeds from a .json file, and refuses any other seed", () => {
+    expect(readConfiguration({ ATLAS_SEED: "/data/seed.json" }).seed).toEqual({
+      kind: "file",
+      path: "/data/seed.json",
+    });
+    expect(() => readConfiguration({ ATLAS_SEED: "real" })).toThrow();
   });
 });

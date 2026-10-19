@@ -9,20 +9,23 @@ import rootPackage from "../../../package.json" with { type: "json" };
 import { createApi } from "./api";
 import { readConfiguration } from "./configuration";
 import { openDatabase } from "./database";
-import { isEmpty, seedDataset } from "./store";
+import { isEmpty, readSeedFile, seedDataset } from "./store";
 
 const configuration = readConfiguration();
 const database = openDatabase(configuration.databasePath);
 
 if (isEmpty(database)) {
-  if (configuration.seedFixtures) {
-    seedDataset(database, sampleDataset);
+  const { seed } = configuration;
+  if (seed.kind === "none") {
     console.log(
-      `seeded the invented dataset: ${sampleDataset.clients.length} clients, ${sampleDataset.agents.length} agents`,
+      "the database is empty; set ATLAS_SEED to fixtures or to a seed file",
     );
   } else {
+    const dataset =
+      seed.kind === "fixtures" ? sampleDataset : await readSeedFile(seed.path);
+    seedDataset(database, dataset);
     console.log(
-      "the database is empty; set ATLAS_SEED=fixtures to seed the invented dataset",
+      `seeded from ${seed.kind}: ${dataset.clients.length} clients, ${dataset.agents.length} agents, ${dataset.items.length} items`,
     );
   }
 }

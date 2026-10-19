@@ -88,6 +88,13 @@ export function seedDataset(database: AtlasDatabase, input: Dataset): void {
   });
 }
 
+/** Reads a seed file: a whole dataset as JSON, checked against the core schema. */
+export async function readSeedFile(path: string): Promise<Dataset> {
+  const file = Bun.file(path);
+  if (!(await file.exists())) throw new Error(`no seed file at ${path}`);
+  return Dataset.parse(await file.json());
+}
+
 export interface StoredEvent {
   sequence: number;
   receivedAt: string;

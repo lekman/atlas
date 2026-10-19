@@ -1,5 +1,9 @@
 export { createApi, sequenceHeader, type Api, type ApiOptions } from "./api";
-export { readConfiguration, type Configuration } from "./configuration";
+export {
+  readConfiguration,
+  type Configuration,
+  type Seed,
+} from "./configuration";
 export { openDatabase, type AtlasDatabase } from "./database";
 export {
   appendEvent,
@@ -7,6 +11,7 @@ export {
   isEmpty,
   listEvents,
   readDataset,
+  readSeedFile,
   readSnapshot,
   seedDataset,
   type StoredEvent,

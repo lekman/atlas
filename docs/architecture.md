@@ -104,7 +104,9 @@ The server listens on 127.0.0.1:7400 unless `ATLAS_HOSTNAME` and
 `ATLAS_PORT` say otherwise. The database file is
 `~/Library/Application Support/Atlas/atlas.db` unless `ATLAS_DATABASE`
 names another. `ATLAS_SEED=fixtures` seeds the invented dataset into an
-empty database; nothing seeds real data.
+empty database. `ATLAS_SEED=<path>.json` seeds a whole dataset from a file
+instead, checked against the core schema. A file with real clients is built
+on the Mac mini from the vault and kept outside this repository.
 
 ### Design
 
