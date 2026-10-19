@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.0](https://github.com/lekman/atlas/compare/v0.3.0...v0.4.0) (2026-10-19)
+
+
+### Features
+
+* **ui:** open records as a stack of cards in the right column ([#23](https://github.com/lekman/atlas/issues/23)) ([dfc4c78](https://github.com/lekman/atlas/commit/dfc4c78a3f67d0c516bca1495403ee3d59786272))
+* **worlds:** workstreams as buoys and space stations ([#25](https://github.com/lekman/atlas/issues/25)) ([6c9881e](https://github.com/lekman/atlas/commit/6c9881e6d5129b1aa38bde7aeea2795612266649))
+
 ## [0.3.0](https://github.com/lekman/atlas/compare/v0.2.0...v0.3.0) (2026-10-19)
 
 
