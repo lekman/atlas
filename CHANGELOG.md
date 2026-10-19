@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.2.0](https://github.com/lekman/atlas/compare/v0.1.0...v0.2.0) (2026-10-19)
+
+
+### Features
+
+* **server:** seed an empty database from a JSON file ([#19](https://github.com/lekman/atlas/issues/19)) ([fcb7142](https://github.com/lekman/atlas/commit/fcb71428d16f63e4aeb9bb3011e06d882ef1a609))
+* **server:** SQLite database, HTTP API and event stream on the invented dataset ([#15](https://github.com/lekman/atlas/issues/15)) ([c9fe788](https://github.com/lekman/atlas/commit/c9fe788603fa7c6d8ec2c75734a54cf818625f12))
+* **web:** serve the Atlas view from the server, kept live by the event stream ([#18](https://github.com/lekman/atlas/issues/18)) ([1f8d062](https://github.com/lekman/atlas/commit/1f8d062b418d7fa2a2281968bf2ddd66c8a0ebd2))
+
 ## 0.1.0 (2026-10-19)
 
 
