@@ -52,6 +52,13 @@ tasks:
     cmds:
       - bun run storybook
 
+  server:
+    desc: Run the Atlas server on http://127.0.0.1:7400, seeding the invented dataset into an empty database
+    env:
+      ATLAS_SEED: fixtures
+    cmds:
+      - bun run --cwd apps/server start
+
   build:
     desc: Build every workspace, including the static Storybook
     cmds:

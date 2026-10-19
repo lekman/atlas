@@ -33,7 +33,7 @@ flowchart LR
 | `@atlas/worlds`   | Built. Six worlds: layout, canvas, SVG, sounds         |
 | `@atlas/ui`       | Built. Shell, live map, panels, stories                |
 | `apps/storybook`  | Built. Story tests with axe; published to GitHub Pages |
-| `apps/server`     | Next                                                   |
+| `apps/server`     | Started. SQLite, HTTP API and event stream; no MCP yet |
 | `apps/web`        | Next                                                   |
 | `apps/artifact`   | Next                                                   |
 | `apps/plugin`     | Later                                                  |
@@ -77,7 +77,33 @@ left the client's boundary even if no file moved.
 - A destination that may not hold a record's classification gets only a
   "withheld" marker, so a restricted record shows as a count, never a title.
 
-## The Server (Next)
+## The Server
+
+`apps/server` holds the database, the HTTP API and the event stream. MCP,
+machine tokens, Litestream and the import are still to come.
+
+| Route              | What it does                                          |
+| ------------------ | ----------------------------------------------------- |
+| `GET /api/health`  | Whether the server is up, and its version             |
+| `GET /api/dataset` | Every record, checked against the core schema         |
+| `GET /api/events`  | The event log after `?after=<sequence>`, oldest first |
+| `POST /api/events` | Adds one event, writes its effect and streams it      |
+| `GET /api/stream`  | Server-sent events: each new event as it is stored    |
+
+An event and its effect are written in one transaction, so the log and the
+records never disagree. An event about a missing record is refused with a
+404, and a second answer to the same question with a 409. A posted event
+must be `application/json`: another site cannot send that from a browser
+without a preflight, and the server answers no preflight. Until machine
+tokens exist, any device on the tailnet may post an event.
+
+The server listens on 127.0.0.1:7400 unless `ATLAS_HOSTNAME` and
+`ATLAS_PORT` say otherwise. The database file is
+`~/Library/Application Support/Atlas/atlas.db` unless `ATLAS_DATABASE`
+names another. `ATLAS_SEED=fixtures` seeds the invented dataset into an
+empty database; nothing seeds real data.
+
+### Design
 
 - **Database:** SQLite in WAL mode with Drizzle for schema and migrations.
   Only the server process opens the file; agents go through MCP.

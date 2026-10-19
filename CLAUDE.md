@@ -26,6 +26,7 @@ Use `task` rather than calling `bun` directly. `task --list` shows all.
 task setup           # One-time: tools, dependencies, hooks, browser, term list
 task quality         # Lint, typecheck, unit tests, story tests, client content
 task storybook       # http://localhost:6006
+task server          # http://127.0.0.1:7400, the API on the invented data
 task security        # Secrets, dependency CVEs, workflow configuration
 ```
 
@@ -40,11 +41,11 @@ name: `bun test -t 'substring'`.
 | `packages/fixtures` | The invented dataset and a scripted day of events             |
 | `packages/worlds`   | Layout, scene, canvas and SVG renderers and sounds, per world |
 | `packages/ui`       | React components and their stories                            |
+| `apps/server`       | Bun, SQLite and the HTTP API, seeded with the invented data   |
 | `apps/storybook`    | Storybook configuration, story tests, the Pages build         |
 | `docs/`             | Architecture, worlds, contributing, repository settings       |
 
-Planned next, not yet here: `apps/server` (Bun, SQLite, MCP, Litestream, on
-a Mac mini over Tailscale), `apps/web` (the PWA for iPhone), `apps/artifact`
+Planned next, not yet here: MCP and Litestream in `apps/server`, `apps/web` (the PWA for iPhone), `apps/artifact`
 (the Claude desktop sidebar build), `apps/plugin` (a thin Claude Code
 plugin). See [Architecture](docs/architecture.md).
 
