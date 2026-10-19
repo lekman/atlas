@@ -17,6 +17,7 @@
       "dependencies": {
         "@atlas/core": "workspace:*",
         "@atlas/fixtures": "workspace:*",
+        "@atlas/web": "workspace:*",
         "drizzle-orm": "^0.45.0",
       },
       "devDependencies": {
@@ -50,6 +51,23 @@
         "typescript": "^6.0",
         "vite": "^8.2.2",
         "vitest": "^5.0.5",
+      },
+    },
+    "apps/web": {
+      "name": "@atlas/web",
+      "version": "0.0.0",
+      "dependencies": {
+        "@atlas/core": "workspace:*",
+        "@atlas/ui": "workspace:*",
+        "react": "^19.2.8",
+        "react-dom": "^19.2.8",
+      },
+      "devDependencies": {
+        "@atlas/fixtures": "workspace:*",
+        "@types/bun": "^1.3",
+        "@types/react": "^19.2.18",
+        "@types/react-dom": "^19.2.7",
+        "typescript": "^6.0",
       },
     },
     "packages/core": {
@@ -137,6 +155,8 @@
     "@atlas/storybook": ["@atlas/storybook@workspace:apps/storybook"],
 
     "@atlas/ui": ["@atlas/ui@workspace:packages/ui"],
+
+    "@atlas/web": ["@atlas/web@workspace:apps/web"],
 
     "@atlas/worlds": ["@atlas/worlds@workspace:packages/worlds"],
 

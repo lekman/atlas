@@ -5,10 +5,10 @@
  * | Route              | What it does                                            |
  * | ------------------ | ------------------------------------------------------- |
  * | GET  /api/health   | Whether the server is up, and its version               |
- * | GET  /api/dataset  | Every record, checked against the core schema           |
+ * | GET  /api/dataset  | Every record, and the last event they include           |
  * | GET  /api/events   | The event log after `?after=<sequence>`, oldest first   |
  * | POST /api/events   | Adds one event, writes its effect and streams it        |
- * | GET  /api/stream   | Server-sent events: each new event as it is stored      |
+ * | GET  /api/stream   | Server-sent events after `?after=`, then each new one   |
  */
 import { ZodError } from "zod/v4";
 
@@ -17,7 +17,7 @@ import {
   appendEvent,
   EventRejected,
   listEvents,
-  readDataset,
+  readSnapshot,
   type StoredEvent,
 } from "./store";
 
@@ -25,6 +25,9 @@ import {
 const maximumBodyBytes = 64 * 1024;
 /** How often an idle stream sends a comment, so proxies keep it open. */
 const keepAliveMilliseconds = 25_000;
+
+/** The last event the dataset in a response already holds. */
+export const sequenceHeader = "x-atlas-sequence";
 
 const jsonHeaders = {
   "content-type": "application/json; charset=utf-8",
@@ -67,8 +70,12 @@ export function createApi({ database, version }: ApiOptions): Api {
   }
 
   function stream(request: Request): Response {
-    const header = request.headers.get("last-event-id");
-    const after = header && /^\d+$/.test(header) ? Number(header) : undefined;
+    // A reconnecting browser names the last event it saw in Last-Event-ID; a
+    // page opening the stream for the first time names it in ?after=.
+    const named =
+      request.headers.get("last-event-id") ??
+      new URL(request.url).searchParams.get("after");
+    const after = named && /^\d+$/.test(named) ? Number(named) : undefined;
     const encoder = new TextEncoder();
     let finish = () => {};
     const body = new ReadableStream<Uint8Array>({
@@ -158,8 +165,13 @@ export function createApi({ database, version }: ApiOptions): Api {
       switch (route) {
         case "GET /api/health":
           return json({ status: "ok", version });
-        case "GET /api/dataset":
-          return json(readDataset(database));
+        case "GET /api/dataset": {
+          // Read together, so the page knows which events the dataset holds.
+          const { dataset, sequence } = readSnapshot(database);
+          const response = json(dataset);
+          response.headers.set(sequenceHeader, String(sequence));
+          return response;
+        }
         case "GET /api/events": {
           const after = url.searchParams.get("after") ?? "0";
           if (!/^\d+$/.test(after))

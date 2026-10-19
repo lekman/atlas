@@ -77,6 +77,12 @@ export interface AtlasShellProps {
   onAction?(action: InspectorAction, id: string): void;
   /** Called for every event the view applies. */
   onEvent?(event: AtlasEvent): void;
+  /**
+   * Connects the view to a live source of events, such as the server's
+   * stream. It is given the function that applies an event, and returns the
+   * function that disconnects.
+   */
+  subscribe?(fire: (event: AtlasEvent) => void): () => void;
 }
 
 type Popover = "world" | "key" | "sound" | null;
@@ -234,6 +240,10 @@ export function AtlasShell(props: AtlasShellProps) {
     sound.volume,
     sound.categories,
   ]);
+
+  const { subscribe } = props;
+  const { fire } = map;
+  useEffect(() => subscribe?.(fire), [subscribe, fire]);
 
   const reported = useRef(0);
   const { onEvent } = props;

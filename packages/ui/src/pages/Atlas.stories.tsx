@@ -170,6 +170,38 @@ export const OpenFromNeedsYou: Story = {
   },
 };
 
+/**
+ * Connected to a live source, as the web app is to the server's event
+ * stream. Here the source sends one event, and it reaches the log.
+ */
+export const LiveFromTheServer: Story = {
+  name: "Live from the Server",
+  args: {
+    initialWorld: "astronomer",
+    initialMode: "full",
+    script: [],
+    subscribe: (fire) => {
+      const timer = window.setTimeout(
+        () =>
+          fire({
+            type: "status-change",
+            agentId: "test-runner",
+            to: "running",
+            text: "Started from the live stream",
+          }),
+        100,
+      );
+      return () => window.clearTimeout(timer);
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      await canvas.findByText(/started from the live stream/i),
+    ).toBeInTheDocument();
+  },
+};
+
 /** Answering a question takes it off the needs-you list. */
 export const AnswerAQuestion: Story = {
   name: "Answer a Question",

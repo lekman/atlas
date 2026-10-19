@@ -34,7 +34,7 @@ flowchart LR
 | `@atlas/ui`       | Built. Shell, live map, panels, stories                |
 | `apps/storybook`  | Built. Story tests with axe; published to GitHub Pages |
 | `apps/server`     | Started. SQLite, HTTP API and event stream; no MCP yet |
-| `apps/web`        | Next                                                   |
+| `apps/web`        | Started. The full view, kept live by the event stream  |
 | `apps/artifact`   | Next                                                   |
 | `apps/plugin`     | Later                                                  |
 
@@ -79,18 +79,21 @@ left the client's boundary even if no file moved.
 
 ## The Server
 
-`apps/server` holds the database, the HTTP API and the event stream. MCP,
-machine tokens, Litestream and the import are still to come.
+`apps/server` holds the database, the HTTP API and the event stream, and
+serves the web app from `apps/web` at `/` on the same origin. MCP, machine
+tokens, Litestream and the import are still to come.
 
 | Route              | What it does                                          |
 | ------------------ | ----------------------------------------------------- |
 | `GET /api/health`  | Whether the server is up, and its version             |
-| `GET /api/dataset` | Every record, checked against the core schema         |
+| `GET /api/dataset` | Every record, and the last event they include         |
 | `GET /api/events`  | The event log after `?after=<sequence>`, oldest first |
 | `POST /api/events` | Adds one event, writes its effect and streams it      |
-| `GET /api/stream`  | Server-sent events: each new event as it is stored    |
+| `GET /api/stream`  | Server-sent events after `?after=`, then each new one |
 
-An event and its effect are written in one transaction, so the log and the
+The dataset response names the last event it includes in the
+`x-atlas-sequence` header, and the web app opens the stream from there, so
+no event falls between the two. An event and its effect are written in one transaction, so the log and the
 records never disagree. An event about a missing record is refused with a
 404, and a second answer to the same question with a 409. A posted event
 must be `application/json`: another site cannot send that from a browser
