@@ -69,7 +69,7 @@ export interface AtlasShellProps {
    * dark when the Mac or the iPhone does.
    */
   initialLighting?: LightingPreference;
-  /** Opens the inspector on this record at start, for stories and deep links. */
+  /** Opens an inspector card on this record at start, for stories and deep links. */
   initialSelection?: string;
   /** Remember the chosen world, lighting and sound settings in this browser. */
   remember?: boolean;
@@ -88,6 +88,9 @@ export interface AtlasShellProps {
 type Popover = "world" | "key" | "sound" | null;
 
 const storageKey = "atlas.preferences";
+
+/** The most inspector cards open at once; the oldest closes past it. */
+const stackLimit = 6;
 
 interface Preferences {
   world?: WorldId;
@@ -174,9 +177,19 @@ export function AtlasShell(props: AtlasShellProps) {
     );
   const deviceIsDark = useDeviceIsDark();
   const lighting = resolveLighting(lightingPreference, deviceIsDark);
-  const [selected, setSelected] = useState<string | null>(
-    props.initialSelection ?? null,
+  // The open inspector cards, newest first. Choosing another record adds a
+  // card instead of replacing one; each card closes on its own. Collapse
+  // hides the stack and Expand shows it again as it was.
+  const [stack, setStack] = useState<string[]>(
+    props.initialSelection ? [props.initialSelection] : [],
   );
+  const selected = stack[0] ?? null;
+  const show = (id: string) =>
+    setStack((cards) =>
+      [id, ...cards.filter((card) => card !== id)].slice(0, stackLimit),
+    );
+  const close = (id: string) =>
+    setStack((cards) => cards.filter((card) => card !== id));
   const [zoom, setZoom] = useState<{
     clientId: string;
     request: number;
@@ -264,7 +277,7 @@ export function AtlasShell(props: AtlasShellProps) {
     const escape = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       if (popover) setPopover(null);
-      else if (selected) setSelected(null);
+      else if (mode === "full" && selected) close(selected);
       else if (mode === "full") setMode("compact");
     };
     window.addEventListener("keydown", escape);
@@ -273,7 +286,7 @@ export function AtlasShell(props: AtlasShellProps) {
 
   const open = (id: string) => {
     setMode("full");
-    setSelected(id);
+    show(id);
     setFocus(null);
     window.setTimeout(() => setFocus(id), 20);
   };
@@ -297,7 +310,7 @@ export function AtlasShell(props: AtlasShellProps) {
             boundary: question.boundary,
           },
         });
-        setSelected(null);
+        close(id);
       }
     }
     setToast(actionToast[kind]);
@@ -399,7 +412,7 @@ export function AtlasShell(props: AtlasShellProps) {
             if (id) open(id);
             else setMode("full");
           } else {
-            setSelected(id);
+            if (id) show(id);
             setPopover(null);
           }
         }}
@@ -419,24 +432,27 @@ export function AtlasShell(props: AtlasShellProps) {
         </div>
       ) : (
         <>
-          {!selected && (
-            <HudReadout
-              world={world}
-              dataset={map.dataset}
-              camera={camera}
-              viewport={viewport}
-            />
-          )}
+          <HudReadout
+            world={world}
+            dataset={map.dataset}
+            camera={camera}
+            viewport={viewport}
+          />
           <LogPanel entries={map.log} world={world} variant="panel" />
-          {selected && (
-            <Inspector
-              dataset={map.dataset}
-              world={world}
-              id={selected}
-              onClose={() => setSelected(null)}
-              onSelect={open}
-              onAction={action}
-            />
+          {stack.length > 0 && (
+            <div className="atlas-stack">
+              {stack.map((id) => (
+                <Inspector
+                  key={id}
+                  dataset={map.dataset}
+                  world={world}
+                  id={id}
+                  onClose={() => close(id)}
+                  onSelect={open}
+                  onAction={action}
+                />
+              ))}
+            </div>
           )}
         </>
       )}

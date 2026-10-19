@@ -202,6 +202,41 @@ export const LiveFromTheServer: Story = {
   },
 };
 
+/**
+ * Choosing another record adds a card above the open one instead of
+ * replacing it. Each card closes on its own; Collapse hides the stack and
+ * Expand brings it back as it was.
+ */
+export const SeveralRecordsOpen: Story = {
+  name: "Several Records Open",
+  args: {
+    initialWorld: "astronomer",
+    initialMode: "full",
+    initialSelection: "alarms-live",
+    script: [],
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const cards = () => canvas.queryAllByRole("complementary");
+    const first = await canvas.findByRole("complementary", {
+      name: /severity alarms live at go-live/i,
+    });
+    const linkButtons =
+      first.querySelectorAll<HTMLButtonElement>(".atlas-link");
+    await expect(linkButtons.length).toBeGreaterThan(0);
+    await userEvent.click(linkButtons[0]!);
+    await expect(cards()).toHaveLength(2);
+    await userEvent.click(
+      within(cards()[0]!).getByRole("button", { name: "Close" }),
+    );
+    await expect(cards()).toHaveLength(1);
+    await userEvent.click(canvas.getByRole("button", { name: /collapse/i }));
+    await expect(cards()).toHaveLength(0);
+    await userEvent.click(canvas.getByRole("button", { name: /expand/i }));
+    await expect(cards()).toHaveLength(1);
+  },
+};
+
 /** Answering a question takes it off the needs-you list. */
 export const AnswerAQuestion: Story = {
   name: "Answer a Question",
