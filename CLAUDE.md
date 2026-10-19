@@ -46,7 +46,7 @@ name: `bun test -t 'substring'`.
 | `apps/storybook`    | Storybook configuration, story tests, the Pages build         |
 | `docs/`             | Architecture, worlds, contributing, repository settings       |
 
-Planned next, not yet here: machine tokens and Litestream in `apps/server`, the
+Planned next, not yet here: Litestream in `apps/server`, the
 installable iPhone app (a PWA) in `apps/web`, `apps/artifact` (the Claude
 desktop sidebar build) and `apps/plugin` (a thin Claude Code plugin). See [Architecture](docs/architecture.md).
 

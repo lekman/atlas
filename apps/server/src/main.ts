@@ -30,7 +30,11 @@ if (isEmpty(database)) {
   }
 }
 
-const api = createApi({ database, version: rootPackage.version });
+const api = createApi({
+  database,
+  version: rootPackage.version,
+  requireTokens: configuration.requireTokens,
+});
 
 const server = Bun.serve({
   hostname: configuration.hostname,
@@ -40,9 +44,10 @@ const server = Bun.serve({
   // Bun bundles the web app once at start, minified, rather than on each request.
   development: false,
   routes: { "/": webApp },
-  async fetch(request) {
+  async fetch(request, server) {
     const response =
-      (await api.handle(request)) ?? new Response("Not found", { status: 404 });
+      (await api.handle(request, server.requestIP(request)?.address)) ??
+      new Response("Not found", { status: 404 });
     console.log(
       `${request.method} ${new URL(request.url).pathname} ${response.status}`,
     );
@@ -50,7 +55,9 @@ const server = Bun.serve({
   },
 });
 
-console.log(`atlas ${rootPackage.version} listening on ${server.url}`);
+console.log(
+  `atlas ${rootPackage.version} listening on ${server.url}, tokens ${configuration.requireTokens ? "required" : "optional"}`,
+);
 
 function shutdown() {
   api.close();

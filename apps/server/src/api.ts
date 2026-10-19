@@ -16,6 +16,14 @@ import { ZodError } from "zod/v4";
 import type { AtlasEvent } from "@atlas/core";
 
 import type { AtlasDatabase } from "./database";
+import {
+  CallerRefused,
+  identify,
+  tailscaleNodeLookup,
+  type Caller,
+  type NodeLookup,
+} from "./identity";
+import { everyClient } from "./machines";
 import { handleMcp } from "./mcp";
 import {
   appendEvent,
@@ -54,18 +62,44 @@ function streamFrame(stored: StoredEvent): string {
 export interface ApiOptions {
   database: AtlasDatabase;
   version: string;
+  /**
+   * Refuse callers that are neither a machine with a token nor a person
+   * named by Tailscale Serve. Off until every machine has its token.
+   */
+  requireTokens?: boolean;
+  /** How a caller's address becomes a Tailscale node. `tailscale whois` by default. */
+  lookupNode?: NodeLookup;
 }
 
 export interface Api {
-  /** Answers a request under `/api/` or to `/mcp`, or returns `undefined` for any other path. */
-  handle(request: Request): Promise<Response | undefined>;
+  /**
+   * Answers a request under `/api/` or to `/mcp`, or returns `undefined` for
+   * any other path. `socketAddress` is the connection's remote address.
+   */
+  handle(
+    request: Request,
+    socketAddress?: string,
+  ): Promise<Response | undefined>;
   /** How many streams are open. */
   listeners(): number;
   /** Ends every open stream, for a clean shutdown. */
   close(): void;
 }
 
-export function createApi({ database, version }: ApiOptions): Api {
+/** Whether a caller may use the whole API: a person, or a machine that sees every client. */
+function seesEverything(caller: Caller): boolean {
+  return (
+    caller.kind === "person" ||
+    (caller.kind === "machine" && caller.machine.clients.includes(everyClient))
+  );
+}
+
+export function createApi({
+  database,
+  version,
+  requireTokens = false,
+  lookupNode = tailscaleNodeLookup(),
+}: ApiOptions): Api {
   const streams = new Set<(stored: StoredEvent) => void>();
   const closers = new Set<() => void>();
 
@@ -162,16 +196,45 @@ export function createApi({ database, version }: ApiOptions): Api {
   }
 
   return {
-    async handle(request) {
+    async handle(request, socketAddress) {
       const url = new URL(request.url);
-      if (url.pathname === "/mcp")
-        return handleMcp(request, { database, version, record });
-      if (!url.pathname.startsWith("/api/") && url.pathname !== "/api")
-        return undefined;
+      const isMcp = url.pathname === "/mcp";
+      if (!isMcp && !url.pathname.startsWith("/api/")) return undefined;
+      if (url.pathname === "/api/health" && request.method === "GET")
+        return json({ status: "ok", version });
+
+      let caller: Caller;
+      try {
+        caller = await identify(request, socketAddress, database, lookupNode);
+      } catch (error) {
+        if (error instanceof CallerRefused) return problem(401, error.message);
+        throw error;
+      }
+      if (isMcp) {
+        if (requireTokens && caller.kind !== "machine")
+          return problem(401, "MCP needs a machine token");
+        return handleMcp(request, {
+          database,
+          version,
+          record,
+          ...(caller.kind === "machine" ? { machine: caller.machine } : {}),
+        });
+      }
+      // The API returns every client's records, so a machine limited to some
+      // clients uses MCP, which filters by its scope.
+      if (
+        (requireTokens || caller.kind === "machine") &&
+        !seesEverything(caller)
+      )
+        return problem(
+          caller.kind === "anonymous" ? 401 : 403,
+          caller.kind === "anonymous"
+            ? "sign in through Tailscale Serve or send a machine token"
+            : "this machine may not see every client; use MCP",
+        );
+
       const route = `${request.method} ${url.pathname}`;
       switch (route) {
-        case "GET /api/health":
-          return json({ status: "ok", version });
         case "GET /api/dataset": {
           // Read together, so the page knows which events the dataset holds.
           const { dataset, sequence } = readSnapshot(database);

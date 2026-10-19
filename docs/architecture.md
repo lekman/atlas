@@ -108,9 +108,7 @@ every open view.
 | `list_open_questions` | Open questions, with who must answer                                 |
 | `answer_question`     | Answers a question and records the decision                          |
 
-A session connects with
-`claude mcp add --transport http atlas https://<server>.<tailnet>.ts.net/mcp`.
-A request with an Origin header from another site is refused, so a web page
+A session connects as described in "Who May Connect", below. A request with an Origin header from another site is refused, so a web page
 cannot call the tools through a browser on the tailnet.
 
 An event about a missing record is refused with a
@@ -143,12 +141,56 @@ Agents reach the database only through MCP, then the API, over the tailnet.
 Each machine proves who it is twice, and no password is shared between
 machines.
 
-| Layer          | What it checks                                                                                                                                  |
-| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| Tailscale node | The server asks the local Tailscale daemon which node owns the caller's address, as `tailscale whois` does, and reads its stable id             |
-| Machine token  | Atlas issues one token for each machine, bound to that node's stable id and scoped to the clients the machine may see. It rotates on a schedule |
+| Layer          | What it checks                                                                                                                                     |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Tailscale node | The server asks the local Tailscale daemon which node owns the caller's address, as `tailscale whois` does, and reads its stable id                |
+| Machine token  | Atlas issues one token for each machine, bound to that node's stable id and scoped to the clients the machine may see. Issuing it again rotates it |
 
 A token copied to another machine fails, because its node does not match.
+Only a SHA-256 hash of each token is stored. A wrong, revoked or misplaced
+token is refused with a 401, never treated as anonymous, so a broken setup
+fails where it can be seen. Behind Serve, the caller's node comes from the
+`X-Forwarded-For` address, which is trusted only on a loopback connection.
+
+| Caller                                        | `/api/*`        | `/mcp`                       |
+| --------------------------------------------- | --------------- | ---------------------------- |
+| A person, through Serve's identity            | Yes             | No                           |
+| A machine that may see every client           | Yes             | Yes                          |
+| A machine scoped to some clients              | No: it uses MCP | Yes, filtered to its clients |
+| Anyone else, while tokens are optional        | Yes             | Yes                          |
+| Anyone else, with `ATLAS_REQUIRE_TOKENS=true` | No              | No                           |
+
+`GET /api/health` is always open. Tokens are optional until
+`ATLAS_REQUIRE_TOKENS=true`, so every machine can get its token before
+anything is refused. Scheduled rotation is not built yet.
+
+Tokens are issued on the Mac mini, against the server's database:
+
+```bash
+bun apps/server/src/machine-tokens.ts issue <machine> --node <tailnet name> --clients <client ids, or *>
+bun apps/server/src/machine-tokens.ts list
+bun apps/server/src/machine-tokens.ts revoke <machine>
+```
+
+`issue` prints the token once. On the machine, keep it in the Keychain and
+let Claude Code read it with a `headersHelper`, so the token is never written
+into a settings file:
+
+```json
+{
+  "mcpServers": {
+    "atlas": {
+      "type": "http",
+      "url": "https://<server>.<tailnet>.ts.net/mcp",
+      "headersHelper": "printf '{\"Authorization\":\"Bearer %s\"}' \"$(security find-generic-password -s atlas-token -w)\""
+    }
+  }
+}
+```
+
+Claude Code runs the helper again after a 401, so a rotated token is picked
+up without a restart. A session started over SSH may find the Keychain
+locked; that machine needs another place for its token.
 Every agent on a machine names itself in `report_status`, so the map still
 shows each agent apart.
 

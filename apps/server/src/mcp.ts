@@ -21,6 +21,7 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod/v4";
 
 import type { AtlasDatabase } from "./database";
+import { canSee, type Machine } from "./machines";
 import { EventRejected, readDataset, type StoredEvent } from "./store";
 
 export interface McpOptions {
@@ -28,6 +29,8 @@ export interface McpOptions {
   version: string;
   /** Stores an event and streams it to every open view. */
   record(event: AtlasEvent): StoredEvent;
+  /** The calling machine. Its scope limits what the tools show and change. */
+  machine?: Machine;
 }
 
 /** The most items `list_my_work` returns, so a reply stays readable. */
@@ -81,6 +84,7 @@ export function createMcpServer({
   database,
   version,
   record,
+  machine,
 }: McpOptions): McpServer {
   const server = new McpServer(
     { name: "atlas", version },
@@ -90,8 +94,17 @@ export function createMcpServer({
     },
   );
   const read = (): Dataset => readDataset(database);
-  const agentNamed = (dataset: Dataset, agentId: string) =>
-    dataset.agents.find((agent) => agent.id === agentId);
+  const clientOfAgent = (dataset: Dataset, agentId: string) => {
+    const agent = dataset.agents.find((candidate) => candidate.id === agentId);
+    return dataset.groups.find((group) => group.id === agent?.groupId)
+      ?.clientId;
+  };
+  /** An agent the calling machine may see. One outside its scope reads as missing. */
+  const agentNamed = (dataset: Dataset, agentId: string) => {
+    const clientId = clientOfAgent(dataset, agentId);
+    if (clientId === undefined || !canSee(machine, clientId)) return undefined;
+    return dataset.agents.find((agent) => agent.id === agentId);
+  };
 
   server.registerTool(
     "list_agents",
@@ -107,14 +120,16 @@ export function createMcpServer({
         dataset.groups.map((group) => [group.id, group.clientId]),
       );
       return reply(
-        dataset.agents.map((agent) => ({
-          id: agent.id,
-          name: agent.name,
-          clientId: clientOf.get(agent.groupId),
-          host: agent.host,
-          status: agent.status,
-          note: agent.note,
-        })),
+        dataset.agents
+          .filter((agent) => canSee(machine, clientOf.get(agent.groupId) ?? ""))
+          .map((agent) => ({
+            id: agent.id,
+            name: agent.name,
+            clientId: clientOf.get(agent.groupId),
+            host: agent.host,
+            status: agent.status,
+            note: agent.note,
+          })),
       );
     },
   );
@@ -137,6 +152,7 @@ export function createMcpServer({
     },
     ({ agentId, status, note }) =>
       attempt(() => {
+        if (!agentNamed(read(), agentId)) return refuse(`no agent ${agentId}`);
         const stored = record({
           type: "status-change",
           agentId,
@@ -229,6 +245,7 @@ export function createMcpServer({
           .questions.filter(
             (question) =>
               question.state === "open" &&
+              canSee(machine, question.clientId) &&
               (!clientId || question.clientId === clientId),
           )
           .map(({ id, clientId: client, title, blocks, asks }) => ({
@@ -263,7 +280,8 @@ export function createMcpServer({
     },
     ({ questionId, answer, decision }) => {
       const question = read().questions.find(
-        (candidate) => candidate.id === questionId,
+        (candidate) =>
+          candidate.id === questionId && canSee(machine, candidate.clientId),
       );
       if (!question) return refuse(`no question ${questionId}`);
       return attempt(() =>

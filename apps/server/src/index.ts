@@ -17,3 +17,21 @@ export {
   type StoredEvent,
 } from "./store";
 export { createMcpServer, handleMcp, type McpOptions } from "./mcp";
+export {
+  callerAddress,
+  CallerRefused,
+  identify,
+  tailscaleNodeLookup,
+  type Caller,
+  type NodeLookup,
+} from "./identity";
+export {
+  canSee,
+  everyClient,
+  hashToken,
+  issueMachineToken,
+  listMachines,
+  machineForToken,
+  revokeMachine,
+  type Machine,
+} from "./machines";
