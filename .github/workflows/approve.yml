@@ -1,0 +1,44 @@
+# Approves and merges the Release Please pull request.
+#
+# That pull request only bumps the version and writes the changelog, so a
+# person reviewing it adds no judgement, and one left open is how releases
+# stop happening. Approval still has conditions: the author, the label and
+# the files touched. A release pull request that changes anything else fails
+# them and waits for a person.
+name: Auto Approve Release Please PR
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  auto-approve:
+    name: Auto approve
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: startsWith(github.head_ref, 'release-please--')
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # No continue-on-error, so an expired token fails here where it is seen.
+      # This job only runs on release-please branches, so it blocks nothing
+      # else.
+      - name: Auto approve and merge
+        uses: lekman/auto-approve-action@9630d92156fed35862afaa5cae07be96e9d831ea # v1
+        with:
+          # A different identity from the App that opens the pull request,
+          # because GitHub refuses a self-approval.
+          github-token: ${{ secrets.CODE_OWNER_TOKEN }}
+          # Since v1.3.3 the action also accepts this App written as
+          # "app/lekman-release-please-bot", as `gh pr view` prints it.
+          allowed-authors: "lekman-release-please-bot[bot]"
+          required-labels: "autorelease: pending"
+          label-match-mode: "all"
+          merge-method: "squash"
+          path-filters: "release/.release-please-manifest.json,CHANGELOG.md,package.json"

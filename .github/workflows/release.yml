@@ -19,7 +19,34 @@ jobs:
       contents: write # tags and the changelog
       pull-requests: write # the release pull request
     steps:
+      # GitHub runs no workflows on a pull request opened with GITHUB_TOKEN, so
+      # a release pull request opened that way never gets its required checks
+      # and cannot merge. A pull request opened by the GitHub App runs them.
+      #
+      # continue-on-error so a repository without the App secrets still opens
+      # its release pull request with GITHUB_TOKEN.
+      - name: Generate GitHub App token
+        id: app-token
+        continue-on-error: true
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Report which identity is releasing
+        env:
+          APP_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          if [ -n "$APP_TOKEN" ]; then
+            echo "Releasing as the GitHub App."
+          else
+            echo "::warning::vars.APP_ID or secrets.APP_PRIVATE_KEY is not set, so this releases with GITHUB_TOKEN."
+            echo "::warning::Its release pull request gets no checks until a person closes and reopens it."
+          fi
+
       - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
         with:
+          token: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
           config-file: release/release-please-config.json
           manifest-file: release/.release-please-manifest.json
