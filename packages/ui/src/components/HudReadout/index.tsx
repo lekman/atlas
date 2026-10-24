@@ -35,8 +35,8 @@ const keyStep = 40;
 const dragThreshold = 4;
 
 /**
- * The corner readout over the full map, in the world's own words, with a
- * handle on its top edge. Drag the handle up, or click it, to open the
+ * The HUD: the corner readout over the full map, in the world's own words,
+ * with a handle under its title. Drag the handle up, or click it, to open the
  * needs-you list above the readout. The readout lines are hidden from
  * screen readers: what they count is in that list and in the map's own
  * description, and a line that changes as the map pans would only be noise.
@@ -120,6 +120,9 @@ export function HudReadout({
   const [first, ...rest] = readout.lines;
   return (
     <div className="atlas-hud" data-open={open}>
+      <h2 className="atlas-section-title atlas-hud-title">
+        <span>HUD</span>
+      </h2>
       <button
         type="button"
         className="atlas-hud-handle"
