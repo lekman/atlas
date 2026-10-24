@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.0](https://github.com/lekman/atlas/compare/v0.10.0...v0.11.0) (2026-10-24)
+
+
+### Features
+
+* **server:** live agent status from the Claude Code sessions on this machine ([#57](https://github.com/lekman/atlas/issues/57)) ([64fa49b](https://github.com/lekman/atlas/commit/64fa49bcf15f1ecf9b4e00428b15b33a52192ef6))
+
 ## [0.10.0](https://github.com/lekman/atlas/compare/v0.9.0...v0.10.0) (2026-10-24)
 
 
