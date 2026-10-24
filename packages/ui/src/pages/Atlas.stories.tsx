@@ -540,3 +540,27 @@ export const SoundAndSettingsControls: Story = {
     await expect(sound).toHaveAttribute("aria-pressed", "true");
   },
 };
+
+/**
+ * The Comms Log starts as a short box at the bottom. Its handle opens the
+ * whole column and shuts it again; opening an item's details opens it too.
+ */
+export const LogDrawer: Story = {
+  name: "Log Drawer",
+  args: { initialWorld: "astronomer", initialMode: "full", script: [] },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const handle = canvas.getByRole("button", { name: /open the whole log/i });
+    await expect(handle).toHaveAttribute("aria-expanded", "false");
+    await userEvent.click(handle);
+    await expect(
+      canvas.getByRole("button", { name: /shorten the log/i }),
+    ).toHaveAttribute("aria-expanded", "true");
+    await userEvent.click(
+      canvas.getByRole("button", { name: /shorten the log/i }),
+    );
+    await expect(
+      canvas.getByRole("button", { name: /open the whole log/i }),
+    ).toBeInTheDocument();
+  },
+};

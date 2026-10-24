@@ -29,6 +29,7 @@ export {
 export { KeyPanel, type KeyPanelProps } from "./components/KeyPanel";
 export {
   LogPanel,
+  type LogDrawer,
   type LogPanelProps,
   type LogSubject,
 } from "./components/LogPanel";
