@@ -9,6 +9,10 @@ export const woodsmanPhrases: Phrases = {
   status: (agent, _was, now, text) => `${agent}, now ${now}: ${text}`,
   answered: (decision, where) =>
     `The fork at ${where} is marked. Tree blazed: ${decision}`,
+  launched: (vessel, parent, task, text) =>
+    `${parent} sends the apprentice ${vessel} ${task ? `ahead to ${task}` : "to keep close"}: ${text}`,
+  returned: (vessel, parent, text) =>
+    `The apprentice ${vessel} is back with ${parent}: ${text}`,
 };
 
 export function woodsmanReadout(input: ReadoutInput): Readout {

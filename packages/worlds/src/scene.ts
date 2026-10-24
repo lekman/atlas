@@ -7,6 +7,7 @@ import {
   applyEvent,
   attentionStatuses,
   clientOfAgent,
+  isVessel,
   type Agent,
   type AtlasEvent,
   type Dataset,
@@ -58,6 +59,10 @@ export interface MotionOptions {
   reducedMotion: boolean;
   /** Turn to face this point once at the work spot, if given. */
   work?: WorkTarget | null;
+  /** How close to the spot counts as arrived. `arrivalDistance` when left out. */
+  arrivalDistance?: number;
+  /** How far the body drifts about its spot. `hoverAmplitude` when left out. */
+  hoverAmplitude?: number;
 }
 
 export type Effect =
@@ -96,6 +101,53 @@ export const arrivalDistance = 8;
 
 /** How far a working agent drifts about its spot. None under reduced motion. */
 export const hoverAmplitude = 2.5;
+
+/**
+ * How large a launch vessel is drawn beside the agent it came from. Small
+ * enough to read as a smaller craft, large enough to show its status hue.
+ */
+export const vesselScale = 0.55;
+
+/** How far a launch vessel drifts about its spot: less than its parent. */
+export const vesselHoverAmplitude = 1.5;
+
+/** How close to its spot a launch vessel must be to count as arrived. */
+export const vesselArrivalDistance = 5;
+
+/**
+ * How far a launch vessel's spot keeps from any spot an agent holds, in
+ * world units. Tasks in one workstream sit in rows close together, so the
+ * spot beside one task can fall on the spot beside its neighbour.
+ */
+export const vesselClearance = 40;
+
+/**
+ * How far a launch vessel's beam or line keeps from any spot another agent
+ * holds, so it never runs through a neighbour on its way to the task. Its
+ * own parent's spots do not count: a launch may work in line with its ship.
+ */
+export const vesselBeamClearance = 12;
+
+/** The distance from a point to the segment between two others. */
+function distanceToSegment(point: Point, from: Point, to: Point): number {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const length = dx * dx + dy * dy || 1;
+  const along = Math.max(
+    0,
+    Math.min(1, ((point.x - from.x) * dx + (point.y - from.y) * dy) / length),
+  );
+  return Math.hypot(
+    point.x - (from.x + along * dx),
+    point.y - (from.y + along * dy),
+  );
+}
+
+/**
+ * How far from its parent a vessel with no task holds, in world units:
+ * close enough to read as part of its parent, clear of the parent's label.
+ */
+export const vesselStandOff = 26;
 
 /**
  * The angle, from the horizontal, at which an agent sits from its task.
@@ -169,7 +221,8 @@ export function advanceMotion(
   const arrived =
     work !== null &&
     Math.hypot(next.x - work.spot.x, next.y - work.spot.y) <=
-      arrivalDistance + hoverAmplitude;
+      (options.arrivalDistance ?? arrivalDistance) +
+        (options.hoverAmplitude ?? hoverAmplitude);
   motion.work = work ? { ...work, arrived } : null;
   if (work && arrived) {
     const facing = Math.atan2(work.task.y - next.y, work.task.x - next.x);
@@ -184,6 +237,18 @@ export function advanceMotion(
     motion.trail.unshift(next);
     if (motion.trail.length > trailLength) motion.trail.pop();
   }
+}
+
+/** A body placed at its target at once, facing its task if it has one. */
+function settledMotion(target: Point, work: WorkTarget | null): Motion {
+  return {
+    position: target,
+    heading: work
+      ? Math.atan2(work.task.y - target.y, work.task.x - target.x)
+      : -Math.PI / 2,
+    trail: [],
+    work: work ? { ...work, arrived: true } : null,
+  };
 }
 
 /** An angle turned part of the shortest way towards another. */
@@ -201,6 +266,12 @@ export class Scene {
   readonly answeredAt = new Map<string, number>();
   /** When each decision appeared, for the flare. */
   readonly decidedAt = new Map<string, number>();
+  /**
+   * Vessels flying home after their return. Their records are gone from
+   * the dataset, so the last one is kept here until the vessel reaches its
+   * parent and leaves the map.
+   */
+  readonly returning = new Map<string, Agent>();
 
   constructor(dataset: Dataset, orientation: Orientation = "landscape") {
     this.dataset = dataset;
@@ -211,6 +282,7 @@ export class Scene {
     if (orientation === this.layout.orientation) return;
     this.layout = computeLayout(this.dataset, orientation);
     this.motions.clear();
+    this.returning.clear();
   }
 
   /** Start over from a dataset, keeping the orientation. */
@@ -218,13 +290,16 @@ export class Scene {
     this.dataset = dataset;
     this.layout = computeLayout(dataset, this.layout.orientation);
     this.motions.clear();
+    this.returning.clear();
     this.effects = [];
     this.answeredAt.clear();
     this.decidedAt.clear();
   }
 
   apply(event: AtlasEvent, now: number): void {
+    const before = this.dataset;
     this.dataset = applyEvent(this.dataset, event);
+    const changed = this.dataset !== before;
     switch (event.type) {
       case "agent-message":
         this.effects.push({
@@ -258,6 +333,43 @@ export class Scene {
         this.answeredAt.set(event.questionId, now);
         this.decidedAt.set(event.decision.id, now);
         break;
+      case "agent-launched": {
+        if (!changed) break;
+        // The vessel leaves from its parent: the launch bay. `step` flies
+        // it to its spot, or places it there under reduced motion.
+        this.returning.delete(event.agentId);
+        const parent = this.motions.get(event.parentId);
+        if (parent)
+          this.motions.set(event.agentId, {
+            position: { ...parent.position },
+            heading: parent.heading,
+            trail: [],
+            work: null,
+          });
+        else this.motions.delete(event.agentId);
+        this.effects.push({
+          kind: "ring",
+          agentId: event.agentId,
+          start: now,
+          duration: 1.4,
+        });
+        break;
+      }
+      case "agent-returned": {
+        const vessel = before.agents.find(
+          (agent) => agent.id === event.agentId,
+        );
+        if (!changed || !vessel?.parentId) break;
+        this.returning.set(vessel.id, { ...vessel, workingOn: [] });
+        // The ring is on the parent, where the vessel comes home.
+        this.effects.push({
+          kind: "ring",
+          agentId: vessel.parentId,
+          start: now,
+          duration: 1.4,
+        });
+        break;
+      }
     }
   }
 
@@ -272,7 +384,11 @@ export class Scene {
     }));
   }
 
-  /** Move every agent a step towards where its status puts it. */
+  /**
+   * Move every agent a step towards where its status puts it, and every
+   * returning vessel a step towards its parent. A vessel is placed at once
+   * under reduced motion: it does not fly out, and it does not fly home.
+   */
   step(time: number, seconds: number, reducedMotion: boolean): void {
     for (const agent of this.dataset.agents) {
       const target = this.agentTarget(agent, time, reducedMotion);
@@ -280,22 +396,40 @@ export class Scene {
         ? this.workTarget(agent, time, reducedMotion)
         : null;
       const motion = this.motions.get(agent.id);
-      if (!motion) {
-        this.motions.set(agent.id, {
-          position: target,
-          heading: work
-            ? Math.atan2(work.task.y - target.y, work.task.x - target.x)
-            : -Math.PI / 2,
-          trail: [],
-          work: work ? { ...work, arrived: true } : null,
-        });
+      const vessel = isVessel(agent);
+      if (!motion || (vessel && reducedMotion)) {
+        this.motions.set(agent.id, settledMotion(target, work));
         continue;
       }
       advanceMotion(motion, target, seconds, {
         rate: agent.status === "running" ? 3 : 2.2,
         reducedMotion,
         work,
+        ...(vessel
+          ? {
+              arrivalDistance: vesselArrivalDistance,
+              hoverAmplitude: vesselHoverAmplitude,
+            }
+          : {}),
       });
+    }
+    for (const [id, vessel] of this.returning) {
+      const motion = this.motions.get(id);
+      const home = this.motions.get(vessel.parentId ?? "")?.position;
+      if (!motion || !home || reducedMotion) {
+        this.returning.delete(id);
+        this.motions.delete(id);
+        continue;
+      }
+      advanceMotion(motion, home, seconds, { rate: 2.6, reducedMotion });
+      const distance = Math.hypot(
+        motion.position.x - home.x,
+        motion.position.y - home.y,
+      );
+      if (distance <= vesselArrivalDistance) {
+        this.returning.delete(id);
+        this.motions.delete(id);
+      }
     }
   }
 
@@ -306,36 +440,134 @@ export class Scene {
    * dataset lists them.
    */
   workTarget(
-    agent: Pick<Agent, "id" | "status" | "workingOn">,
+    agent: Pick<Agent, "id" | "status" | "workingOn" | "parentId">,
     time: number,
     reducedMotion: boolean,
     distance = workingDistance,
   ): WorkTarget | null {
     const itemId = currentTask(agent, time, reducedMotion);
+    if (!itemId) return null;
+    return this.workTargetAt(agent, itemId, time, reducedMotion, distance);
+  }
+
+  /**
+   * Where an agent works one of its tasks. A vessel takes the first spot
+   * from its own slot on that is clear of every spot an agent keeps and of
+   * the vessels listed before it, so it never lands on its parent.
+   */
+  private workTargetAt(
+    agent: Pick<Agent, "id" | "status" | "workingOn" | "parentId">,
+    itemId: string,
+    time: number,
+    reducedMotion: boolean,
+    distance: number,
+  ): WorkTarget | null {
     const item = this.dataset.items.find(
       (candidate) => candidate.id === itemId,
     );
-    if (!itemId || !item) return null;
+    if (!item) return null;
     const task = itemPosition(this.layout, item);
     const centre = this.layout.clients.get(item.clientId) ?? { x: 0, y: 0 };
     // Every agent that works this task keeps its spot here while it is
-    // away at another, so no agent moves because a neighbour did. Running
-    // agents take the first spots, so a beam or a line never has to cross a
-    // neighbour's label to reach the task.
+    // away at another, so no agent moves because a neighbour did. Agents
+    // take spots before vessels, so a launch never moves an agent. Within
+    // each, running ones come first, so a beam or a line never has to
+    // cross a neighbour's label to reach the task.
     const sharing = this.dataset.agents
       .filter(
         (other) => this.holdsAtWork(other) && other.workingOn.includes(itemId),
       )
       .sort(
         (left, right) =>
+          Number(isVessel(left)) - Number(isVessel(right)) ||
           Number(right.status === "running") -
-          Number(left.status === "running"),
+            Number(left.status === "running"),
       );
     const slot = Math.max(
       0,
       sharing.findIndex((other) => other.id === agent.id),
     );
-    return { itemId, task, spot: workingSpot(task, centre, slot, distance) };
+    if (!isVessel(agent))
+      return { itemId, task, spot: workingSpot(task, centre, slot, distance) };
+    const kept = this.keptSpots(agent, time, reducedMotion, distance);
+    const candidates = Array.from({ length: 8 }, (_, index) =>
+      workingSpot(task, centre, slot + index, distance),
+    );
+    const clear = (spot: Point) =>
+      kept.every(
+        (other) =>
+          Math.hypot(other.x - spot.x, other.y - spot.y) >= vesselClearance,
+      );
+    const others = this.keptSpots(
+      agent,
+      time,
+      reducedMotion,
+      distance,
+      agent.parentId,
+    );
+    const beamRoom = (spot: Point) =>
+      Math.min(
+        Number.POSITIVE_INFINITY,
+        ...others.map((other) => distanceToSegment(other, spot, task)),
+      );
+    // The first spot that lands clear and whose beam passes no neighbour.
+    // Failing that, of the spots that land clear, the one whose beam passes
+    // furthest from any neighbour; failing that, its own slot.
+    let spot: Point | null = null;
+    let room = -1;
+    for (const candidate of candidates.filter(clear)) {
+      const candidateRoom = beamRoom(candidate);
+      if (candidateRoom >= vesselBeamClearance) {
+        spot = candidate;
+        break;
+      }
+      if (candidateRoom > room) {
+        spot = candidate;
+        room = candidateRoom;
+      }
+    }
+    return {
+      itemId,
+      task,
+      spot: spot ?? workingSpot(task, centre, slot, distance),
+    };
+  }
+
+  /**
+   * The spots a vessel must keep clear of: every spot each agent keeps at
+   * each of its tasks, and the spots of the vessels listed before it.
+   * `except` leaves one agent's spots out.
+   */
+  private keptSpots(
+    vessel: Pick<Agent, "id">,
+    time: number,
+    reducedMotion: boolean,
+    distance: number,
+    except?: string,
+  ): Point[] {
+    const spots: Point[] = [];
+    let after = false;
+    for (const other of this.dataset.agents) {
+      if (other.id === vessel.id) after = true;
+      if ((after && isVessel(other)) || other.id === except) continue;
+      if (!this.holdsAtWork(other)) continue;
+      if (isVessel(other)) {
+        const work = this.workTarget(other, time, reducedMotion, distance);
+        if (work) spots.push(work.spot);
+        continue;
+      }
+      for (const itemId of other.workingOn) {
+        const work = this.workTargetAt(
+          other,
+          itemId,
+          time,
+          reducedMotion,
+          distance,
+        );
+        if (work) spots.push(work.spot);
+      }
+    }
+    return spots;
   }
 
   /** Whether this status puts an agent beside its task. */
@@ -350,6 +582,7 @@ export class Scene {
 
   /** Where the agent's status puts it, before easing. */
   agentTarget(agent: Agent, time: number, reducedMotion: boolean): Point {
+    if (isVessel(agent)) return this.vesselTarget(agent, time, reducedMotion);
     const clientId = clientOfAgent(this.dataset, agent);
     const centre = this.layout.clients.get(clientId) ?? { x: 0, y: 0 };
     const isHome =
@@ -393,6 +626,44 @@ export class Scene {
         );
       }
     }
+  }
+
+  /**
+   * Where a launch vessel holds: beside its task as an agent does, with a
+   * smaller hover, or, with no task or while watching or idle, close
+   * behind its parent.
+   */
+  vesselTarget(agent: Agent, time: number, reducedMotion: boolean): Point {
+    const work = this.holdsAtWork(agent)
+      ? this.workTarget(agent, time, reducedMotion)
+      : null;
+    const phase = this.dataset.agents.indexOf(agent) * 1.7;
+    const hover = (point: Point): Point =>
+      reducedMotion || agent.status !== "running"
+        ? point
+        : {
+            x: point.x + Math.cos(time * 0.9 + phase) * vesselHoverAmplitude,
+            y: point.y + Math.sin(time * 1.4 + phase) * vesselHoverAmplitude,
+          };
+    if (work) return hover(work.spot);
+    const parent = this.dataset.agents.find(
+      (candidate) => candidate.id === agent.parentId,
+    );
+    const at =
+      this.motions.get(agent.parentId ?? "")?.position ??
+      (parent && !isVessel(parent)
+        ? this.agentTarget(parent, time, reducedMotion)
+        : (this.layout.clients.get(clientOfAgent(this.dataset, agent)) ?? {
+            x: 0,
+            y: 0,
+          }));
+    // Behind and below the parent, which writes its label to its right.
+    // Each sibling takes the next place round.
+    const siblings = this.dataset.agents.filter(
+      (candidate) => candidate.parentId === agent.parentId,
+    );
+    const angle = 2.3 + siblings.indexOf(agent) * 0.75;
+    return hover(polar(at, angle, vesselStandOff));
   }
 
   needsAttention(agent: Agent): boolean {

@@ -11,11 +11,13 @@
  * or device, shows anything like patient data, or uses a protected emblem:
  * there is no cross shape anywhere.
  */
-import { externalSourceNames } from "@atlas/core";
+import { externalSourceNames, isVessel } from "@atlas/core";
 
 import { worldToScreen, type Point } from "../camera";
 import { decisionPosition, itemPosition, questionPosition } from "../layout";
 import {
+  agentLabelSize,
+  bodyScale,
   clientIdOfAgent,
   label,
   labelScale,
@@ -23,6 +25,8 @@ import {
   pulsePhase,
   setScreenTransform,
   setWorldTransform,
+  showsAgentName,
+  showsAgentStatus,
   withAlpha,
   workstreamCaption,
   workstreamCaptionRise,
@@ -943,10 +947,13 @@ export const doctorPainter: WorldPainter = {
       }
     }
 
-    // An identity badge on a clip: upright, in the status colour.
+    // An identity badge on a clip: upright, in the status colour. A
+    // trainee's badge is smaller.
+    const scale = bodyScale(agent);
     const size =
       pixels(paint, isFull(paint) ? 6.5 : 5) *
-      Math.max(1, paint.camera.scale * 1.5);
+      Math.max(1, paint.camera.scale * 1.5) *
+      scale;
     const badge = {
       left: position.x - size * 0.78,
       right: position.x + size * 0.78,
@@ -1016,21 +1023,20 @@ export const doctorPainter: WorldPainter = {
       );
       context.stroke();
     }
-    if (!isFull(paint)) return;
-    label(
-      paint,
-      agent.name,
-      position.x + pixels(paint, 13),
-      position.y - pixels(paint, 6),
-      { size: 11, font: type.display, colour: palette.ink },
-    );
-    if (paint.camera.scale > labelScale.agentStatus) {
+    const textX = position.x + pixels(paint, 13 * scale);
+    if (showsAgentName(paint, agent))
+      label(paint, agent.name, textX, position.y - pixels(paint, 6), {
+        size: agentLabelSize(agent, 11),
+        font: type.display,
+        colour: palette.ink,
+      });
+    if (showsAgentStatus(paint, agent)) {
       label(
         paint,
         doctorStatusNames[agent.status],
-        position.x + pixels(paint, 13),
+        textX,
         position.y + pixels(paint, 7),
-        { size: 9.5, font: type.mono, colour },
+        { size: agentLabelSize(agent, 9.5), font: type.mono, colour },
       );
     }
   },
@@ -1310,7 +1316,8 @@ export const doctorPainter: WorldPainter = {
         continue;
       }
       const staff = scene.dataset.agents.filter(
-        (agent) => clientIdOfAgent(paint, agent.id) === client.id,
+        (agent) =>
+          !isVessel(agent) && clientIdOfAgent(paint, agent.id) === client.id,
       );
       const onRounds = staff.filter(
         (agent) => agent.status === "running",

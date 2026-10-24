@@ -1,9 +1,15 @@
 import { describe, expect, it } from "bun:test";
 
-import { isOnMap, orderByUrgency, type Dataset } from "@atlas/core";
+import {
+  isOnMap,
+  orderByUrgency,
+  type AtlasEvent,
+  type Dataset,
+} from "@atlas/core";
 import { busyClientId, busyDataset, sampleDataset } from "@atlas/fixtures";
 
 import {
+  advanceMotion,
   arrivalDistance,
   computeLayout,
   currentTask,
@@ -16,6 +22,11 @@ import {
   shownPerWorkstream,
   taskDwellSeconds,
   unsortedTitle,
+  vesselArrivalDistance,
+  vesselBeamClearance,
+  vesselClearance,
+  vesselHoverAmplitude,
+  vesselStandOff,
   workingSpot,
   workstreamCaption,
   workstreamCaptionRise,
@@ -469,5 +480,225 @@ describe("camera", () => {
   it("centres a point", () => {
     const camera = focusOn({ x: 50, y: 50 }, 1, 200, 100);
     expect(worldToScreen(camera, { x: 50, y: 50 })).toEqual({ x: 100, y: 50 });
+  });
+});
+
+describe("launch vessels", () => {
+  const distance = (a: { x: number; y: number }, b: { x: number; y: number }) =>
+    Math.hypot(a.x - b.x, a.y - b.y);
+  const launch = (
+    agentId: string,
+    workingOn?: string[],
+  ): Extract<AtlasEvent, { type: "agent-launched" }> => ({
+    type: "agent-launched",
+    agentId,
+    parentId: "schema",
+    name: agentId,
+    ...(workingOn ? { workingOn } : {}),
+    text: "Launched",
+  });
+  const back = (agentId: string): AtlasEvent => ({
+    type: "agent-returned",
+    agentId,
+    text: "Done",
+  });
+  /** A scene stepped long enough for every agent to settle. */
+  function settled(reducedMotion = false): Scene {
+    const scene = new Scene(sampleDataset);
+    for (let frame = 0; frame < 120; frame++)
+      scene.step(1 + frame / 60, 1 / 60, reducedMotion);
+    return scene;
+  }
+  const run = (scene: Scene, from: number, frames: number, reduced = false) => {
+    for (let frame = 0; frame < frames; frame++)
+      scene.step(from + frame / 60, 1 / 60, reduced);
+  };
+
+  it("leaves from its parent, flies to its task and works it", () => {
+    const scene = settled();
+    const parent = { ...scene.motions.get("schema")!.position };
+    scene.apply(launch("drill-notes", ["weekend-drill"]), 3);
+    const motion = scene.motions.get("drill-notes")!;
+    expect(motion.position).toEqual(parent);
+    expect(motion.work).toBeNull();
+    run(scene, 3, 1);
+    expect(motion.work?.arrived).toBe(false);
+    run(scene, 3.1, 240);
+    const vessel = scene.dataset.agents.at(-1)!;
+    const work = scene.workTarget(vessel, 7, false)!;
+    expect(work.itemId).toBe("weekend-drill");
+    expect(motion.work?.arrived).toBe(true);
+    expect(distance(motion.position, work.spot)).toBeLessThanOrEqual(
+      vesselArrivalDistance + vesselHoverAmplitude,
+    );
+  });
+
+  it("rings when it launches, and rings its parent when it returns", () => {
+    const scene = settled();
+    scene.apply(launch("drill-notes", ["weekend-drill"]), 3);
+    scene.apply(back("drill-notes"), 4);
+    expect(
+      scene.effects.map((effect) => effect.kind === "ring" && effect.agentId),
+    ).toEqual(["drill-notes", "schema"]);
+  });
+
+  it("does nothing for a launch or a return the dataset refused", () => {
+    const scene = settled();
+    scene.apply(launch("portal"), 3);
+    scene.apply(back("schema"), 3);
+    expect(scene.effects).toEqual([]);
+    expect(scene.returning.size).toBe(0);
+  });
+
+  it("never takes its parent's spot, and moves no agent when it arrives", () => {
+    const scene = settled();
+    const before = new Map(
+      scene.dataset.agents.map((agent) => [
+        agent.id,
+        scene.workTarget(agent, 3, false)?.spot,
+      ]),
+    );
+    // Schema works the cut-over first; the vessel goes to the same task.
+    scene.apply(launch("cut-over-notes", ["cut-over"]), 3);
+    for (const agent of sampleDataset.agents)
+      expect(scene.workTarget(agent, 3, false)?.spot).toEqual(
+        before.get(agent.id),
+      );
+    // Schema and Release hold the first two spots; the vessel goes further
+    // out, even though it runs and Release waits, and keeps clear of every
+    // spot an agent keeps, at this task or the next row.
+    const vessel = scene.dataset.agents.at(-1)!;
+    const work = scene.workTarget(vessel, 3, false)!;
+    const centre = scene.layout.clients.get("halcyon")!;
+    expect(work.itemId).toBe("cut-over");
+    expect(work.spot).not.toEqual(workingSpot(work.task, centre, 0));
+    expect(work.spot).not.toEqual(workingSpot(work.task, centre, 1));
+    for (const agent of sampleDataset.agents)
+      for (const time of [3, 3 + taskDwellSeconds]) {
+        const kept = scene.workTarget(agent, time, false);
+        if (kept && scene.holdsAtWork(agent))
+          expect(distance(kept.spot, work.spot)).toBeGreaterThanOrEqual(
+            vesselClearance,
+          );
+      }
+  });
+
+  it("lands clear of every agent, and its beam passes no other agent", () => {
+    const scene = settled();
+    scene.apply(launch("cut-over-notes", ["cut-over"]), 3);
+    const vessel = scene.dataset.agents.at(-1)!;
+    const work = scene.workTarget(vessel, 3, false)!;
+    const fromBeam = (point: { x: number; y: number }) => {
+      const dx = work.task.x - work.spot.x;
+      const dy = work.task.y - work.spot.y;
+      const along = Math.max(
+        0,
+        Math.min(
+          1,
+          ((point.x - work.spot.x) * dx + (point.y - work.spot.y) * dy) /
+            (dx * dx + dy * dy),
+        ),
+      );
+      return distance(point, {
+        x: work.spot.x + along * dx,
+        y: work.spot.y + along * dy,
+      });
+    };
+    for (const agent of sampleDataset.agents) {
+      if (!scene.holdsAtWork(agent)) continue;
+      for (const time of [3, 3 + taskDwellSeconds]) {
+        const kept = scene.workTarget(agent, time, false)?.spot;
+        if (!kept) continue;
+        expect(distance(kept, work.spot)).toBeGreaterThanOrEqual(
+          vesselClearance,
+        );
+        if (agent.id !== "schema")
+          expect(fromBeam(kept)).toBeGreaterThanOrEqual(vesselBeamClearance);
+      }
+    }
+  });
+
+  it("stays close to its parent when it has no task", () => {
+    const scene = settled();
+    scene.apply(launch("standing-by"), 3);
+    run(scene, 3, 240);
+    const parent = scene.motions.get("schema")!.position;
+    const vessel = scene.motions.get("standing-by")!.position;
+    expect(distance(parent, vessel)).toBeLessThan(vesselStandOff + 8);
+    expect(scene.motions.get("standing-by")!.work).toBeNull();
+  });
+
+  it("is placed at its spot at once under reduced motion", () => {
+    const scene = settled(true);
+    scene.apply(launch("drill-notes", ["weekend-drill"]), 3);
+    run(scene, 3, 1, true);
+    const vessel = scene.dataset.agents.at(-1)!;
+    const motion = scene.motions.get("drill-notes")!;
+    expect(motion.position).toEqual(scene.workTarget(vessel, 3, true)!.spot);
+    expect(motion.work?.arrived).toBe(true);
+    expect(motion.trail).toEqual([]);
+  });
+
+  it("flies home after its record is gone, and leaves when it arrives", () => {
+    const scene = settled();
+    scene.apply(launch("drill-notes", ["weekend-drill"]), 3);
+    run(scene, 3, 240);
+    scene.apply(back("drill-notes"), 7);
+    expect(
+      scene.dataset.agents.some((agent) => agent.id === "drill-notes"),
+    ).toBe(false);
+    expect(scene.returning.has("drill-notes")).toBe(true);
+    const motion = scene.motions.get("drill-notes")!;
+    const parent = () => scene.motions.get("schema")!.position;
+    const start = distance(motion.position, parent());
+    run(scene, 7, 10);
+    expect(distance(motion.position, parent())).toBeLessThan(start);
+    expect(motion.work).toBeNull();
+    run(scene, 7.2, 300);
+    expect(scene.returning.has("drill-notes")).toBe(false);
+    expect(scene.motions.has("drill-notes")).toBe(false);
+  });
+
+  it("leaves at once under reduced motion when it returns", () => {
+    const scene = settled(true);
+    scene.apply(launch("drill-notes", ["weekend-drill"]), 3);
+    run(scene, 3, 1, true);
+    scene.apply(back("drill-notes"), 4);
+    run(scene, 4, 1, true);
+    expect(scene.motions.has("drill-notes")).toBe(false);
+    expect(scene.returning.size).toBe(0);
+  });
+
+  it("forgets returning vessels on a reset", () => {
+    const scene = settled();
+    scene.apply(launch("drill-notes", ["weekend-drill"]), 3);
+    run(scene, 3, 1);
+    scene.apply(back("drill-notes"), 4);
+    scene.reset(sampleDataset);
+    expect(scene.returning.size).toBe(0);
+  });
+
+  it("counts arrival with the distance and hover it is given", () => {
+    const work = {
+      itemId: "x",
+      task: { x: 100, y: 0 },
+      spot: { x: 50, y: 0 },
+    };
+    const motion = {
+      position: { x: 40, y: 0 },
+      heading: 0,
+      trail: [],
+      work: null,
+    };
+    advanceMotion(motion, work.spot, 0, {
+      rate: 1,
+      reducedMotion: true,
+      work,
+      arrivalDistance: 5,
+      hoverAmplitude: 1,
+    });
+    expect(motion.work).toMatchObject({ arrived: false });
+    advanceMotion(motion, work.spot, 0, { rate: 1, reducedMotion: true, work });
+    expect(motion.work).toMatchObject({ arrived: true });
   });
 });

@@ -9,11 +9,14 @@ import {
   findPersonalData,
   findRecord,
   homeOf,
+  isVessel,
+  planLaunch,
   mayHold,
   needsYou,
   workstreamsOfClient,
   type BoundaryPolicy,
   type CardRequest,
+  type LaunchEvent,
 } from "../src";
 
 const governed = {
@@ -275,6 +278,105 @@ describe("events", () => {
         text: "hi",
       }),
     ).toBe(before);
+  });
+
+  const launch = {
+    type: "agent-launched",
+    agentId: "release-checks",
+    parentId: "release",
+    name: "Release checks",
+    workingOn: ["cut-over"],
+    text: "Checking the cut-over steps",
+  } satisfies LaunchEvent;
+
+  it("launches a vessel beside its parent", () => {
+    const next = applyEvent(sample(), launch);
+    const vessel = next.agents.find((agent) => agent.id === "release-checks");
+    expect(vessel).toEqual({
+      id: "release-checks",
+      classification: "internal",
+      boundary: "home-server",
+      groupId: "acme-crew",
+      name: "Release checks",
+      accountId: "claude-work",
+      host: "Mac mini",
+      reach: "none",
+      status: "running",
+      workingOn: ["cut-over"],
+      note: "Checking the cut-over steps",
+      parentId: "release",
+    });
+    expect(isVessel(vessel!)).toBe(true);
+    expect(findBrokenReferences(next)).toEqual([]);
+  });
+
+  it("launches a vessel with no task", () => {
+    const { workingOn: _, ...idle } = launch;
+    const next = applyEvent(sample(), idle);
+    expect(next.agents.at(-1)?.workingOn).toEqual([]);
+  });
+
+  it("refuses a launch from a missing parent, a taken id or a vessel", () => {
+    const before = sample();
+    expect(applyEvent(before, { ...launch, parentId: "nobody" })).toBe(before);
+    expect(applyEvent(before, { ...launch, agentId: "sync" })).toBe(before);
+    expect(applyEvent(before, { ...launch, agentId: "cut-over" })).toBe(before);
+    expect(applyEvent(before, { ...launch, workingOn: ["missing"] })).toBe(
+      before,
+    );
+    const launched = applyEvent(before, launch);
+    expect(
+      applyEvent(launched, {
+        ...launch,
+        agentId: "deeper",
+        parentId: "release-checks",
+      }),
+    ).toBe(launched);
+  });
+
+  it("says why a launch is refused", () => {
+    expect("vessel" in planLaunch(sample(), launch)).toBe(true);
+    expect(planLaunch(sample(), { ...launch, parentId: "nobody" })).toEqual({
+      refusal: { reason: "missing", message: "no agent nobody" },
+    });
+    expect(planLaunch(sample(), { ...launch, agentId: "release" })).toEqual({
+      refusal: { reason: "conflict", message: "release already exists" },
+    });
+  });
+
+  it("removes a vessel when it returns, and only a vessel", () => {
+    const launched = applyEvent(sample(), launch);
+    const returned = applyEvent(launched, {
+      type: "agent-returned",
+      agentId: "release-checks",
+      text: "Steps check out",
+    });
+    expect(returned.agents.map((agent) => agent.id)).toEqual([
+      "release",
+      "sync",
+    ]);
+    expect(
+      applyEvent(launched, {
+        type: "agent-returned",
+        agentId: "release",
+        text: "Not a vessel",
+      }),
+    ).toBe(launched);
+    expect(
+      applyEvent(launched, {
+        type: "agent-returned",
+        agentId: "nobody",
+        text: "Gone",
+      }),
+    ).toBe(launched);
+  });
+
+  it("reports a vessel whose parent does not exist", () => {
+    const broken = applyEvent(sample(), launch);
+    broken.agents[2] = { ...broken.agents[2]!, parentId: "missing" };
+    expect(findBrokenReferences(broken)).toContain(
+      "release-checks.parentId names unknown missing",
+    );
   });
 
   it("validates an event from outside", () => {

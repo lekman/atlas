@@ -40,6 +40,7 @@ function firstOf<Type extends AtlasEvent["type"]>(type: Type) {
 }
 const statusChange = firstOf("status-change");
 const answer = firstOf("question-answered");
+const launch = firstOf("agent-launched");
 
 let database: AtlasDatabase;
 
@@ -115,6 +116,48 @@ describe("the store", () => {
     appendEvent(database, answer);
     expect(() => appendEvent(database, answer)).toThrow("already answered");
     expect(listEvents(database)).toHaveLength(1);
+  });
+
+  test("a launch adds a vessel and its return removes it", () => {
+    appendEvent(database, launch);
+    expect(
+      readDataset(database).agents.find((agent) => agent.id === launch.agentId),
+    ).toMatchObject({ parentId: launch.parentId, status: "running" });
+    appendEvent(database, {
+      type: "agent-returned",
+      agentId: launch.agentId,
+      text: "Done",
+    });
+    expect(readDataset(database)).toEqual(sampleDataset);
+    expect(listEvents(database)).toHaveLength(2);
+  });
+
+  test("a launch from a missing parent, or onto a taken id, is refused", () => {
+    const refusalOf = (input: unknown) => {
+      try {
+        appendEvent(database, input);
+      } catch (error) {
+        if (error instanceof EventRejected) return error.reason;
+        throw error;
+      }
+      return "stored";
+    };
+    expect(refusalOf({ ...launch, parentId: "nobody" })).toBe("missing");
+    expect(refusalOf({ ...launch, agentId: "release" })).toBe("conflict");
+    expect(refusalOf({ ...launch, workingOn: ["nothing"] })).toBe("missing");
+    expect(refusalOf(launch)).toBe("stored");
+    expect(
+      refusalOf({ ...launch, agentId: "deeper", parentId: launch.agentId }),
+    ).toBe("conflict");
+    expect(listEvents(database)).toHaveLength(1);
+  });
+
+  test("only a launched vessel can return", () => {
+    const back = (agentId: string) => () =>
+      appendEvent(database, { type: "agent-returned", agentId, text: "Back" });
+    expect(back("nobody")).toThrow("no agent nobody");
+    expect(back("schema")).toThrow("schema is not a launched vessel");
+    expect(listEvents(database)).toHaveLength(0);
   });
 
   test("an event that does not match the model is refused", () => {
@@ -212,6 +255,16 @@ describe("the API", () => {
     expect((await post(answer)).status).toBe(409);
   });
 
+  test("a launch from a missing parent is a 404, and a taken id a 409", async () => {
+    expect((await post({ ...launch, parentId: "nobody" })).status).toBe(404);
+    expect((await post(launch)).status).toBe(201);
+    expect((await post(launch)).status).toBe(409);
+    expect(
+      (await post({ type: "agent-returned", agentId: "schema", text: "No" }))
+        .status,
+    ).toBe(409);
+  });
+
   test("refuses a sequence that is not a number", async () => {
     expect((await call("/api/events?after=first")).status).toBe(400);
   });
@@ -263,32 +316,40 @@ describe("the API", () => {
   });
 });
 
-describe("a database from before workstreams", () => {
+describe("a database from before a migration", () => {
   const directory = mkdtempSync(join(tmpdir(), "atlas-upgrade-"));
   afterAll(() => rmSync(directory, { recursive: true, force: true }));
 
-  test("keeps its records when the workstreams migration runs", () => {
-    // The migrations as they were before 0002: the first two, and a journal
-    // that names only them.
+  /**
+   * A database built with the migrations as they were before `tag`: the
+   * files and a journal that end just before it.
+   */
+  function databaseBefore(tag: string): { path: string; old: Database } {
     const migrations = join(import.meta.dir, "..", "drizzle");
-    const before = join(directory, "drizzle");
+    const before = join(directory, tag, "drizzle");
     cpSync(migrations, before, { recursive: true });
-    rmSync(join(before, "0002_workstreams.sql"));
     const journalPath = join(before, "meta", "_journal.json");
     const journal = JSON.parse(readFileSync(journalPath, "utf8")) as {
-      entries: Array<{ tag: string }>;
+      entries: Array<{ idx: number; tag: string }>;
     };
-    journal.entries = journal.entries.filter(
-      (entry) => entry.tag !== "0002_workstreams",
-    );
+    const cut = journal.entries.find((entry) => entry.tag === tag);
+    if (!cut) throw new Error(`no migration ${tag}`);
+    for (const entry of journal.entries)
+      if (entry.idx >= cut.idx) rmSync(join(before, `${entry.tag}.sql`));
+    journal.entries = journal.entries.filter((entry) => entry.idx < cut.idx);
     writeFileSync(journalPath, JSON.stringify(journal));
 
-    const path = join(directory, "atlas.db");
+    const path = join(directory, tag, "atlas.db");
     const old = new Database(path, { create: true });
     migrate(drizzle({ client: old }), { migrationsFolder: before });
     old.run(
       "INSERT INTO clients (id, classification, boundary, name, home) VALUES ('ashgrove', 'internal', 'home-server', 'Ashgrove Consulting', 1)",
     );
+    return { path, old };
+  }
+
+  test("keeps its records when the workstreams migration runs", () => {
+    const { path, old } = databaseBefore("0002_workstreams");
     old.run(
       "INSERT INTO items (id, classification, boundary, client_id, title, state, priority) VALUES ('send-invoices', 'internal', 'home-server', 'ashgrove', 'Send October invoices', 'doing', 'high')",
     );
@@ -307,6 +368,24 @@ describe("a database from before workstreams", () => {
         priority: "high",
       },
     ]);
+  });
+
+  test("keeps its agents, none of them a vessel, when the launch vessels migration runs", () => {
+    const { path, old } = databaseBefore("0003_launch_vessels");
+    old.run(
+      "INSERT INTO accounts (id, label, runtime) VALUES ('launchd', 'Script · launchd', 'script')",
+    );
+    old.run(
+      "INSERT INTO agent_groups (id, classification, boundary, client_id, name) VALUES ('upkeep', 'internal', 'home-server', 'ashgrove', 'Upkeep')",
+    );
+    old.run(
+      "INSERT INTO agents (id, classification, boundary, group_id, name, account_id, host, reach, status, working_on, note) VALUES ('tracker-sync', 'internal', 'home-server', 'upkeep', 'Tracker sync', 'launchd', 'Mac mini', 'local', 'running', '[]', 'Every 15 minutes')",
+    );
+    old.close();
+
+    const [agent] = readDataset(openDatabase(path)).agents;
+    expect(agent?.id).toBe("tracker-sync");
+    expect(agent && "parentId" in agent).toBe(false);
   });
 });
 

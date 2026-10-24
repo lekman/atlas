@@ -3,7 +3,7 @@
  * event: the event is added to the log and its effect is written in the same
  * transaction, so the log and the records never disagree.
  */
-import { AtlasEvent, Dataset, type Decision } from "@atlas/core";
+import { AtlasEvent, Dataset, planLaunch, type Decision } from "@atlas/core";
 import { asc, desc, eq, gt } from "drizzle-orm";
 
 import type { AtlasDatabase } from "./database";
@@ -170,6 +170,36 @@ export function appendEvent(
           fromQuestion: question.id,
         };
         transaction.insert(schema.decisions).values(decision).run();
+        break;
+      }
+      case "agent-launched": {
+        const dataset = readDataset(transaction as unknown as AtlasDatabase);
+        const launch = planLaunch(dataset, event);
+        if ("refusal" in launch)
+          throw new EventRejected(
+            launch.refusal.message,
+            launch.refusal.reason,
+          );
+        transaction.insert(schema.agents).values(launch.vessel).run();
+        break;
+      }
+      case "agent-returned": {
+        const vessel = transaction
+          .select({ parentId: schema.agents.parentId })
+          .from(schema.agents)
+          .where(eq(schema.agents.id, event.agentId))
+          .get();
+        if (!vessel)
+          throw new EventRejected(`no agent ${event.agentId}`, "missing");
+        if (vessel.parentId === null)
+          throw new EventRejected(
+            `${event.agentId} is not a launched vessel`,
+            "conflict",
+          );
+        transaction
+          .delete(schema.agents)
+          .where(eq(schema.agents.id, event.agentId))
+          .run();
         break;
       }
       case "agent-message":

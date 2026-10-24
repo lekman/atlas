@@ -5,7 +5,7 @@
  * questions unmarked forks in the mist, decisions blazed trees. Home is Base
  * Camp, tents around a fire.
  */
-import { externalSourceNames, type Agent } from "@atlas/core";
+import { externalSourceNames, isVessel, type Agent } from "@atlas/core";
 
 import type { Point } from "../camera";
 import {
@@ -15,12 +15,16 @@ import {
   rings,
 } from "../layout";
 import {
+  agentLabelSize,
+  bodyScale,
   curveBetween,
   labelScale,
   pixels,
   pulsePhase,
   setScreenTransform,
   setWorldTransform,
+  showsAgentName,
+  showsAgentStatus,
   withAlpha,
   workstreamCaption,
   workstreamCaptionRise,
@@ -960,6 +964,7 @@ export const woodsmanPainter: WorldPainter = {
 
     const scouts = scene.dataset.agents.filter(
       (agent) =>
+        !isVessel(agent) &&
         scene.dataset.groups.find((group) => group.id === agent.groupId)
           ?.clientId === client.id,
     ).length;
@@ -1309,9 +1314,11 @@ export const woodsmanPainter: WorldPainter = {
     const { position, trail } = motion;
     if (agent.status === "running" && trail.length > 3)
       drawBootPrints(paint, trail, ink.trail);
+    // An apprentice is a smaller scout, walking out from the one it follows.
     const radius =
       pixels(paint, isFull(paint) ? 9.5 : 6.5) *
-      Math.max(1, paint.camera.scale * 1.2);
+      Math.max(1, paint.camera.scale * 1.2) *
+      bodyScale(agent);
     const facing =
       agent.status === "running"
         ? Math.cos(motion.heading) < 0
@@ -1343,21 +1350,30 @@ export const woodsmanPainter: WorldPainter = {
     drawScout(context, agent, facing, radius, colour, pixels(paint, 1));
     context.restore();
 
-    if (!isFull(paint)) return;
-    text(
-      paint,
-      agent.name,
-      position.x + radius + pixels(paint, 6),
-      position.y - pixels(paint, 6),
-      { size: 12, font: type.body, colour: palette.ink },
-    );
-    if (paint.camera.scale > labelScale.agentStatus) {
+    if (showsAgentName(paint, agent))
+      text(
+        paint,
+        agent.name,
+        position.x + radius + pixels(paint, 6),
+        position.y - pixels(paint, 6),
+        {
+          size: agentLabelSize(agent, 12),
+          font: type.body,
+          colour: palette.ink,
+        },
+      );
+    if (showsAgentStatus(paint, agent)) {
       text(
         paint,
         woodsmanStatusNames[agent.status],
         position.x + radius + pixels(paint, 6),
         position.y + pixels(paint, 8),
-        { size: 10.5, font: type.body, colour, italic: true },
+        {
+          size: agentLabelSize(agent, 10.5),
+          font: type.body,
+          colour,
+          italic: true,
+        },
       );
     }
   },

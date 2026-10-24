@@ -279,6 +279,30 @@ describe("the API with tokens required", () => {
       arguments: { agentId: outside.id, status: "idle", note: "Not mine" },
     })) as { isError?: boolean };
     expect(refused.isError).toBe(true);
+    const outsideItem = sampleDataset.items.find(
+      (item) => item.clientId !== "halcyon",
+    )!;
+    for (const [parentId, workingOn] of [
+      [outside.id, []],
+      ["schema", [outsideItem.id]],
+    ] as const) {
+      const launch = (await client.callTool({
+        name: "launch_vessel",
+        arguments: {
+          parentId,
+          vesselId: "out-of-scope",
+          name: "Out of scope",
+          workingOn,
+          note: "Not mine",
+        },
+      })) as { isError?: boolean };
+      expect(launch.isError).toBe(true);
+    }
+    const returned = (await client.callTool({
+      name: "return_vessel",
+      arguments: { vesselId: outside.id, note: "Not mine" },
+    })) as { isError?: boolean };
+    expect(returned.isError).toBe(true);
     await client.close();
   });
 });

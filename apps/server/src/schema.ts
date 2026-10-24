@@ -54,6 +54,12 @@ export const agents = sqliteTable("agents", {
   status: text().$type<AgentStatus>().notNull(),
   workingOn: text("working_on", { mode: "json" }).$type<string[]>().notNull(),
   note: text().notNull(),
+  /**
+   * The agent a launch vessel was launched from; empty for every other
+   * agent. The store checks it names an agent, so it carries no foreign key
+   * and the migration only adds a column.
+   */
+  parentId: text("parent_id"),
 });
 
 export const requirements = sqliteTable("requirements", {

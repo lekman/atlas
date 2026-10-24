@@ -12,6 +12,8 @@ export const gardenerVocabulary: Vocabulary = {
   item: "plant",
   agent: "bee",
   agents: "bees",
+  vessel: "forager",
+  vessels: "foragers",
   question: "dandelion clock",
   questions: "dandelion clocks",
   decision: "trellis",

@@ -10,6 +10,10 @@ export const astronomerPhrases: Phrases = {
     `${agent.toUpperCase()} ${was.toUpperCase()} → ${now.toUpperCase()} :: ${text}`,
   answered: (decision) =>
     `COMET RESOLVED :: CHARTED “${decision.toUpperCase()}”`,
+  launched: (vessel, parent, task, text) =>
+    `LAUNCH ${vessel.toUpperCase()} FROM ${parent.toUpperCase()} → ${task ? task.toUpperCase() : "HOLDING"} :: ${text}`,
+  returned: (vessel, parent, text) =>
+    `LAUNCH ${vessel.toUpperCase()} DOCKED → ${parent.toUpperCase()} :: ${text}`,
 };
 
 export function astronomerReadout(input: ReadoutInput): Readout {

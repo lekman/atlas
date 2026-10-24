@@ -12,6 +12,8 @@ export const marinerVocabulary: Vocabulary = {
   item: "cargo",
   agent: "vessel",
   agents: "vessels",
+  vessel: "tender",
+  vessels: "tenders",
   question: "fog bank",
   questions: "fog banks",
   decision: "lighthouse",

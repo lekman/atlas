@@ -98,8 +98,19 @@ export const Agent = z.object({
   /** Backlog item ids. The first is the one the agent is drawn beside. */
   workingOn: z.array(Identifier),
   note: z.string(),
+  /**
+   * The agent this one was launched from. Set only on a launch vessel: a
+   * background agent or subagent that an agent started, and that returns
+   * to it when its work is done. The map draws it smaller, beside its parent.
+   */
+  parentId: Identifier.optional(),
 });
 export type Agent = z.infer<typeof Agent>;
+
+/** Whether an agent is a launch vessel, started by another agent. */
+export function isVessel(agent: Pick<Agent, "parentId">): boolean {
+  return agent.parentId !== undefined;
+}
 
 export const Requirement = z.object({
   ...governed,

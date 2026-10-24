@@ -7,12 +7,12 @@
  * the work drawn beside them, what each running agent is working, and what
  * needs you, with the same status colours as the live map, and nothing else.
  */
-import { clientOfAgent, type Dataset } from "@atlas/core";
+import { clientOfAgent, isVessel, type Dataset } from "@atlas/core";
 
 import { computeLayout, type Orientation } from "./layout";
 import { workstreamCaption } from "./paint";
 import { paletteFor } from "./lighting";
-import { Scene } from "./scene";
+import { Scene, vesselScale } from "./scene";
 import type { Lighting, World } from "./types";
 
 export interface SnapshotOptions {
@@ -56,7 +56,8 @@ export function renderSnapshot(
   const waiting = dataset.agents.filter((agent) =>
     scene.needsAttention(agent),
   ).length;
-  const summary = `${dataset.clients.length - 1} ${vocabulary.clients}, ${dataset.agents.length} ${vocabulary.agents}, ${waiting} needing you`;
+  const vessels = dataset.agents.filter(isVessel).length;
+  const summary = `${dataset.clients.length - 1} ${vocabulary.clients}, ${dataset.agents.length - vessels} ${vocabulary.agents}, ${vessels > 0 ? `${vessels} ${vessels === 1 ? vocabulary.vessel : vocabulary.vessels}, ` : ""}${waiting} needing you`;
 
   parts.push(
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${left} ${top} ${right - left} ${bottom - top}" width="${options.width}" height="${options.height}" role="img" aria-labelledby="atlas-title atlas-description">`,
@@ -97,8 +98,10 @@ export function renderSnapshot(
     parts.push("</g>");
   }
 
+  // A vessel is drawn smaller, at its own spot, after the agents.
   for (const agent of dataset.agents) {
     const position = scene.agentTarget(agent, 0, true);
+    const scale = isVessel(agent) ? vesselScale : 1;
     const colour = palette.status[agent.status];
     const work =
       agent.status === "running" ? scene.workTarget(agent, 0, true) : null;
@@ -106,11 +109,11 @@ export function renderSnapshot(
       parts.push(world.stillMap.work(work.spot, work.task, lighting));
     if (scene.needsAttention(agent)) {
       parts.push(
-        `<circle cx="${position.x.toFixed(1)}" cy="${position.y.toFixed(1)}" r="34" fill="none" stroke="${colour}" stroke-width="5" stroke-opacity="0.7"/>`,
+        `<circle cx="${position.x.toFixed(1)}" cy="${position.y.toFixed(1)}" r="${(34 * scale).toFixed(1)}" fill="none" stroke="${colour}" stroke-width="5" stroke-opacity="0.7"/>`,
       );
     }
     parts.push(
-      `<circle cx="${position.x.toFixed(1)}" cy="${position.y.toFixed(1)}" r="16" fill="${colour}"><title>${escapeXml(`${agent.name}: ${world.statusNames[agent.status]} (${agent.status}), ${clientOfAgent(dataset, agent)}`)}</title></circle>`,
+      `<circle cx="${position.x.toFixed(1)}" cy="${position.y.toFixed(1)}" r="${(16 * scale).toFixed(1)}" fill="${colour}"><title>${escapeXml(`${agent.name}: ${isVessel(agent) ? `${world.vocabulary.vessel}, ` : ""}${world.statusNames[agent.status]} (${agent.status}), ${clientOfAgent(dataset, agent)}`)}</title></circle>`,
     );
   }
   parts.push("</svg>");

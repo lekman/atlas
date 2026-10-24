@@ -11,7 +11,12 @@
  * At night (Ninja) the same scroll is drawn by moonlight: see `Look`. The
  * lights that come on are pale gold and warm white, never a status hue.
  */
-import { externalSourceNames, type Agent, type Client } from "@atlas/core";
+import {
+  externalSourceNames,
+  isVessel,
+  type Agent,
+  type Client,
+} from "@atlas/core";
 
 import type { Point } from "../camera";
 import {
@@ -22,6 +27,8 @@ import {
   workPosition,
 } from "../layout";
 import {
+  agentLabelSize,
+  bodyScale,
   curveBetween,
   label,
   labelScale,
@@ -29,6 +36,8 @@ import {
   pulsePhase,
   setScreenTransform,
   setWorldTransform,
+  showsAgentName,
+  showsAgentStatus,
   withAlpha,
   workstreamCaption,
   workstreamCaptionRise,
@@ -1031,6 +1040,7 @@ function drawClanName(paint: PaintContext, client: Client) {
   if (!centre) return;
   const retainers = paint.scene.dataset.agents.filter(
     (agent) =>
+      !isVessel(agent) &&
       paint.scene.dataset.groups.find((group) => group.id === agent.groupId)
         ?.clientId === client.id,
   ).length;
@@ -1675,8 +1685,11 @@ export const samuraiPainter: WorldPainter = {
     const { context } = paint;
     const { position, trail } = motion;
     const full = isFull(paint);
+    // An attendant is a smaller retainer, sent out by the one it serves.
     const size =
-      pixels(paint, full ? 9 : 6) * Math.max(1, paint.camera.scale * 1.5);
+      pixels(paint, full ? 9 : 6) *
+      Math.max(1, paint.camera.scale * 1.5) *
+      bodyScale(agent);
 
     if (agent.status === "running" && trail.length > 5) {
       // The trail is a single brush stroke, heavy where the retainer is and
@@ -1742,21 +1755,21 @@ export const samuraiPainter: WorldPainter = {
         phase,
       );
     }
-    if (!full) return;
+    if (!showsAgentName(paint, agent)) return;
     const textX = position.x + size * 0.9 + pixels(paint, 6);
     text(paint, agent.name, textX, position.y - pixels(paint, 6), {
-      size: 12,
+      size: agentLabelSize(agent, 12),
       font: type.body,
       colour: lookOf(paint).palette.ink,
     });
-    if (paint.camera.scale > labelScale.agentStatus) {
+    if (showsAgentStatus(paint, agent)) {
       text(
         paint,
         samuraiStatusNames[agent.status],
         textX,
         position.y + pixels(paint, 8),
         {
-          size: 10.5,
+          size: agentLabelSize(agent, 10.5),
           font: type.mono,
           colour,
         },

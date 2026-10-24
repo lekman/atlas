@@ -1,7 +1,9 @@
 /**
  * A scripted day: the events the sample dataset goes through, in order.
  * Stories replay it to show motion; tests replay it to prove every event
- * names something that exists. `reset` returns to the start, so a loop can
+ * names something that exists. Early on, Tracking launches two vessels, one
+ * to the retention draft and one to the rate limits, and the second
+ * returns a few steps later. `reset` returns to the start, so a loop can
  * run for as long as a story stays open.
  */
 import type { AtlasEvent } from "@atlas/core";
@@ -21,10 +23,26 @@ export const sampleScript: ScriptStep[] = [
     text: "Hold staging releases while I rehearse",
   },
   {
+    type: "agent-launched",
+    agentId: "retention-check",
+    parentId: "tracking",
+    name: "Retention check",
+    workingOn: ["retention-draft"],
+    text: "Checking the draft against the shipment records",
+  },
+  {
     type: "external",
     source: "github",
     recordId: "database-tests",
     text: "Pull request 366: checks passed",
+  },
+  {
+    type: "agent-launched",
+    agentId: "limit-survey",
+    parentId: "tracking",
+    name: "Limit survey",
+    workingOn: ["rate-limits"],
+    text: "Measuring each partner's peak request rate",
   },
   {
     type: "status-change",
@@ -43,6 +61,11 @@ export const sampleScript: ScriptStep[] = [
     source: "calendar",
     recordId: "weekend-drill",
     text: "Drill window booked, Saturday 10:00",
+  },
+  {
+    type: "agent-returned",
+    agentId: "limit-survey",
+    text: "Peak rates noted on the task; the busiest partner needs 40 a second",
   },
   {
     type: "question-answered",

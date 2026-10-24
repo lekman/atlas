@@ -9,7 +9,7 @@
  * masthead light, and Turtle Bay's windows and pier light are on. The night
  * inks are in `palette.ts`, the lights in `night.ts`.
  */
-import { externalSourceNames, type AgentStatus } from "@atlas/core";
+import { externalSourceNames, isVessel, type AgentStatus } from "@atlas/core";
 
 import type { Point } from "../camera";
 import {
@@ -19,6 +19,8 @@ import {
   rings,
 } from "../layout";
 import {
+  agentLabelSize,
+  bodyScale,
   curveBetween,
   label,
   labelScale,
@@ -26,6 +28,8 @@ import {
   pulsePhase,
   setScreenTransform,
   setWorldTransform,
+  showsAgentName,
+  showsAgentStatus,
   withAlpha,
   workstreamCaption,
   workstreamCaptionRise,
@@ -540,6 +544,7 @@ export const marinerPainter: WorldPainter = {
     }
     const vessels = paint.scene.dataset.agents.filter(
       (agent) =>
+        !isVessel(agent) &&
         paint.scene.dataset.groups.find((group) => group.id === agent.groupId)
           ?.clientId === client.id,
     ).length;
@@ -869,6 +874,8 @@ export const marinerPainter: WorldPainter = {
     const { context } = paint;
     const ink = inksOf(paint);
     const { position, trail } = motion;
+    // A tender is the same boat, smaller, with a finer line and wake.
+    const scale = bodyScale(agent);
     if (agent.status === "running" && trail.length > 3) {
       for (let index = 2; index < trail.length; index += 2) {
         const here = trail[index];
@@ -876,7 +883,7 @@ export const marinerPainter: WorldPainter = {
         if (!here || !before) continue;
         const across =
           Math.atan2(here.y - before.y, here.x - before.x) + Math.PI / 2;
-        const spread = index * 0.45;
+        const spread = index * 0.45 * scale;
         context.strokeStyle = `rgba(${ink.wake},${(1 - index / trail.length) * 0.4})`;
         context.lineWidth = pixels(paint, 1);
         context.beginPath();
@@ -893,7 +900,7 @@ export const marinerPainter: WorldPainter = {
         context.stroke();
       }
     }
-    const size = vesselSize(paint, 1);
+    const size = vesselSize(paint, scale);
     const heading = vesselHeading(agent.status, motion);
     if (agent.status === "running" && motion.work?.arrived)
       drawFishingLine(
@@ -903,7 +910,7 @@ export const marinerPainter: WorldPainter = {
           y: position.y + Math.sin(heading - Math.PI / 2) * size * 0.55,
         },
         motion.work.task,
-        1,
+        scale,
         paint.scene.dataset.agents.indexOf(agent),
       );
     drawVessel(paint, position, heading, colour, size);
@@ -951,21 +958,25 @@ export const marinerPainter: WorldPainter = {
       );
       context.stroke();
     }
-    if (!isFull(paint)) return;
-    label(
-      paint,
-      agent.name,
-      position.x + pixels(paint, 14),
-      position.y - pixels(paint, 8),
-      { size: 12, font: type.mono, colour: paletteOf(paint).ink },
-    );
-    if (paint.camera.scale > labelScale.agentStatus) {
+    const textX = position.x + pixels(paint, 14 * scale);
+    if (showsAgentName(paint, agent))
+      label(paint, agent.name, textX, position.y - pixels(paint, 8 * scale), {
+        size: agentLabelSize(agent, 12),
+        font: type.mono,
+        colour: paletteOf(paint).ink,
+      });
+    if (showsAgentStatus(paint, agent)) {
       label(
         paint,
         marinerStatusNames[agent.status],
-        position.x + pixels(paint, 14),
+        textX,
         position.y + pixels(paint, 6),
-        { size: 10.5, font: type.mono, colour, italic: true },
+        {
+          size: agentLabelSize(agent, 10.5),
+          font: type.mono,
+          colour,
+          italic: true,
+        },
       );
     }
   },

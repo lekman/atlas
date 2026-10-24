@@ -14,6 +14,8 @@ const vocabularyKeys = [
   "item",
   "agent",
   "agents",
+  "vessel",
+  "vessels",
   "question",
   "questions",
   "decision",
@@ -44,9 +46,19 @@ describe("every world", () => {
         world.phrases.external("GitHub", "Database tests", "Checks passed"),
         world.phrases.status("Tracking", "a", "b", "Needs a call"),
         world.phrases.answered("Drill on Saturday", "Halcyon Labs"),
+        world.phrases.launched(
+          "Drill notes",
+          "Schema",
+          "Run the drill this weekend",
+          "Writing up the steps",
+        ),
+        world.phrases.launched("Drill notes", "Schema", null, "Standing by"),
+        world.phrases.returned("Drill notes", "Schema", "Steps written"),
       ];
       for (const line of lines) expect(line.length).toBeGreaterThan(5);
       expect(lines[0]).toContain("Hold releases");
+      expect(lines[4]).toContain("Writing up the steps");
+      expect(lines[6]).toContain("Steps written");
     });
 
     it(`${world.name} has a readout with something needing attention`, () => {

@@ -2,7 +2,7 @@
  * The drawing order every world shares, the hit targets it leaves behind for
  * pointer input, and the small helpers painters use.
  */
-import { clientOfAgent } from "@atlas/core";
+import { clientOfAgent, isVessel, type Agent } from "@atlas/core";
 
 import { worldToScreen, type Point } from "./camera";
 import {
@@ -12,6 +12,7 @@ import {
   type WorkstreamMarker,
 } from "./layout";
 import { paletteFor } from "./lighting";
+import { vesselScale } from "./scene";
 import type { PaintContext, World } from "./types";
 
 export interface HitTarget {
@@ -86,16 +87,23 @@ export function paintScene(paint: PaintContext, world: World): HitTarget[] {
         18,
       );
   }
+  const palette = paletteFor(world, paint.lighting);
+  const returning = [...scene.returning.values()];
+  if (paint.detail === "full")
+    for (const vessel of [...dataset.agents, ...returning])
+      if (isVessel(vessel)) drawTether(paint, vessel, palette.mute);
   for (const agent of dataset.agents) {
     const motion = scene.motions.get(agent.id);
     if (!motion) continue;
-    painter.agent(
-      paint,
-      agent,
-      motion,
-      paletteFor(world, paint.lighting).status[agent.status],
-    );
-    hit(agent.id, motion.position, 16, true);
+    painter.agent(paint, agent, motion, palette.status[agent.status]);
+    hit(agent.id, motion.position, 16 * bodyScale(agent), true);
+  }
+  // A returning vessel is drawn on its way home, but its record is gone,
+  // so it is not something to tap.
+  for (const vessel of returning) {
+    const motion = scene.motions.get(vessel.id);
+    if (motion)
+      painter.agent(paint, vessel, motion, palette.status[vessel.status]);
   }
   for (const { effect, progress } of scene.activeEffects(time))
     painter.effect(paint, effect, progress);
@@ -110,6 +118,27 @@ export function paintScene(paint: PaintContext, world: World): HitTarget[] {
     painter.overlay(paint);
   }
   return hits;
+}
+
+/**
+ * A thin dotted line from a launch vessel back to its parent, so a reader
+ * can see which ship a vessel came from. Faint, in the world's quiet ink,
+ * and never a status hue.
+ */
+function drawTether(paint: PaintContext, vessel: Agent, colour: string) {
+  const { context, scene } = paint;
+  const from = scene.motions.get(vessel.id)?.position;
+  const to = scene.motions.get(vessel.parentId ?? "")?.position;
+  if (!from || !to) return;
+  context.save();
+  context.strokeStyle = withAlpha(colour, 0.4);
+  context.lineWidth = pixels(paint, 1);
+  context.setLineDash([pixels(paint, 1.5), pixels(paint, 4)]);
+  context.beginPath();
+  context.moveTo(from.x, from.y);
+  context.lineTo(to.x, to.y);
+  context.stroke();
+  context.restore();
 }
 
 /** The nearest target within reach of a screen point, or null. */
@@ -237,7 +266,47 @@ export const labelScale = {
   requirement: 0.6,
   item: 1.05,
   agentStatus: 0.7,
+  /** A launch vessel's name: only up close, so vessels do not crowd the map. */
+  vessel: 0.8,
+  vesselStatus: 1.2,
 } as const;
+
+/** How large an agent's body is drawn: 1 for an agent, smaller for a vessel. */
+export function bodyScale(agent: Pick<Agent, "parentId">): number {
+  return isVessel(agent) ? vesselScale : 1;
+}
+
+/**
+ * Whether an agent's name is drawn: always on the full map for an agent,
+ * and only close in for a launch vessel. Never on the compact map.
+ */
+export function showsAgentName(
+  paint: PaintContext,
+  agent: Pick<Agent, "parentId">,
+): boolean {
+  if (paint.detail !== "full") return false;
+  return !isVessel(agent) || paint.camera.scale > labelScale.vessel;
+}
+
+/** Whether the status line under an agent's name is drawn at this zoom. */
+export function showsAgentStatus(
+  paint: PaintContext,
+  agent: Pick<Agent, "parentId">,
+): boolean {
+  return (
+    showsAgentName(paint, agent) &&
+    paint.camera.scale >
+      (isVessel(agent) ? labelScale.vesselStatus : labelScale.agentStatus)
+  );
+}
+
+/** An agent label's size in screen pixels: a vessel's is a little smaller. */
+export function agentLabelSize(
+  agent: Pick<Agent, "parentId">,
+  size: number,
+): number {
+  return isVessel(agent) ? size * 0.85 : size;
+}
 
 /** The repeating 0 → 1 phase of a pulse ring, held still under reduced motion. */
 export function pulsePhase(

@@ -31,6 +31,7 @@ choices: [Mariner](worlds/mariner.md), [Woodsman](worlds/woodsman.md),
 | Backlog item   | Moon                 | Cargo        | Cairn                     |
 | Agent          | Probe                | Vessel       | Scout                     |
 | Agent at work  | Mining laser         | Fishing line | Beside the cairn          |
+| Launch vessel  | Launch               | Tender       | Apprentice                |
 | Open question  | Comet                | Fog bank     | Unmarked fork             |
 | Decision       | Charted star         | Lighthouse   | Blazed tree               |
 | Agent to agent | Tight beam           | Signal flags | Bird call                 |
@@ -45,6 +46,7 @@ choices: [Mariner](worlds/mariner.md), [Woodsman](worlds/woodsman.md),
 | Backlog item   | Plant           | Campaign       | Admission (a bed)   |
 | Agent          | Bee             | Retainer       | Staff member        |
 | Agent at work  | Hovering at it  | Beside it      | At the bedside      |
+| Launch vessel  | Forager         | Attendant      | Trainee             |
 | Open question  | Dandelion clock | Scout's report | Pending test result |
 | Decision       | Trellis         | Seal           | Recorded diagnosis  |
 | Agent to agent | Pollen drift    | Messenger      | Ambulance run       |
@@ -103,6 +105,31 @@ laser or line. A watching agent still circles its client, and an idle one
 docks at it. Under reduced motion the agent stays at its first item, does
 not hover, and the laser or line is drawn still. The still SVG map draws
 the laser or line as a plain line.
+
+### How Vessels Launch
+
+A foreground agent is a ship. A background agent or subagent it starts is
+a launch vessel: the same craft at a little over half the size. In
+Astronomer a probe launches a launch, in Mariner a ship lowers a tender,
+and the other four worlds send out a smaller scout, bee, retainer or
+staff member.
+
+A vessel leaves from its parent, flies to its task and works it as an
+agent does: a finer laser in Astronomer, a finer line and float in
+Mariner, parked beside the item in the other worlds. Agents keep their
+spots when a vessel arrives. A vessel takes the next spot beside its task
+that is clear of every spot an agent keeps, and whose laser or line
+passes no other agent. A vessel with no task holds close behind its
+parent. A faint dotted line ties each vessel to its parent. When the
+vessel returns, it flies back to its parent and leaves the map as it
+arrives. Its record is gone from the moment it returns.
+
+A vessel's name shows only when zoomed in on its client, and its status
+only closer still, so vessels do not crowd the map. The client's count of
+agents leaves vessels out. Under reduced motion a vessel is placed at its
+spot at once and leaves at once; the launch and the return each show as a
+ring, on the vessel and on its parent. The still SVG map draws a vessel
+as a smaller dot at its spot.
 
 ## Day and Night
 

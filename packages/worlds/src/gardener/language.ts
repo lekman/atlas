@@ -11,6 +11,10 @@ export const gardenerPhrases: Phrases = {
   status: (agent, _was, now, text) => `${agent} is ${now}: ${text}`,
   answered: (decision, where) =>
     `A dandelion clock blown at ${where}. New trellis: ${decision}`,
+  launched: (vessel, parent, task, text) =>
+    `A forager, ${vessel}, leaves ${parent} ${task ? `for ${task}` : "and stays near"}: ${text}`,
+  returned: (vessel, parent, text) =>
+    `The forager ${vessel} is home with ${parent}: ${text}`,
 };
 
 export function gardenerReadout(input: ReadoutInput): Readout {
