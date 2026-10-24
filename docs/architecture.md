@@ -269,3 +269,21 @@ web app over Tailscale instead.
 A Claude Code plugin pane can only draw Claude's own elements (boxes, text,
 buttons, SVG). It cannot run the animated canvas, which is why
 `@atlas/worlds` also renders a still SVG map.
+
+### Working an Item in the Full View
+
+The full view opens on the whole map with home in the middle, and a click
+on empty space returns there. One record is selected at a time, from the
+map, the needs-you list or a link. The HUD (heads-up display, the panel in
+the bottom-right corner) holds it: a needs-you entry opens in place in the
+list, and any other record shows in a Selected section above the list. The
+record keeps its buttons (Answer, Dispatch, Ask status and the rest) and
+adds Details. The map flies to the record, and to the work a question
+blocks, in the space left clear by the log and the HUD.
+
+Details opens a blue glass pane over the map, between the log and the HUD,
+with every field of the record, its history, the records it links to and
+its details document when one has been imported. Escape closes the pane,
+then clears the selection, then returns to the compact view. On a phone,
+where the HUD has no room, the selected record is a sheet along the bottom
+and the pane fills the width above it.

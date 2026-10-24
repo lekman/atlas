@@ -1,12 +1,15 @@
 /**
  * The whole Atlas view. Compact by default: a sidebar-width pane with a small
  * live map, the needs-you list and the latest log lines. Expand fills the
- * screen with the full map, the inspector, the log and the readout.
+ * screen with the full map, the log and the HUD. One record is selected at
+ * a time: the HUD holds it with its buttons, the map flies to it, and
+ * Details opens a pane with everything known about it. On a phone, where
+ * the HUD has no room, the selected record is a sheet along the bottom.
  *
  * The same component serves Storybook, the web app and the Claude Artifact;
  * only where its data comes from differs.
  */
-import type { AtlasEvent, Dataset } from "@atlas/core";
+import type { AtlasEvent, Dataset, DetailsDocument } from "@atlas/core";
 import {
   defaultSoundSettings,
   isWorldId,
@@ -24,6 +27,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { worldStyle } from "../../theme";
 import { useAtlasMap, type ScriptStep } from "../../useAtlasMap";
+import { DetailsPane } from "../DetailsPane";
 import { HudReadout } from "../HudReadout";
 import { Inspector, type InspectorAction } from "../Inspector";
 import { KeyPanel } from "../KeyPanel";
@@ -36,22 +40,25 @@ import { WorldPicker } from "../WorldPicker";
 export type AtlasMode = "compact" | "full";
 
 const darkQuery = "(prefers-color-scheme: dark)";
+/** The width below which the HUD is hidden, matching the stylesheet. */
+const phoneQuery = "(max-width: 760px)";
 
-/** Whether the device is in dark mode, kept current as it changes. */
-function useDeviceIsDark(): boolean {
-  const [dark, setDark] = useState(
+/** Whether a media query matches, kept current as it changes. */
+function useMediaQuery(media: string): boolean {
+  const [matches, setMatches] = useState(
     () =>
       typeof window !== "undefined" &&
-      (window.matchMedia?.(darkQuery).matches ?? false),
+      (window.matchMedia?.(media).matches ?? false),
   );
   useEffect(() => {
-    const query = window.matchMedia?.(darkQuery);
+    const query = window.matchMedia?.(media);
     if (!query) return;
-    const update = () => setDark(query.matches);
+    const update = () => setMatches(query.matches);
+    update();
     query.addEventListener("change", update);
     return () => query.removeEventListener("change", update);
-  }, []);
-  return dark;
+  }, [media]);
+  return matches;
 }
 
 export interface AtlasShellProps {
@@ -76,8 +83,17 @@ export interface AtlasShellProps {
    * dark when the Mac or the iPhone does.
    */
   initialLighting?: LightingPreference;
-  /** Opens an inspector card on this record at start, for stories and deep links. */
+  /** Selects this record at start, for stories and deep links. */
   initialSelection?: string;
+  /**
+   * Details documents imported for the records. A record whose `detailsId`
+   * names one shows it in the details pane.
+   */
+  documents?: readonly DetailsDocument[];
+  /** The day the view is read on, to say how fresh a document is. Today by default. */
+  today?: string;
+  /** Open in Obsidian was pressed on a details document, with its path in the vault. */
+  onOpenInObsidian?(sourcePath: string): void;
   /** Opens the full view zoomed in to this client, for stories and deep links. */
   initialClient?: string;
   /** Remember the chosen world, lighting and sound settings in this browser. */
@@ -97,9 +113,6 @@ export interface AtlasShellProps {
 type Popover = "world" | "key" | "sound" | null;
 
 const storageKey = "atlas.preferences";
-
-/** The most inspector cards open at once; the oldest closes past it. */
-const stackLimit = 6;
 
 interface Preferences {
   world?: WorldId;
@@ -161,7 +174,7 @@ function writePreferences(preferences: Preferences) {
   }
 }
 
-const actionToast: Record<InspectorAction, string> = {
+const actionToast: Record<Exclude<InspectorAction, "details">, string> = {
   "open-session": "Opening the session",
   "ask-status": "Asked for a status update",
   pause: "Paused",
@@ -190,21 +203,18 @@ export function AtlasShell(props: AtlasShellProps) {
           ? (remembered.lighting as LightingPreference)
           : "automatic"),
     );
-  const deviceIsDark = useDeviceIsDark();
+  const deviceIsDark = useMediaQuery(darkQuery);
   const lighting = resolveLighting(lightingPreference, deviceIsDark);
-  // The open inspector cards, newest first. Choosing another record adds a
-  // card instead of replacing one; each card closes on its own. Collapse
-  // hides the stack and Expand shows it again as it was.
-  const [stack, setStack] = useState<string[]>(
-    props.initialSelection ? [props.initialSelection] : [],
+  const isPhone = useMediaQuery(phoneQuery);
+  // The one selected record. Collapse keeps it, so Expand comes back to it.
+  const [selected, setSelected] = useState<string | null>(
+    props.initialSelection ?? null,
   );
-  const selected = stack[0] ?? null;
-  const show = (id: string) =>
-    setStack((cards) =>
-      [id, ...cards.filter((card) => card !== id)].slice(0, stackLimit),
-    );
-  const close = (id: string) =>
-    setStack((cards) => cards.filter((card) => card !== id));
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const deselect = () => {
+    setSelected(null);
+    setDetailsOpen(false);
+  };
   const [zoom, setZoom] = useState<{
     clientId: string;
     request: number;
@@ -224,29 +234,6 @@ export function AtlasShell(props: AtlasShellProps) {
   const [toast, setToast] = useState<string | null>(null);
   const shellRef = useRef<HTMLDivElement>(null);
   const world = worlds[worldId];
-
-  /**
-   * The corner readout and the log, measured against the map. Both keep a
-   * fixed height, so the map fitted around them stays clear as events
-   * arrive.
-   */
-  const floatingPanels = (): Bounds[] => {
-    const shell = shellRef.current;
-    const canvas = shell?.querySelector("canvas");
-    if (!shell || !canvas) return [];
-    const origin = canvas.getBoundingClientRect();
-    return [
-      ...shell.querySelectorAll(".atlas-hud-readout, .atlas-log-panel"),
-    ].map((panel) => {
-      const box = panel.getBoundingClientRect();
-      return {
-        left: box.left - origin.left,
-        top: box.top - origin.top,
-        right: box.right - origin.left,
-        bottom: box.bottom - origin.top,
-      };
-    });
-  };
 
   const map = useAtlasMap({
     dataset: props.dataset,
@@ -290,22 +277,56 @@ export function AtlasShell(props: AtlasShellProps) {
     return () => window.clearTimeout(timer);
   }, [toast]);
 
+  // Escape steps back one layer at a time: a popover, then the details
+  // pane, then the selection, then the full view.
   useEffect(() => {
     const escape = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       if (popover) setPopover(null);
-      else if (mode === "full" && selected) close(selected);
+      else if (mode === "full" && selected && detailsOpen)
+        setDetailsOpen(false);
+      else if (mode === "full" && selected) deselect();
       else if (mode === "full") setMode("compact");
     };
     window.addEventListener("keydown", escape);
     return () => window.removeEventListener("keydown", escape);
-  }, [popover, selected, mode]);
+  }, [popover, selected, detailsOpen, mode]);
 
-  const open = (id: string) => {
+  /** Select a record, from the map, a list or a link, and fly to it. */
+  const select = (id: string) => {
     setMode("full");
-    show(id);
+    setSelected(id);
     setFocus(null);
     window.setTimeout(() => setFocus(id), 20);
+  };
+  /** A question is flown to with the work it holds up, so both are in view. */
+  const focusWith = (() => {
+    const question = map.dataset.questions.find(
+      (candidate) => candidate.id === focus,
+    );
+    return question ? [question.blocks] : [];
+  })();
+  /**
+   * The map left clear between the top bar, the log and the HUD, or above
+   * the sheet on a phone. A record flown to lands in its middle.
+   */
+  const focusArea = (): Bounds | null => {
+    const shell = shellRef.current;
+    const canvas = shell?.querySelector("canvas");
+    if (!shell || !canvas) return null;
+    const origin = canvas.getBoundingClientRect();
+    const box = (selector: string) =>
+      shell.querySelector(selector)?.getBoundingClientRect() ?? null;
+    const bar = box(".atlas-bar");
+    const hud = box(".atlas-hud");
+    const below = box(".atlas-sheet") ?? box(".atlas-log-panel");
+    const gap = 12;
+    return {
+      left: 0,
+      top: (bar ? bar.bottom : origin.top) - origin.top,
+      right: (hud ? hud.left - gap : origin.right) - origin.left,
+      bottom: (below ? below.top - gap : origin.bottom) - origin.top,
+    };
   };
   const action = (kind: InspectorAction, id: string) => {
     if (kind === "answer") {
@@ -327,8 +348,12 @@ export function AtlasShell(props: AtlasShellProps) {
             boundary: question.boundary,
           },
         });
-        close(id);
+        deselect();
       }
+    }
+    if (kind === "details") {
+      setDetailsOpen(true);
+      return;
     }
     setToast(actionToast[kind]);
     props.onAction?.(kind, id);
@@ -339,6 +364,38 @@ export function AtlasShell(props: AtlasShellProps) {
     width: shellRef.current?.clientWidth ?? 0,
     height: shellRef.current?.clientHeight ?? 0,
   };
+  const inspector = selected ? (
+    <Inspector
+      dataset={map.dataset}
+      world={world}
+      id={selected}
+      variant="embedded"
+      onClose={deselect}
+      onSelect={select}
+      onAction={action}
+    />
+  ) : null;
+  const detailsDocument = (() => {
+    const item = map.dataset.items.find(
+      (candidate) => candidate.id === selected,
+    );
+    return item?.detailsId
+      ? props.documents?.find((candidate) => candidate.id === item.detailsId)
+      : undefined;
+  })();
+  const detailsPane =
+    selected && detailsOpen ? (
+      <DetailsPane
+        dataset={map.dataset}
+        world={world}
+        id={selected}
+        {...(detailsDocument ? { document: detailsDocument } : {})}
+        today={props.today ?? new Date().toISOString().slice(0, 10)}
+        onClose={() => setDetailsOpen(false)}
+        onSelect={select}
+        onOpenInObsidian={(path) => props.onOpenInObsidian?.(path)}
+      />
+    ) : null;
   const label = `${world.name} map: ${map.dataset.clients.length - 1} ${world.vocabulary.clients} around ${world.vocabulary.homeName}, ${map.dataset.agents.length} ${world.vocabulary.agents}.`;
 
   return (
@@ -415,8 +472,9 @@ export function AtlasShell(props: AtlasShellProps) {
         lighting={lighting}
         selectedId={selected}
         focusId={focus}
+        focusWith={focusWith}
+        focusArea={focusArea}
         label={label}
-        panels={floatingPanels}
         onCameraChange={setCamera}
         zoomClientId={zoom?.clientId ?? null}
         zoomRequest={zoom?.request ?? 0}
@@ -426,10 +484,10 @@ export function AtlasShell(props: AtlasShellProps) {
         }}
         onSelect={(id) => {
           if (mode === "compact") {
-            if (id) open(id);
+            if (id) select(id);
             else setMode("full");
           } else {
-            if (id) show(id);
+            if (id) select(id);
             setPopover(null);
           }
         }}
@@ -437,7 +495,7 @@ export function AtlasShell(props: AtlasShellProps) {
 
       {mode === "compact" ? (
         <div className="atlas-compact">
-          <NeedsYouList dataset={map.dataset} world={world} onSelect={open} />
+          <NeedsYouList dataset={map.dataset} world={world} onSelect={select} />
           <LogPanel entries={map.log} world={world} variant="preview" />
           <button
             type="button"
@@ -449,29 +507,28 @@ export function AtlasShell(props: AtlasShellProps) {
         </div>
       ) : (
         <>
-          <HudReadout
-            world={world}
-            dataset={map.dataset}
-            camera={camera}
-            viewport={viewport}
-            onSelect={open}
-          />
-          <LogPanel entries={map.log} world={world} variant="panel" />
-          {stack.length > 0 && (
-            <div className="atlas-stack">
-              {stack.map((id) => (
-                <Inspector
-                  key={id}
-                  dataset={map.dataset}
-                  world={world}
-                  id={id}
-                  onClose={() => close(id)}
-                  onSelect={open}
-                  onAction={action}
-                />
-              ))}
-            </div>
+          {!isPhone && (
+            <HudReadout
+              world={world}
+              dataset={map.dataset}
+              camera={camera}
+              viewport={viewport}
+              onSelect={select}
+              selectedId={selected}
+              selected={inspector}
+            />
           )}
+          <LogPanel entries={map.log} world={world} variant="panel" />
+          {isPhone
+            ? selected && (
+                <div className="atlas-phone-column">
+                  {detailsPane}
+                  <div className="atlas-sheet">{inspector}</div>
+                </div>
+              )
+            : detailsPane && (
+                <div className="atlas-details-layer">{detailsPane}</div>
+              )}
         </>
       )}
 

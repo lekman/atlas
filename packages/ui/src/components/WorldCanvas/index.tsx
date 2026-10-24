@@ -7,7 +7,8 @@
  */
 import {
   clampScale,
-  fitAroundPanels,
+  fitCamera,
+  fitCentredOn,
   focusOn,
   hitTest,
   interpolateCamera,
@@ -46,19 +47,30 @@ export interface WorldCanvasProps {
   zoomRequest?: number;
   /** Fly to this record when it changes. */
   focusId?: string | null;
+  /**
+   * Records to keep in view beside `focusId`, such as the work a question
+   * blocks. The flight zooms out just enough to show them all.
+   */
+  focusWith?: readonly string[];
+  /**
+   * The part of the map no panel covers, in screen pixels from the canvas's
+   * top left corner. A record flown to lands at its centre rather than at
+   * the centre of the canvas. Without it, the canvas centre is used.
+   */
+  focusArea?(): Bounds | null;
   /** Called a few times a second while the camera moves, for the HUD. */
   onCameraChange?(camera: Camera): void;
   /** What a screen reader hears for the map as a whole. */
   label: string;
-  /**
-   * Panels floating over the map, in screen pixels from the canvas's top
-   * left corner. The fitted map keeps clear of them so no label hides under
-   * one.
-   */
-  panels?(): Bounds[];
 }
 
 const reducedMotionQuery = "(prefers-reduced-motion: reduce)";
+/** How close a flight to a record comes: near enough to read its labels. */
+const focusScale = 2.3;
+/** Space kept around the records flown to, in screen pixels. */
+const focusMargin = 90;
+/** An area narrower or shorter than this is ignored, and the canvas is used. */
+const smallestFocusArea = 160;
 const doubleTapMilliseconds = 300;
 /** How far from a client's centre a double tap still counts as its system. */
 const systemRadius = { client: 380, home: 240 } as const;
@@ -82,17 +94,17 @@ export function WorldCanvas(props: WorldCanvasProps) {
   const fit = (animate: boolean) => {
     const { width, height } = size.current;
     if (width === 0 || height === 0) return;
-    const padding =
-      live.current.detail === "full" ? (width < 760 ? 14 : 70) : 12;
-    const panels =
-      live.current.detail === "full" ? (live.current.panels?.() ?? []) : [];
-    const target = fitAroundPanels(
-      live.current.scene.layout.bounds,
-      width,
-      height,
-      padding,
-      panels,
-    );
+    const { detail, scene } = live.current;
+    const padding = detail === "full" ? (width < 760 ? 14 : 70) : 12;
+    // The full map opens on home, in the middle of the canvas, at the
+    // largest scale that still shows every client. The log and the HUD may
+    // cover its edges: home in the centre comes first.
+    const home = scene.dataset.clients.find((client) => client.home === true);
+    const centre = home ? scene.layout.clients.get(home.id) : undefined;
+    const target =
+      detail === "full" && centre
+        ? fitCentredOn(scene.layout.bounds, centre, width, height, padding)
+        : fitCamera(scene.layout.bounds, width, height, padding);
     if (animate)
       flight.current = {
         from: { ...camera.current },
@@ -115,7 +127,13 @@ export function WorldCanvas(props: WorldCanvasProps) {
     const motionPreference = window.matchMedia?.(reducedMotionQuery);
 
     const resize = () => {
-      const rectangle = canvas.getBoundingClientRect();
+      // The layout size, not the drawn one: the full view opens with a
+      // short scale-up, and a size measured during it would be 1.5% small
+      // for good, since a transform does not trigger the observer.
+      const rectangle = {
+        width: canvas.clientWidth,
+        height: canvas.clientHeight,
+      };
       const pixelRatio = Math.min(2, window.devicePixelRatio || 1);
       size.current = {
         width: rectangle.width,
@@ -129,7 +147,9 @@ export function WorldCanvas(props: WorldCanvasProps) {
       live.current.scene.setOrientation(portrait ? "portrait" : "landscape");
       if (before !== live.current.scene.layout.orientation)
         userMoved.current = false;
-      if (!userMoved.current && !flight.current) fit(false);
+      // Until the reader moves the map, it stays fitted, even when the size
+      // changes in the middle of the opening flight.
+      if (!userMoved.current) fit(flight.current !== null);
     };
     const observer = new ResizeObserver(resize);
     observer.observe(canvas);
@@ -255,7 +275,8 @@ export function WorldCanvas(props: WorldCanvasProps) {
     return () => window.clearTimeout(timer);
   }, [props.zoomClientId, props.zoomRequest]);
 
-  // Fly to a record when asked.
+  // Fly to a record when asked, close enough to read it, and centred in the
+  // part of the map that no panel covers.
   useEffect(() => {
     const id = props.focusId;
     if (!id) return;
@@ -263,17 +284,57 @@ export function WorldCanvas(props: WorldCanvasProps) {
       const target = hits.current.find((candidate) => candidate.id === id);
       if (!target) return;
       const { width, height } = size.current;
-      const world = {
-        x: (target.x - camera.current.x) / camera.current.scale,
-        y: (target.y - camera.current.y) / camera.current.scale,
+      const toWorld = (point: { x: number; y: number }) => ({
+        x: (point.x - camera.current.x) / camera.current.scale,
+        y: (point.y - camera.current.y) / camera.current.scale,
+      });
+      const points = [
+        target,
+        ...(live.current.focusWith ?? []).flatMap((other) =>
+          hits.current.filter((candidate) => candidate.id === other),
+        ),
+      ].map(toWorld);
+      const box = {
+        left: Math.min(...points.map((point) => point.x)),
+        right: Math.max(...points.map((point) => point.x)),
+        top: Math.min(...points.map((point) => point.y)),
+        bottom: Math.max(...points.map((point) => point.y)),
       };
-      const scale = Math.max(camera.current.scale, 0.75);
-      const offset =
-        width > 760 ? { x: -150, y: 0 } : { x: 0, y: -height * 0.18 };
+      const measured = live.current.focusArea?.() ?? null;
+      const area =
+        measured &&
+        measured.right - measured.left >= smallestFocusArea &&
+        measured.bottom - measured.top >= smallestFocusArea
+          ? measured
+          : { left: 0, top: 0, right: width, bottom: height };
+      const room = {
+        width: Math.max(1, area.right - area.left - focusMargin * 2),
+        height: Math.max(1, area.bottom - area.top - focusMargin * 2),
+      };
+      const scale = clampScale(
+        Math.min(
+          focusScale,
+          room.width / Math.max(1, box.right - box.left),
+          room.height / Math.max(1, box.bottom - box.top),
+        ),
+      );
+      const offset = {
+        x: (area.left + area.right) / 2 - width / 2,
+        y: (area.top + area.bottom) / 2 - height / 2,
+      };
       userMoved.current = true;
       flight.current = {
         from: { ...camera.current },
-        to: focusOn(world, scale, width, height, offset),
+        to: focusOn(
+          {
+            x: (box.left + box.right) / 2,
+            y: (box.top + box.bottom) / 2,
+          },
+          scale,
+          width,
+          height,
+          offset,
+        ),
         start: performance.now() / 1000,
         duration: 0.6,
       };
@@ -354,6 +415,8 @@ export function WorldCanvas(props: WorldCanvasProps) {
     };
     // A double click or double tap flies in to the system under it; on empty
     // space, or on the system already in view, back out to the whole map.
+    // In the full view a single click on empty space also goes back to the
+    // whole map, after a pause to see whether it is half of a double click.
     let lastTap = { time: 0, x: 0, y: 0 };
     let pendingTap: number | undefined;
     const up = (event: PointerEvent) => {
@@ -377,8 +440,13 @@ export function WorldCanvas(props: WorldCanvasProps) {
           } else if (system && system !== zoomedSystem.current)
             flyToSystem(system);
           else flyToGalaxy();
-        } else if (full()) {
+        } else if (full() && selected) {
           live.current.onSelect(selected);
+        } else if (full()) {
+          pendingTap = window.setTimeout(() => {
+            flyToGalaxy();
+            live.current.onSelect(null);
+          }, doubleTapMilliseconds);
         } else {
           // In compact detail a tap opens the full view, so wait a moment to
           // see whether it is the first half of a double tap.

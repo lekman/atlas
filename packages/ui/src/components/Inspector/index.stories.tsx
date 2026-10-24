@@ -73,8 +73,32 @@ export const PlainButtonsInEveryWorld: Story = {
   name: "Plain Buttons in Every World",
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    for (const name of ["Open session", "Ask status", "Pause"]) {
+    for (const name of ["Open session", "Ask status", "Pause", "Details"]) {
       await expect(canvas.getByRole("button", { name })).toBeInTheDocument();
     }
+  },
+};
+
+/**
+ * Embedded, as the HUD holds the selected record: tighter, with its title
+ * one heading level down, and a close button named for the record.
+ */
+export const Embedded: Story = {
+  args: { id: "alarms-live", variant: "embedded" },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    const record = canvas.getByRole("article", {
+      name: /severity alarms live at go-live/i,
+    });
+    await userEvent.click(
+      within(record).getByRole("button", { name: "Details" }),
+    );
+    await expect(args.onAction).toHaveBeenCalledWith("details", "alarms-live");
+    await userEvent.click(
+      within(record).getByRole("button", {
+        name: /close severity alarms live at go-live/i,
+      }),
+    );
+    await expect(args.onClose).toHaveBeenCalled();
   },
 };

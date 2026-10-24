@@ -6,6 +6,7 @@ export {
   type AtlasShellProps,
 } from "./components/AtlasShell";
 export { DayList, type DayListProps } from "./components/DayList";
+export { DetailsPane, type DetailsPaneProps } from "./components/DetailsPane";
 export {
   DetailsReader,
   type DetailsReaderProps,

@@ -180,3 +180,27 @@ export function interpolateCamera(
     scale: from.scale + (to.scale - from.scale) * eased,
   };
 }
+
+/**
+ * The whole map with `centre` in the middle of the viewport: the largest
+ * scale at which every edge of `bounds` is still inside, `padding` pixels
+ * in. The side farthest from the centre sets the scale, so the nearer
+ * sides leave empty space rather than move the centre.
+ */
+export function fitCentredOn(
+  bounds: Bounds,
+  centre: Point,
+  width: number,
+  height: number,
+  padding: number,
+): Camera {
+  const reach = {
+    x: Math.max(centre.x - bounds.left, bounds.right - centre.x, 1),
+    y: Math.max(centre.y - bounds.top, bounds.bottom - centre.y, 1),
+  };
+  const scale = Math.max(
+    0,
+    Math.min((width / 2 - padding) / reach.x, (height / 2 - padding) / reach.y),
+  );
+  return focusOn(centre, scale, width, height);
+}
