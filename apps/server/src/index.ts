@@ -12,6 +12,41 @@ export {
   withFakeDevelopment,
 } from "./fake-development";
 export {
+  contractVersion,
+  EventLine,
+  isStale,
+  parseEventLine,
+  parseRegistry,
+  RegistryItem,
+  type EventLineRead,
+  type Registry,
+  type RegistryRead,
+} from "./github-contract";
+export {
+  checksOf,
+  eventText,
+  itemsForEvent,
+  noFacts,
+  parseGithubUrl,
+  referenceKey,
+  resolveGithub,
+  withGithubDevelopment,
+  type FinishedItem,
+  type GithubFacts,
+  type GithubReference,
+  type MatchCounts,
+  type PullRequestMemory,
+  type Resolution,
+} from "./github-matching";
+export {
+  createGithubReader,
+  noGithubSource,
+  type GithubConnection,
+  type GithubHealth,
+  type GithubReader,
+  type GithubReaderOptions,
+} from "./github-reader";
+export {
   appendEvent,
   EventRejected,
   isEmpty,

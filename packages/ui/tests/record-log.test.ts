@@ -151,6 +151,32 @@ describe("a record's log", () => {
     expect(new Set(lines.map((line) => line.key)).size).toBe(lines.length);
   });
 
+  // The server's GitHub reader records gh-events lines in this shape: an
+  // outside event from GitHub, naming the backlog item it matched.
+  it("shows a GitHub pull request event recorded from gh-events", () => {
+    const recorded = [
+      {
+        sequence: 900,
+        receivedAt: "2026-10-24T10:30:00.000Z",
+        event: {
+          type: "external",
+          source: "github",
+          recordId: "webhooks",
+          text: "Pull request #12: checks failed",
+        } as AtlasEvent,
+      },
+    ];
+    const lines = recordLogLines({
+      world: worlds.mariner,
+      dataset: sampleDataset,
+      recordId: "webhooks",
+      entries: recordedEntries(sampleDataset, recorded),
+    });
+    expect(lines).toHaveLength(1);
+    expect(lines[0]?.who).toBe("GitHub");
+    expect(lines[0]?.text).toContain("Pull request #12: checks failed");
+  });
+
   it("shows only events for a record without an item log", () => {
     const lines = recordLogLines({
       world: worlds.astronomer,
