@@ -61,9 +61,13 @@ if (tasks) {
   tasks.start();
 }
 
+// Every start is a new build as far as open pages are concerned: a deploy
+// restarts the server, and the pages reload when they reconnect.
+const build = `${rootPackage.version}-${Date.now().toString(36)}`;
 const api = createApi({
   database,
   version: rootPackage.version,
+  build,
   requireTokens: configuration.requireTokens,
   ...(tasks ? { tasks } : {}),
 });

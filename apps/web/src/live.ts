@@ -82,7 +82,10 @@ export function createLiveLink(
   onProblem: (message: string) => void = (message) => console.warn(message),
   /** Called when the server says the task database changed. */
   onRefresh: () => void = () => {},
+  /** Called when the stream reconnects to a newer build of the server. */
+  onNewBuild: () => void = () => {},
 ): LiveLink {
+  let build: string | undefined;
   const fromServer = new WeakSet<AtlasEvent>();
   const sentFromHere: string[] = [];
   const received: { sequence: number; event: AtlasEvent }[] = [];
@@ -112,11 +115,26 @@ export function createLiveLink(
         fire(event);
       };
       const refresh = () => onRefresh();
+      // The first build seen is this page's; a different one after a
+      // reconnect means a deploy, and the page reloads to pick it up.
+      const announce = (message: MessageEvent<string>) => {
+        let next: unknown;
+        try {
+          next = JSON.parse(message.data).build;
+        } catch {
+          return;
+        }
+        if (typeof next !== "string") return;
+        if (build === undefined) build = next;
+        else if (next !== build) onNewBuild();
+      };
       stream.addEventListener("atlas", receive as EventListener);
       stream.addEventListener("refresh", refresh);
+      stream.addEventListener("build", announce as EventListener);
       return () => {
         stream.removeEventListener("atlas", receive as EventListener);
         stream.removeEventListener("refresh", refresh);
+        stream.removeEventListener("build", announce as EventListener);
         stream.close();
       };
     },

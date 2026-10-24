@@ -88,6 +88,11 @@ export interface ApiOptions {
   lookupNode?: NodeLookup;
   /** The task database's clients, workstreams and tasks. Leave out to serve SQLite alone. */
   tasks?: TaskCache;
+  /**
+   * Names this run of the server. Sent to every page that opens the stream,
+   * so a page that reconnects to a newer run reloads itself.
+   */
+  build?: string;
 }
 
 export interface Api {
@@ -119,6 +124,7 @@ export function createApi({
   requireTokens = false,
   lookupNode = tailscaleNodeLookup(),
   tasks,
+  build,
 }: ApiOptions): Api {
   const streams = new Set<(text: string) => void>();
   const closers = new Set<() => void>();
@@ -160,6 +166,7 @@ export function createApi({
       return {
         status: "ok",
         version,
+        ...(build ? { build } : {}),
         tasks: {
           ...noTaskSource,
           dangling: 0,
@@ -171,6 +178,7 @@ export function createApi({
     return {
       status: "ok",
       version,
+      ...(build ? { build } : {}),
       tasks: {
         ...tasks.health(),
         dangling: merge?.dangling ?? 0,
@@ -203,6 +211,8 @@ export function createApi({
         if (after !== undefined)
           for (const missed of listEvents(database, after))
             write(streamFrame(missed));
+        if (build)
+          write(`event: build\ndata: ${JSON.stringify({ build })}\n\n`);
         write(": connected\n\n");
         const timer = setInterval(
           () => write(": keep-alive\n\n"),
