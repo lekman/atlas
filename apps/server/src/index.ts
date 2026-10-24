@@ -22,6 +22,7 @@ export {
   claimantOf,
   mapTaskRows,
   mergeTasks,
+  onlyClients,
   noUnknownClaimers,
   summariseUnknownClaims,
   type ClientRow,

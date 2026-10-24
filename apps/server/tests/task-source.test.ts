@@ -12,6 +12,7 @@ import {
   failureName,
   mapTaskRows,
   mergeTasks,
+  onlyClients,
   openDatabase,
   passwordFromCommand,
   PasswordCommandFailed,
@@ -891,5 +892,56 @@ describe("the password command", () => {
     const failure = await password().catch((error: unknown) => error);
     expect(failure).toBeInstanceOf(PasswordCommandFailed);
     expect(failureName(failure)).toBe("PASSWORD_COMMAND_FAILED");
+  });
+});
+
+describe("a task source limited to some clients", () => {
+  const twoClients = () =>
+    rows({
+      clients: [
+        clientRow(),
+        clientRow({ id: "meridian", name: "Meridian Bank" }),
+      ],
+      items: [
+        itemRow({
+          workstream_id: "kestrel-partners",
+          state: "doing",
+          claim_by: "tracking",
+        }),
+        itemRow({
+          id: "audit-trail",
+          client_id: "meridian",
+          workstream_id: null,
+          claim_by: "split",
+        }),
+      ],
+    });
+
+  test("keeps only those clients, their workstreams, items and claims", async () => {
+    const limited = await onlyClients(fakeSource(twoClients()).source, [
+      "meridian",
+    ]).read();
+    expect(limited.clients.map((client) => client.id)).toEqual(["meridian"]);
+    expect(limited.workstreams).toEqual([]);
+    expect(limited.items.map((item) => item.id)).toEqual(["audit-trail"]);
+    expect(limited.claims.map((claim) => claim.itemId)).toEqual([
+      "audit-trail",
+    ]);
+  });
+
+  test("is set by ATLAS_TASKS_CLIENTS, and refuses anything but ids", () => {
+    const base = {
+      ATLAS_TASKS_HOST: "127.0.0.1",
+      ATLAS_TASKS_DATABASE: "tasks",
+      ATLAS_TASKS_USER: "reader",
+    };
+    expect(
+      readConfiguration({ ...base, ATLAS_TASKS_CLIENTS: "meridian, kestrel" })
+        .tasks?.clients,
+    ).toEqual(["meridian", "kestrel"]);
+    expect(readConfiguration(base).tasks?.clients).toBeUndefined();
+    expect(() =>
+      readConfiguration({ ...base, ATLAS_TASKS_CLIENTS: "Meridian Bank" }),
+    ).toThrow();
   });
 });

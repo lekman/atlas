@@ -12,6 +12,7 @@ import { openDatabase } from "./database";
 import { isEmpty, readSeedFile, seedDataset } from "./store";
 import { createTaskCache } from "./task-cache";
 import { passwordFromCommand, postgresTaskSource } from "./task-database";
+import { onlyClients } from "./task-source";
 
 const configuration = readConfiguration();
 const database = openDatabase(configuration.databasePath);
@@ -34,24 +35,27 @@ if (isEmpty(database)) {
 
 // The task database, when configured. The first read finishes (or fails)
 // before the server listens, so the first page already has the tasks.
-const tasks = configuration.tasks
-  ? createTaskCache({
-      source: postgresTaskSource({
-        hostname: configuration.tasks.hostname,
-        port: configuration.tasks.port,
-        database: configuration.tasks.database,
-        username: configuration.tasks.username,
-        ...(configuration.tasks.passwordCommand
-          ? {
-              password: passwordFromCommand(
-                configuration.tasks.passwordCommand,
-              ),
-            }
-          : {}),
-      }),
-      pollSeconds: configuration.tasks.pollSeconds,
-    })
-  : undefined;
+function taskSource() {
+  if (!configuration.tasks) return undefined;
+  const tasksConfiguration = configuration.tasks;
+  const source = postgresTaskSource({
+    hostname: tasksConfiguration.hostname,
+    port: tasksConfiguration.port,
+    database: tasksConfiguration.database,
+    username: tasksConfiguration.username,
+    ...(tasksConfiguration.passwordCommand
+      ? { password: passwordFromCommand(tasksConfiguration.passwordCommand) }
+      : {}),
+  });
+  return tasksConfiguration.clients
+    ? onlyClients(source, tasksConfiguration.clients)
+    : source;
+}
+const source = taskSource();
+const tasks =
+  source && configuration.tasks
+    ? createTaskCache({ source, pollSeconds: configuration.tasks.pollSeconds })
+    : undefined;
 if (tasks) {
   await tasks.refresh();
   tasks.start();

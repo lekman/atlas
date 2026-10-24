@@ -158,14 +158,15 @@ workstreams and tasks (the `client`, `workstream`, `dashboard_item` and
 optional; without `ATLAS_TASKS_HOST` the server serves SQLite alone, as
 before.
 
-| Variable                       | What it sets                                                 |
-| ------------------------------ | ------------------------------------------------------------ |
-| `ATLAS_TASKS_HOST`             | The Postgres host. Setting it turns the task source on       |
-| `ATLAS_TASKS_PORT`             | The port, 5432 unless set                                    |
-| `ATLAS_TASKS_DATABASE`         | The database. Needed with the host                           |
-| `ATLAS_TASKS_USER`             | A read-only role. Needed with the host                       |
-| `ATLAS_TASKS_PASSWORD_COMMAND` | A command that prints the password, such as a Keychain query |
-| `ATLAS_TASKS_POLL_SECONDS`     | Seconds between reads, 30 unless set                         |
+| Variable                       | What it sets                                                     |
+| ------------------------------ | ---------------------------------------------------------------- |
+| `ATLAS_TASKS_HOST`             | The Postgres host. Setting it turns the task source on           |
+| `ATLAS_TASKS_PORT`             | The port, 5432 unless set                                        |
+| `ATLAS_TASKS_DATABASE`         | The database. Needed with the host                               |
+| `ATLAS_TASKS_USER`             | A read-only role. Needed with the host                           |
+| `ATLAS_TASKS_PASSWORD_COMMAND` | A command that prints the password, such as a Keychain query     |
+| `ATLAS_TASKS_POLL_SECONDS`     | Seconds between reads, 30 unless set                             |
+| `ATLAS_TASKS_CLIENTS`          | Only these client ids, joined by commas; every client unless set |
 
 The password command runs without a shell: the value is split on spaces,
 with quotes holding an argument together, and nothing in it is expanded.
