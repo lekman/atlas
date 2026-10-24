@@ -32,6 +32,23 @@ export interface Configuration {
    * `ATLAS_GITHUB_STATE_DIR`; see `github-reader.ts`.
    */
   githubStateDirectory?: string;
+  /**
+   * Where live agent status comes from, or `undefined` to leave it off.
+   * Set by `ATLAS_SESSIONS_DIR`; see `session-source.ts`.
+   */
+  sessions?: SessionsConfiguration;
+}
+
+/**
+ * Claude Code's session files on this machine. Set `ATLAS_SESSIONS_DIR`
+ * to the folder that holds them, usually `~/.claude/sessions`.
+ */
+export interface SessionsConfiguration {
+  directory: string;
+  /** Seconds between reads: `ATLAS_SESSIONS_POLL_SECONDS`, 5 unless set. */
+  pollSeconds: number;
+  /** Hours a docked agent stays after its session ends: `ATLAS_SESSIONS_FORGET_HOURS`, 24 unless set. */
+  forgetHours: number;
 }
 
 /**
@@ -100,12 +117,27 @@ function readTasks(
   };
 }
 
+function readSessions(
+  environment: Record<string, string | undefined>,
+): SessionsConfiguration | undefined {
+  const directory = environment.ATLAS_SESSIONS_DIR?.trim();
+  if (!directory) return undefined;
+  const pollSeconds = Number(environment.ATLAS_SESSIONS_POLL_SECONDS ?? 5);
+  if (!Number.isFinite(pollSeconds) || pollSeconds < 1)
+    throw new Error("ATLAS_SESSIONS_POLL_SECONDS must be 1 or more");
+  const forgetHours = Number(environment.ATLAS_SESSIONS_FORGET_HOURS ?? 24);
+  if (!Number.isFinite(forgetHours) || forgetHours <= 0)
+    throw new Error("ATLAS_SESSIONS_FORGET_HOURS must be more than 0");
+  return { directory, pollSeconds, forgetHours };
+}
+
 export function readConfiguration(
   environment: Record<string, string | undefined> = process.env,
 ): Configuration {
   const port = Number(environment.ATLAS_PORT ?? 7400);
   if (!Number.isInteger(port) || port < 1 || port > 65_535)
     throw new Error("ATLAS_PORT must be a port number");
+  const sessions = readSessions(environment);
   return {
     databasePath:
       environment.ATLAS_DATABASE ??
@@ -119,5 +151,6 @@ export function readConfiguration(
     ...(environment.ATLAS_GITHUB_STATE_DIR?.trim()
       ? { githubStateDirectory: environment.ATLAS_GITHUB_STATE_DIR.trim() }
       : {}),
+    ...(sessions ? { sessions } : {}),
   };
 }
