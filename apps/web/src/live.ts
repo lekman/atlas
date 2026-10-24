@@ -73,6 +73,12 @@ export interface LiveLink {
 /** How many received events the link keeps for `catchUp`. */
 const keptEvents = 200;
 
+/** EventSource.CLOSED, written out so tests need no browser. */
+const closedState = 2;
+/** How long to wait before reopening a closed stream, doubling up to the longest. */
+const firstPause = 1000;
+const longestPause = 30_000;
+
 export function createLiveLink(
   after: number,
   environment: LiveEnvironment = {
@@ -92,7 +98,10 @@ export function createLiveLink(
 
   return {
     subscribe(fire) {
-      const stream = environment.openStream(`/api/stream?after=${after}`);
+      let stream = environment.openStream(`/api/stream?after=${after}`);
+      let retry: ReturnType<typeof setTimeout> | undefined;
+      let pause = firstPause;
+      let stopped = false;
       const receive = (message: MessageEvent<string>) => {
         let event: AtlasEvent;
         try {
@@ -128,13 +137,42 @@ export function createLiveLink(
         if (build === undefined) build = next;
         else if (next !== build) onNewBuild();
       };
-      stream.addEventListener("atlas", receive as EventListener);
-      stream.addEventListener("refresh", refresh);
-      stream.addEventListener("build", announce as EventListener);
+      // A browser stops for good when a reconnect gets an error status, as
+      // a proxy answers while the server restarts. Reopen it, waiting a
+      // little longer each time, from the last event this page has.
+      const attach = (target: EventSource) => {
+        target.addEventListener("atlas", receive as EventListener);
+        target.addEventListener("refresh", refresh);
+        target.addEventListener("build", announce as EventListener);
+        target.addEventListener("open", opened);
+        target.addEventListener("error", failed);
+      };
+      const detach = (target: EventSource) => {
+        target.removeEventListener("atlas", receive as EventListener);
+        target.removeEventListener("refresh", refresh);
+        target.removeEventListener("build", announce as EventListener);
+        target.removeEventListener("open", opened);
+        target.removeEventListener("error", failed);
+      };
+      function opened() {
+        pause = firstPause;
+      }
+      function failed() {
+        if (stopped || stream.readyState !== closedState) return;
+        detach(stream);
+        stream.close();
+        retry = setTimeout(() => {
+          if (stopped) return;
+          stream = environment.openStream(`/api/stream?after=${after}`);
+          attach(stream);
+        }, pause);
+        pause = Math.min(pause * 2, longestPause);
+      }
+      attach(stream);
       return () => {
-        stream.removeEventListener("atlas", receive as EventListener);
-        stream.removeEventListener("refresh", refresh);
-        stream.removeEventListener("build", announce as EventListener);
+        stopped = true;
+        clearTimeout(retry);
+        detach(stream);
         stream.close();
       };
     },

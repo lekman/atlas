@@ -20,6 +20,7 @@ const statusChange: AtlasEvent = {
 /** A stream the test writes to, standing in for the browser's EventSource. */
 class FakeStream extends EventTarget {
   closed = false;
+  readyState = 1;
   constructor(readonly url: string) {
     super();
   }
@@ -217,5 +218,31 @@ describe("a new build", () => {
     streams[0]?.dispatchEvent(new MessageEvent("build", { data: "not json" }));
     announce(streams[0], "0.8.0-a");
     expect(reloads).toBe(0);
+  });
+});
+
+describe("a stream the browser gives up on", () => {
+  test("is reopened from the last event, and stays closed after unsubscribing", async () => {
+    const { environment, streams } = harness();
+    const link = createLiveLink(4, environment);
+    const unsubscribe = link.subscribe(() => {});
+    streams[0]?.send(5, statusChange);
+    // A proxy answered the reconnect with an error, so the browser closed it.
+    streams[0]!.readyState = 2;
+    streams[0]?.dispatchEvent(new Event("error"));
+    expect(streams[0]?.closed).toBe(true);
+    await Bun.sleep(1100);
+    expect(streams).toHaveLength(2);
+    expect(streams[1]?.url).toBe("/api/stream?after=5");
+    unsubscribe();
+    expect(streams[1]?.closed).toBe(true);
+  });
+
+  test("is left to the browser while it is still reconnecting", () => {
+    const { environment, streams } = harness();
+    createLiveLink(0, environment).subscribe(() => {});
+    streams[0]?.dispatchEvent(new Event("error"));
+    expect(streams[0]?.closed).toBe(false);
+    expect(streams).toHaveLength(1);
   });
 });
