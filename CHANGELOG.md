@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.8.0](https://github.com/lekman/atlas/compare/v0.7.0...v0.8.0) (2026-10-24)
+
+
+### Features
+
+* **ui:** background ambiences, a Sound switch and a settings cog ([#41](https://github.com/lekman/atlas/issues/41)) ([2f94772](https://github.com/lekman/atlas/commit/2f94772b8b99b472339b7fcb6ea2a7c907b5a9c2))
+* **web:** only the Sound button in the bar, and remember sound on ([#39](https://github.com/lekman/atlas/issues/39)) ([09cbcc6](https://github.com/lekman/atlas/commit/09cbcc6b7ae6e73807fd40b49594a4b0d3586502))
+
 ## [0.7.0](https://github.com/lekman/atlas/compare/v0.6.0...v0.7.0) (2026-10-24)
 
 
