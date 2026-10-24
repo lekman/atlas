@@ -222,17 +222,17 @@ export function AtlasShell(props: AtlasShellProps) {
     const canvas = shell?.querySelector("canvas");
     if (!shell || !canvas) return [];
     const origin = canvas.getBoundingClientRect();
-    return [...shell.querySelectorAll(".atlas-hud, .atlas-log-panel")].map(
-      (panel) => {
-        const box = panel.getBoundingClientRect();
-        return {
-          left: box.left - origin.left,
-          top: box.top - origin.top,
-          right: box.right - origin.left,
-          bottom: box.bottom - origin.top,
-        };
-      },
-    );
+    return [
+      ...shell.querySelectorAll(".atlas-hud-readout, .atlas-log-panel"),
+    ].map((panel) => {
+      const box = panel.getBoundingClientRect();
+      return {
+        left: box.left - origin.left,
+        top: box.top - origin.top,
+        right: box.right - origin.left,
+        bottom: box.bottom - origin.top,
+      };
+    });
   };
 
   const map = useAtlasMap({
@@ -441,6 +441,7 @@ export function AtlasShell(props: AtlasShellProps) {
             dataset={map.dataset}
             camera={camera}
             viewport={viewport}
+            onSelect={open}
           />
           <LogPanel entries={map.log} world={world} variant="panel" />
           {stack.length > 0 && (

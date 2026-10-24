@@ -269,7 +269,8 @@
 
 /* ── Full view overlays ─────────────────────────────────────────────── */
 /* The readout sits in the bottom corner, opposite the log, so the right
-   column is free for the inspector cards. */
+   column is free for the inspector cards. A handle on its top edge opens
+   the needs-you list upward. */
 .atlas-hud {
   position: absolute;
   bottom: calc(16px + env(safe-area-inset-bottom, 0px));
@@ -277,9 +278,8 @@
   z-index: 3;
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
-  max-width: 340px;
-  text-align: right;
+  align-items: stretch;
+  width: 340px;
   font-family: var(--atlas-mono);
   font-size: 11px;
   letter-spacing: 0.06em;
@@ -287,19 +287,59 @@
   color: var(--atlas-mute);
   pointer-events: none;
   /* A panel behind the readout, so it stays legible over any world's map. */
-  padding: 8px 12px;
+  padding: 0 12px 8px;
   background: var(--atlas-panel);
   border: 1px solid var(--atlas-line);
   border-radius: 3px;
 }
+/* Opened on purpose, the list sits above the inspector cards. */
+.atlas-hud[data-open="true"] {
+  z-index: 7;
+  backdrop-filter: blur(10px);
+}
+.atlas-hud-readout {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
+}
+.atlas-hud-handle {
+  display: grid;
+  place-items: center;
+  height: 16px;
+  margin: 0 -12px 2px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: ns-resize;
+  touch-action: none;
+  pointer-events: auto;
+}
+.atlas-hud-handle span {
+  width: 36px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--atlas-line);
+}
+.atlas-hud-handle:hover span,
+.atlas-hud-handle:focus-visible span {
+  background: var(--atlas-accent);
+}
+.atlas-hud-handle:focus-visible {
+  outline: 2px solid var(--atlas-accent);
+  outline-offset: -2px;
+}
+.atlas-hud-list {
+  overflow: auto;
+  margin-bottom: 8px;
+  font-family: var(--atlas-body);
+  letter-spacing: normal;
+  line-height: 1.4;
+  pointer-events: auto;
+}
 .atlas-hud strong {
   font-weight: 500;
   color: var(--atlas-ink);
-}
-.atlas-hud-hint {
-  margin-top: 4px;
-  font-size: 10.5px;
-  letter-spacing: 0.04em;
 }
 .atlas-hud-attention {
   color: var(--atlas-waiting);
