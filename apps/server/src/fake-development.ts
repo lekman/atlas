@@ -37,26 +37,41 @@ export function shortSlug(title: string): string {
 }
 
 /**
+ * The digits at the end of a text, ignoring trailing spaces and slashes, or
+ * nothing when it does not end in a digit. Read by hand rather than with a
+ * regular expression, so a long run of digits or slashes cannot make it slow.
+ */
+function trailingNumber(text: string): number | undefined {
+  let end = text.length;
+  while (end > 0 && (text[end - 1] === "/" || text[end - 1] === " ")) end -= 1;
+  let start = end;
+  while (start > 0 && text[start - 1]! >= "0" && text[start - 1]! <= "9")
+    start -= 1;
+  return start < end ? Number(text.slice(start, end)) : undefined;
+}
+
+/**
  * The issue number in the tracker key ("#41", "41") or, failing that, at
  * the end of its address. An invented one when neither holds a number.
  */
 function issueNumber(item: BacklogItem, seed: number): number {
-  const fromKey = item.tracker?.key.match(/(\d+)\s*$/)?.[1];
-  if (fromKey) return Number(fromKey);
-  const fromUrl = item.tracker?.url.match(/(\d+)\/?$/)?.[1];
-  if (fromUrl) return Number(fromUrl);
-  return 100 + (seed % 900);
+  if (!item.tracker) return 100 + (seed % 900);
+  return (
+    trailingNumber(item.tracker.key) ??
+    trailingNumber(item.tracker.url) ??
+    100 + (seed % 900)
+  );
 }
 
-/** The repository's address, from an issue address such as `…/owner/name/issues/41`. */
-function repositoryUrl(url: string): string {
-  const match = url.match(/^(https?:\/\/[^/]+\/[^/]+\/[^/]+)\//);
-  return match?.[1] ?? url.replace(/\/+$/, "");
-}
-
-/** The repository's name, for the worktree's folder. */
-function repositoryName(url: string): string {
-  return repositoryUrl(url).split("/").pop() || "repository";
+/**
+ * The repository's address and name, from an issue address such as
+ * `https://github.example/owner/name/issues/41`.
+ */
+function repositoryOf(url: string): { url: string; name: string } {
+  const address = new URL(url);
+  const [owner, name] = address.pathname.split("/").filter(Boolean);
+  if (!owner || !name) return { url: address.origin, name: "repository" };
+  return { url: `${address.origin}/${owner}/${name}`, name };
 }
 
 const inProgressStates: readonly TrackedPullRequest["state"][] = [
@@ -94,13 +109,14 @@ export function inventDevelopment(item: BacklogItem): DevelopmentTracking {
   if (item.state === "todo") return development;
 
   const slug = shortSlug(item.title);
+  const repository = repositoryOf(tracker.url);
   const inProgress = item.state === "doing" || item.state === "review";
   development.branch = {
     name: `feature/${number}-${slug}`,
     ...(inProgress
       ? {
           worktree: {
-            path: `~/worktrees/${repositoryName(tracker.url)}-${number}`,
+            path: `~/worktrees/${repository.name}-${number}`,
           },
         }
       : {}),
@@ -111,7 +127,7 @@ export function inventDevelopment(item: BacklogItem): DevelopmentTracking {
   const pullNumber = number + 1 + (seed % 7);
   development.pullRequest = {
     number: pullNumber,
-    url: `${repositoryUrl(tracker.url)}/pull/${pullNumber}`,
+    url: `${repository.url}/pull/${pullNumber}`,
     state:
       item.state === "done"
         ? "merged"

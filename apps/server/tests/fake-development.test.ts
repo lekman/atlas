@@ -135,6 +135,30 @@ describe("invented development tracking", () => {
     };
     expect(inventDevelopment(withUrl).branch?.name).toMatch(/^feature\/7-/);
   });
+
+  test("reads an address with a trailing slash, or with no repository", () => {
+    const named = tracked("a", "review", "books-issue");
+    const slashed = {
+      ...named,
+      tracker: {
+        ...named.tracker!,
+        url: "https://github.example/a/b/issues/9/",
+      },
+    };
+    expect(inventDevelopment(slashed).branch?.name).toMatch(/^feature\/9-/);
+    const bare = {
+      ...named,
+      tracker: { ...named.tracker!, url: "https://github.example/" },
+    };
+    const development = inventDevelopment(bare);
+    expect(development.branch?.name).toMatch(/^feature\/\d+-/);
+    expect(development.branch?.worktree?.path).toMatch(
+      /^~\/worktrees\/repository-\d+$/,
+    );
+    expect(development.pullRequest?.url).toMatch(
+      /^https:\/\/github\.example\/pull\/\d+$/,
+    );
+  });
 });
 
 describe("laying it over a dataset", () => {
