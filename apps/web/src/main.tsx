@@ -51,7 +51,11 @@ loadSnapshot()
       loadSnapshot()
         .then((snapshot) => show(link.catchUp(snapshot)))
         .catch(() => console.warn("the dataset did not reload"));
-    const link = createLiveLink(sequence, undefined, undefined, reload);
+    // A new build after a deploy: reload, after a moment so the server is
+    // fully up. Preferences such as sound come back from the browser.
+    const link = createLiveLink(sequence, undefined, undefined, reload, () =>
+      window.setTimeout(() => window.location.reload(), 1500),
+    );
     show(dataset);
   })
   .catch(() =>

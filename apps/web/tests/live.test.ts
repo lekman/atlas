@@ -178,3 +178,44 @@ describe("the live link", () => {
     );
   });
 });
+
+describe("a new build", () => {
+  const announce = (stream: FakeStream | undefined, build: string) =>
+    stream?.dispatchEvent(
+      new MessageEvent("build", { data: JSON.stringify({ build }) }),
+    );
+
+  test("keeps the first build, and reloads only when a different one arrives", () => {
+    const { environment, streams } = harness();
+    let reloads = 0;
+    const link = createLiveLink(
+      0,
+      environment,
+      () => {},
+      () => {},
+      () => reloads++,
+    );
+    link.subscribe(() => {});
+    announce(streams[0], "0.8.0-a");
+    announce(streams[0], "0.8.0-a");
+    expect(reloads).toBe(0);
+    announce(streams[0], "0.8.0-b");
+    expect(reloads).toBe(1);
+  });
+
+  test("ignores a build message it cannot read", () => {
+    const { environment, streams } = harness();
+    let reloads = 0;
+    const link = createLiveLink(
+      0,
+      environment,
+      () => {},
+      () => {},
+      () => reloads++,
+    );
+    link.subscribe(() => {});
+    streams[0]?.dispatchEvent(new MessageEvent("build", { data: "not json" }));
+    announce(streams[0], "0.8.0-a");
+    expect(reloads).toBe(0);
+  });
+});

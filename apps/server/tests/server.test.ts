@@ -453,3 +453,31 @@ describe("the configuration", () => {
     expect(() => readConfiguration({ ATLAS_SEED: "real" })).toThrow();
   });
 });
+
+describe("the build", () => {
+  test("is in health and is the first thing a stream sends", async () => {
+    const database = openDatabase(":memory:");
+    seedDataset(database, sampleDataset);
+    const api = createApi({
+      database,
+      version: "0.0.0-test",
+      build: "0.0.0-test-abc",
+    });
+    const health = await (await api.handle(
+      new Request("http://atlas.test/api/health"),
+    ))!.json();
+    expect(health.build).toBe("0.0.0-test-abc");
+    const controller = new AbortController();
+    const response = await api.handle(
+      new Request("http://atlas.test/api/stream", {
+        signal: controller.signal,
+      }),
+    );
+    const reader = response!.body!.getReader();
+    const { value } = await reader.read();
+    expect(new TextDecoder().decode(value)).toContain(
+      'event: build\ndata: {"build":"0.0.0-test-abc"}',
+    );
+    controller.abort();
+  });
+});
