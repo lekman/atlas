@@ -33,6 +33,7 @@ export * from "./lighting";
 export * from "./paint";
 export * from "./planned";
 export * from "./scene";
+export * from "./ambience";
 export * from "./sound";
 export * from "./svg";
 export type * from "./types";

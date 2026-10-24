@@ -164,6 +164,19 @@ draws its night in its own way.
 | Needs you      | Wind chime            | Temple bell       | Three-note public-address chime |
 | Blocked        | Watering can set down | Drum roll         | Low falling double tone         |
 
+### Background
+
+Three dark, slow ambiences play behind the map: **Android Rain** (detuned
+brass pads in minor chords, rain and a low drone), **Nexus Tower** (a sub
+drone, a slow filter sweep and distant metal bells) and **Outer Worlds**
+(an evolving drone and a lonely gliding lead). They are synthesised in
+the browser like the cues, so no recording needs a licence and nothing is
+fetched, and they never repeat exactly. A background is off by default.
+It plays only while sound is on, has its own volume, and is chosen in the
+settings panel behind the cog. The Sound button turns all sound on and
+off. Both are remembered in the browser; a browser still waits for the
+first click or tap after a load before it plays.
+
 ## Planned
 
 None. A new world starts in `plannedWorlds` in

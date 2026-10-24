@@ -11,12 +11,15 @@
  */
 import type { AtlasEvent, Dataset, DetailsDocument } from "@atlas/core";
 import {
+  createAmbiencePlayer,
   defaultSoundSettings,
+  isBackgroundChoice,
   isWorldId,
   lightingPreferences,
   resolveLighting,
   worldIds,
   worlds,
+  type AmbiencePlayer,
   type Bounds,
   type Camera,
   type LightingPreference,
@@ -115,15 +118,16 @@ export interface AtlasShellProps {
   controls?: readonly AtlasControl[];
 }
 
-type Popover = "world" | "key" | "sound" | null;
+type Popover = "world" | "key" | "settings" | null;
 
 /** The buttons the bar can show, top right. */
-export type AtlasControl = "world" | "key" | "sound" | "expand";
+export type AtlasControl = "world" | "key" | "sound" | "expand" | "settings";
 const allControls: readonly AtlasControl[] = [
   "world",
   "key",
   "sound",
   "expand",
+  "settings",
 ];
 
 const storageKey = "atlas.preferences";
@@ -131,7 +135,8 @@ const storageKey = "atlas.preferences";
 interface Preferences {
   world?: WorldId;
   lighting?: LightingPreference;
-  sound?: Pick<SoundSettings, "volume" | "categories"> & { enabled?: boolean };
+  sound?: Pick<SoundSettings, "volume" | "categories"> &
+    Partial<Pick<SoundSettings, "enabled" | "background" | "backgroundVolume">>;
 }
 
 /**
@@ -150,7 +155,8 @@ function readPreferences(): Preferences {
     if (lightingPreferences.includes(lighting as LightingPreference))
       preferences.lighting = lighting as LightingPreference;
     if (typeof sound === "object" && sound !== null) {
-      const { volume, categories, enabled } = sound as Record<string, unknown>;
+      const { volume, categories, enabled, background, backgroundVolume } =
+        sound as Record<string, unknown>;
       const known = defaultSoundSettings.categories;
       if (
         typeof volume === "number" &&
@@ -165,6 +171,12 @@ function readPreferences(): Preferences {
       ) {
         preferences.sound = {
           ...(typeof enabled === "boolean" ? { enabled } : {}),
+          ...(isBackgroundChoice(background) ? { background } : {}),
+          ...(typeof backgroundVolume === "number" &&
+          backgroundVolume >= 0 &&
+          backgroundVolume <= 1
+            ? { backgroundVolume }
+            : {}),
           volume,
           categories: Object.fromEntries(
             Object.keys(known).map((key) => [
@@ -271,6 +283,8 @@ export function AtlasShell(props: AtlasShellProps) {
           enabled: sound.enabled,
           volume: sound.volume,
           categories: sound.categories,
+          background: sound.background,
+          backgroundVolume: sound.backgroundVolume,
         },
       });
   }, [
@@ -280,7 +294,30 @@ export function AtlasShell(props: AtlasShellProps) {
     sound.enabled,
     sound.volume,
     sound.categories,
+    sound.background,
+    sound.backgroundVolume,
   ]);
+
+  // The background plays while sound is on and a background is chosen. A
+  // browser holds audio back until the first click or tap after a load, so
+  // the first gesture asks again.
+  const ambience = useRef<AmbiencePlayer | null>(null);
+  useEffect(() => {
+    ambience.current ??= createAmbiencePlayer();
+    const player = ambience.current;
+    const apply = () =>
+      sound.enabled && sound.background !== "off"
+        ? player.play(sound.background, sound.backgroundVolume)
+        : player.stop();
+    apply();
+    window.addEventListener("pointerdown", apply, { once: true });
+    window.addEventListener("keydown", apply, { once: true });
+    return () => {
+      window.removeEventListener("pointerdown", apply);
+      window.removeEventListener("keydown", apply);
+    };
+  }, [sound.enabled, sound.background, sound.backgroundVolume]);
+  useEffect(() => () => ambience.current?.stop(), []);
 
   const { subscribe } = props;
   const { fire } = map;
@@ -467,13 +504,20 @@ export function AtlasShell(props: AtlasShellProps) {
             type="button"
             className="atlas-icon-button"
             aria-label="Sound"
-            aria-expanded={popover === "sound"}
             aria-pressed={sound.enabled}
-            onClick={() => toggle("sound")}
+            title={sound.enabled ? "Turn sound off" : "Turn sound on"}
+            onClick={() => {
+              setSound({ ...sound, enabled: !sound.enabled });
+              setToast(sound.enabled ? "Sound off" : "Sound on");
+            }}
           >
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M4 9h4l5-4v14l-5-4H4z" />
-              {sound.enabled && <path d="M17 9c1.5 1.5 1.5 4.5 0 6" />}
+              {sound.enabled ? (
+                <path d="M17 9c1.5 1.5 1.5 4.5 0 6" />
+              ) : (
+                <path d="M16.5 9.5l5 5M21.5 9.5l-5 5" />
+              )}
             </svg>
           </button>
         )}
@@ -493,6 +537,20 @@ export function AtlasShell(props: AtlasShellProps) {
               />
             </svg>
             {mode === "full" ? "Collapse" : "Expand"}
+          </button>
+        )}
+        {offers("settings") && (
+          <button
+            type="button"
+            className="atlas-icon-button"
+            aria-label="Settings"
+            aria-expanded={popover === "settings"}
+            onClick={() => toggle("settings")}
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="3" />
+              <path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1" />
+            </svg>
           </button>
         )}
       </header>
@@ -580,7 +638,7 @@ export function AtlasShell(props: AtlasShellProps) {
             />
           )}
           {popover === "key" && <KeyPanel world={world} />}
-          {popover === "sound" && (
+          {popover === "settings" && (
             <SoundPanel
               settings={sound}
               onChange={setSound}

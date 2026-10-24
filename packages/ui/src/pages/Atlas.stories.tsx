@@ -415,21 +415,37 @@ export const AnswerAQuestion: Story = {
   },
 };
 
-/** The web app's bar: Sound alone, so the map keeps the whole screen. */
-export const SoundOnlyControls: Story = {
-  name: "Sound Only Controls",
+/**
+ * The web app's bar: Sound turns all sound on and off, and the cog opens
+ * the settings, where the volume and the background live.
+ */
+export const SoundAndSettingsControls: Story = {
+  name: "Sound and Settings Controls",
   args: {
     initialWorld: "astronomer",
     initialMode: "full",
     script: [],
-    controls: ["sound"],
+    controls: ["sound", "settings"],
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(
-      canvas.getByRole("button", { name: "Sound" }),
-    ).toBeInTheDocument();
+    const sound = canvas.getByRole("button", { name: "Sound" });
+    await expect(sound).toHaveAttribute("aria-pressed", "false");
+    await userEvent.click(sound);
+    await expect(sound).toHaveAttribute("aria-pressed", "true");
+    await userEvent.click(sound);
+    await expect(sound).toHaveAttribute("aria-pressed", "false");
     for (const name of [/choose a world/i, /^key$/i, /collapse/i])
       await expect(canvas.queryByRole("button", { name })).toBeNull();
+    await userEvent.click(canvas.getByRole("button", { name: "Settings" }));
+    const settings = await canvas.findByRole("dialog", { name: "Settings" });
+    await userEvent.click(
+      within(settings).getByRole("radio", { name: /nexus tower/i }),
+    );
+    await expect(
+      within(settings).getByRole("radio", { name: /nexus tower/i }),
+    ).toBeChecked();
+    // Choosing a background turns sound on.
+    await expect(sound).toHaveAttribute("aria-pressed", "true");
   },
 };

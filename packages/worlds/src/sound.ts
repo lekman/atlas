@@ -5,6 +5,7 @@
  * audio context is created on the first `play` after `enabled` is set, which
  * a browser allows only after a user gesture anyway.
  */
+import type { BackgroundChoice } from "./ambience";
 import type { SoundCategory, SoundCue, Synthesiser, World } from "./types";
 
 export interface SoundSettings {
@@ -12,12 +13,18 @@ export interface SoundSettings {
   /** 0 to 1. */
   volume: number;
   categories: Record<SoundCategory, boolean>;
+  /** The background ambience, or "off". Plays only while sound is on. */
+  background: BackgroundChoice;
+  /** 0 to 1, apart from the cue volume. */
+  backgroundVolume: number;
 }
 
 export const defaultSoundSettings: SoundSettings = {
   enabled: false,
   volume: 0.5,
   categories: { message: true, status: true, external: true, needs: true },
+  background: "off",
+  backgroundVolume: 0.4,
 };
 
 /** Which switch governs each cue. "Blocked" sits under needs-you. */

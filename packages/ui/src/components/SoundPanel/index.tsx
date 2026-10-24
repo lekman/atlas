@@ -1,4 +1,10 @@
-import type { SoundCategory, SoundCue, SoundSettings } from "@atlas/worlds";
+import {
+  backgrounds,
+  type BackgroundChoice,
+  type SoundCategory,
+  type SoundCue,
+  type SoundSettings,
+} from "@atlas/worlds";
 
 export interface SoundPanelProps {
   /** Sound is off until the reader turns it on. */
@@ -17,13 +23,13 @@ const categoryNames: Array<[SoundCategory, string]> = [
 ];
 
 /**
- * The master switch, the volume and a switch per kind of sound. Nothing
- * plays until the reader asks; a world only chooses what each cue sounds
- * like.
+ * The settings panel: the master switch, the volume, a switch per kind of
+ * sound, and the background ambience with its own volume. Nothing plays
+ * until the reader asks; a world only chooses what each cue sounds like.
  */
 export function SoundPanel({ settings, onChange, onPreview }: SoundPanelProps) {
   return (
-    <div className="atlas-panel" role="dialog" aria-label="Sound">
+    <div className="atlas-panel" role="dialog" aria-label="Settings">
       <h2 className="atlas-panel-title">Sound</h2>
       <label className="atlas-row" htmlFor="atlas-sound-on">
         <span>Sound on</span>
@@ -73,6 +79,62 @@ export function SoundPanel({ settings, onChange, onPreview }: SoundPanelProps) {
           />
         </label>
       ))}
+      <fieldset className="atlas-background">
+        <legend className="atlas-panel-title">Background</legend>
+        {(
+          [
+            { id: "off", name: "Off", description: "No background sound." },
+            ...backgrounds,
+          ] as Array<{
+            id: BackgroundChoice;
+            name: string;
+            description: string;
+          }>
+        ).map((option) => (
+          <label
+            className="atlas-background-option"
+            key={option.id}
+            htmlFor={`atlas-background-${option.id}`}
+          >
+            <input
+              id={`atlas-background-${option.id}`}
+              type="radio"
+              name="atlas-background"
+              value={option.id}
+              checked={settings.background === option.id}
+              onChange={() =>
+                onChange({
+                  ...settings,
+                  background: option.id,
+                  // Choosing a background is a request to hear it.
+                  enabled: option.id === "off" ? settings.enabled : true,
+                })
+              }
+            />
+            <span>
+              <strong>{option.name}</strong>
+              <em>{option.description}</em>
+            </span>
+          </label>
+        ))}
+        <label className="atlas-row" htmlFor="atlas-background-volume">
+          <span>Background volume</span>
+          <input
+            id="atlas-background-volume"
+            type="range"
+            min={0}
+            max={1}
+            step={0.05}
+            value={settings.backgroundVolume}
+            onChange={(event) =>
+              onChange({
+                ...settings,
+                backgroundVolume: Number(event.target.value),
+              })
+            }
+          />
+        </label>
+      </fieldset>
       <div className="atlas-actions">
         <button
           type="button"
