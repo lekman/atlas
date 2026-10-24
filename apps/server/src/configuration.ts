@@ -36,6 +36,8 @@ export interface TaskDatabaseConfiguration {
   passwordCommand?: string;
   /** Seconds between reads. */
   pollSeconds: number;
+  /** Only these clients, when set: `ATLAS_TASKS_CLIENTS`, ids joined by commas. */
+  clients?: string[];
 }
 
 export type Seed =
@@ -66,6 +68,15 @@ function readTasks(
   if (!Number.isFinite(pollSeconds) || pollSeconds < 1)
     throw new Error("ATLAS_TASKS_POLL_SECONDS must be 1 or more");
   const passwordCommand = environment.ATLAS_TASKS_PASSWORD_COMMAND?.trim();
+  const clients = (environment.ATLAS_TASKS_CLIENTS ?? "")
+    .split(",")
+    .map((id) => id.trim())
+    .filter(Boolean);
+  for (const id of clients)
+    if (!/^[a-z0-9][a-z0-9-]*$/.test(id))
+      throw new Error(
+        "ATLAS_TASKS_CLIENTS must be client ids joined by commas",
+      );
   return {
     hostname,
     port,
@@ -73,6 +84,7 @@ function readTasks(
     username,
     ...(passwordCommand ? { passwordCommand } : {}),
     pollSeconds,
+    ...(clients.length ? { clients } : {}),
   };
 }
 

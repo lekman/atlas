@@ -47,6 +47,33 @@ export interface TaskSource {
   read(): Promise<TaskRecords>;
 }
 
+/**
+ * A task source that keeps only some clients, with their workstreams, items
+ * and claims. For a view that shows one real client among invented ones.
+ */
+export function onlyClients(
+  source: TaskSource,
+  clientIds: readonly string[],
+): TaskSource {
+  const wanted = new Set(clientIds);
+  return {
+    async read() {
+      const records = await source.read();
+      const items = records.items.filter((item) => wanted.has(item.clientId));
+      const kept = new Set(items.map((item) => item.id));
+      return {
+        clients: records.clients.filter((client) => wanted.has(client.id)),
+        workstreams: records.workstreams.filter((stream) =>
+          wanted.has(stream.clientId),
+        ),
+        items,
+        claims: records.claims.filter((claim) => kept.has(claim.itemId)),
+        skipped: records.skipped,
+      };
+    },
+  };
+}
+
 /** A `client` row, with the columns Atlas reads. */
 export interface ClientRow {
   id: string;
