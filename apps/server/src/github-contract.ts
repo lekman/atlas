@@ -149,6 +149,7 @@ export const pullRequestEvents = [
   "ci_failed",
   "conflict",
   "merged",
+  "closed",
 ] as const;
 export const issueEvents = ["issue_assigned", "issue_closed"] as const;
 

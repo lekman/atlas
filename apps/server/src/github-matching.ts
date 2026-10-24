@@ -45,6 +45,8 @@ export interface GithubFacts {
   registry: readonly RegistryItem[];
   /** Merged pull requests, by `referenceKey`. */
   merged: ReadonlyMap<string, FinishedItem>;
+  /** Pull requests closed without merging, by `referenceKey`. */
+  closedPullRequests: ReadonlyMap<string, FinishedItem>;
   /** Closed issues, by `referenceKey`. */
   closedIssues: ReadonlyMap<string, FinishedItem>;
   /** Every pull request seen in a registry, by `referenceKey`. */
@@ -54,6 +56,7 @@ export interface GithubFacts {
 export const noFacts: GithubFacts = {
   registry: [],
   merged: new Map(),
+  closedPullRequests: new Map(),
   closedIssues: new Map(),
   pullRequests: new Map(),
 };
@@ -184,8 +187,9 @@ interface PullRequestCandidate extends TrackedPullRequest {
  * registry's counts. An issue in the registry is open, and one with an
  * `issue_closed` event and no longer in the registry is closed. A pull
  * request in the registry is draft or open; one with a `merged` event is
- * merged. When several pull requests belong to an item, one still open
- * wins over a merged one, then the highest number. The contract has no
+ * merged, and one with a `closed` event and no merge is closed. When
+ * several pull requests belong to an item, one still open wins over a
+ * finished one, then the highest number. The contract has no
  * branch names, so `branch` is never set.
  */
 export function resolveGithub(
@@ -245,6 +249,20 @@ export function resolveGithub(
           url: issueUrl(closed.repository, closed.number),
           state: "closed",
         });
+  }
+
+  for (const [key, closed] of facts.closedPullRequests) {
+    if (!match.known(closed.client) || facts.merged.has(key)) continue;
+    const memory = facts.pullRequests.get(key);
+    const numbers = [closed.number, ...(memory?.closes ?? [])];
+    for (const item of match.items(closed.client, closed.repository, numbers))
+      addPull(item, key, {
+        number: closed.number,
+        url: pullRequestUrl(closed.repository, closed.number),
+        state: "closed",
+        checks: checksOf(memory?.ci ?? null),
+        finished: true,
+      });
   }
 
   for (const [key, merged] of facts.merged) {
@@ -332,6 +350,8 @@ export function eventText(line: Pick<EventLine, "event" | "number">): string {
       return `Pull request #${line.number}: merge conflict`;
     case "merged":
       return `Pull request #${line.number} merged`;
+    case "closed":
+      return `Pull request #${line.number} closed without merging`;
     case "issue_assigned":
       return `Issue #${line.number} assigned`;
     case "issue_closed":

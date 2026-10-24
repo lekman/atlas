@@ -294,10 +294,10 @@ writes two files into one folder. Atlas reads them when
 `~/.local/state/gh-events`. Without the variable, the server behaves as
 before.
 
-| File            | What Atlas does with it                                                    |
-| --------------- | -------------------------------------------------------------------------- |
-| `registry.json` | Every open pull request and issue gh-events watches. Read every 30 seconds |
-| `events.jsonl`  | One line per change: approved, checks failed, conflict, merged, assigned   |
+| File            | What Atlas does with it                                                          |
+| --------------- | -------------------------------------------------------------------------------- |
+| `registry.json` | Every open pull request and issue gh-events watches. Read every 30 seconds       |
+| `events.jsonl`  | One line per change: approved, checks failed, conflict, merged, closed, assigned |
 
 The folder is also watched, so a change is usually read within a second.
 gh-events' contract never carries titles, bodies, branch names or logins,
@@ -318,8 +318,8 @@ development tracking in `GET /api/dataset`:
 
 - `issue` is open while the issue is in `registry.json`, and closed after an
   `issue_closed` event.
-- `pullRequest` is `draft` or `open` from the registry, and `merged` after a
-  `merged` event. Checks map `SUCCESS` to passing, `FAILURE` and `ERROR` to
+- `pullRequest` is `draft` or `open` from the registry, `merged` after a
+  `merged` event, and `closed` after a `closed` event (closed without merging). Checks map `SUCCESS` to passing, `FAILURE` and `ERROR` to
   failing, `PENDING` and `EXPECTED` to pending, and no checks to none.
 - `branch` stays empty, because the contract has no branch names.
 
@@ -329,7 +329,10 @@ tools. When they change, the event stream sends `event: refresh`.
 
 Each new line in `events.jsonl` that matches an item becomes an `external`
 event from GitHub about that item, such as "Pull request #148: checks
-failed" or "Issue #391 closed". The text holds only the event and the
+failed" or "Issue #391 closed". gh-events rotates the log to
+`events.<YYYYMMDDTHHMMSSZ>.jsonl`; after a restart the reader finds the file
+it was reading by its stored inode under that name and finishes it before
+the new `events.jsonl`. The text holds only the event and the
 number. The event goes through the same path as `POST /api/events`, so it
 reaches the log, the item's log column, the animation and the sound. The
 reader follows the file by inode and byte offset, reads only whole lines,

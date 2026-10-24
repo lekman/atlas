@@ -18,6 +18,7 @@ import {
   closeSync,
   fstatSync,
   openSync,
+  readdirSync,
   readFileSync,
   readSync,
   watch,
@@ -142,7 +143,11 @@ interface Cursor {
   offset: number;
 }
 
-const finishedEvents = new Set<EventLine["event"]>(["merged", "issue_closed"]);
+const finishedEvents = new Set<EventLine["event"]>([
+  "merged",
+  "closed",
+  "issue_closed",
+]);
 
 export function createGithubReader({
   directory,
@@ -162,6 +167,7 @@ export function createGithubReader({
   let registryProblem: string | undefined;
   let eventsProblem: string | undefined;
   const merged = new Map<string, FinishedItem>();
+  const closedPullRequests = new Map<string, FinishedItem>();
   const closedIssues = new Map<string, FinishedItem>();
   const pullRequests = new Map<string, PullRequestMemory>();
   const counts = { applied: 0, unmatched: 0, skipped: 0, refused: 0 };
@@ -204,6 +210,7 @@ export function createGithubReader({
     };
     const key = referenceKey(row.repository, row.number);
     if (row.event === "merged") merged.set(key, finished);
+    if (row.event === "closed") closedPullRequests.set(key, finished);
     if (row.event === "issue_closed") closedIssues.set(key, finished);
   }
 
@@ -211,6 +218,7 @@ export function createGithubReader({
     return {
       registry: registry?.items ?? [],
       merged,
+      closedPullRequests,
       closedIssues,
       pullRequests,
     };
@@ -451,6 +459,35 @@ export function createGithubReader({
     file = undefined;
   }
 
+  /**
+   * The rotated events file with this inode, opened, if there is one.
+   * gh-events rotates to `events.<YYYYMMDDTHHMMSSZ>.jsonl` in the same folder
+   * and never writes to it again.
+   */
+  function openRotated(
+    inode: string,
+  ): { descriptor: number; inode: string } | undefined {
+    let names: string[];
+    try {
+      names = readdirSync(directory);
+    } catch {
+      return undefined;
+    }
+    for (const name of names) {
+      if (!/^events\.\d{8}T\d{6}Z\.jsonl$/.test(name)) continue;
+      let descriptor: number | undefined;
+      try {
+        descriptor = openSync(join(directory, name), "r");
+        const found = String(fstatSync(descriptor, { bigint: true }).ino);
+        if (found === inode) return { descriptor, inode: found };
+        closeSync(descriptor);
+      } catch {
+        if (descriptor !== undefined) closeSync(descriptor);
+      }
+    }
+    return undefined;
+  }
+
   /** Reads new lines of `events.jsonl`. Returns whether what the reader knows changed. */
   function readEvents(): boolean {
     if (!connection) return false;
@@ -472,6 +509,16 @@ export function createGithubReader({
           "events",
           `events.jsonl could not be opened (${failureName(error)})`,
         );
+    }
+    // After a restart nothing is open, so a file rotated since the last read
+    // is found by its stored inode among the rotated names and finished first.
+    if (!file && cursor && opened && cursor.inode !== opened.inode) {
+      const rotated = openRotated(cursor.inode);
+      if (rotated) {
+        file = rotated;
+        changed = drain(dataset) || changed;
+        closeFile();
+      }
     }
     if (file && file.inode === opened?.inode) closeSync(opened.descriptor);
     else {
