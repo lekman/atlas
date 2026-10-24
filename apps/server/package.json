@@ -20,7 +20,8 @@
     "@atlas/fixtures": "workspace:*",
     "@atlas/web": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.32.1",
-    "drizzle-orm": "^0.45.0"
+    "drizzle-orm": "^0.45.0",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/bun": "^1.3",

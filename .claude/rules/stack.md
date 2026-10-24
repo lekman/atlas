@@ -11,9 +11,9 @@ are switched on.
 - **Language:** TypeScript 6, strict, with `noUncheckedIndexedAccess`. No
   JavaScript files.
 - **Module system:** ESM (`"type": "module"` in every package.json).
-- **Validation:** Zod, imported from `zod/v4`. The package is held at 3.25
-  so a future MCP server, whose SDK pins Zod 3 for its own types, shares one
-  copy with ours.
+- **Validation:** Zod 4, imported from `zod/v4`. The MCP SDK accepts Zod 4,
+  and the root `package.json` overrides `zod` so the SDK shares our one
+  copy. Zod 3 had no fix for GHSA-mrhx-c7xc-m3w5.
 
 ## Testing
 
