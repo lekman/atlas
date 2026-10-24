@@ -16,13 +16,16 @@ import {
   decisionPosition,
   itemPosition,
   questionPosition,
+  questionSide,
   rings,
+  smallestOrbit,
   workPosition,
 } from "../layout";
 import {
   agentLabelSize,
   bodyScale,
   curveBetween,
+  itemSide,
   labelScale,
   pixels,
   pulsePhase,
@@ -31,10 +34,15 @@ import {
   showsAgentName,
   showsAgentStatus,
   withAlpha,
-  workstreamCaption,
-  workstreamCaptionRise,
   type LabelOptions,
 } from "../paint";
+import {
+  captionInset,
+  itemLabel,
+  labelAlign,
+  workstreamCaption,
+  workstreamCaptionRise,
+} from "../labels";
 import { hashString, seededRandom } from "../random";
 import type { PaintContext, WorldPainter } from "../types";
 import { bedRadius, bedSize, traceBed, yardSize } from "./beds";
@@ -65,6 +73,12 @@ import {
 } from "./vocabulary";
 
 const isFull = (paint: PaintContext) => paint.detail === "full";
+
+/**
+ * How far above a client's orbit its name board stands, in world units:
+ * over the top marker's caption, which rises 56 above the marker.
+ */
+const boardClearance = 110;
 
 /** A label with a soft paper halo, so it reads over washes and foliage. */
 function lettering(
@@ -691,7 +705,15 @@ export const gardenerPainter: WorldPainter = {
     if (!centre) return;
     const { palette, night } = gardenLook(paint.lighting);
     drawBed(paint, client.id, centre);
-    const top = centre.y - bedRadius(client.id, -Math.PI / 2, bedSize, 8);
+    // The name board stands above the bed, or above the top marker's
+    // caption when the orbit reaches past the bed.
+    const top =
+      centre.y -
+      Math.max(
+        bedRadius(client.id, -Math.PI / 2, bedSize, 8),
+        (paint.scene.layout.orbits.get(client.id) ?? smallestOrbit) +
+          boardClearance,
+      );
     if (night) {
       const entrance = gardenOf(paint.scene.layout).entrances.get(client.id);
       const board = boardFor(paint, centre, top, client.name, false);
@@ -803,13 +825,13 @@ export const gardenerPainter: WorldPainter = {
       lettering(
         paint,
         workstreamCaption(marker),
-        x,
+        x - marker.side * captionInset,
         y - workstreamCaptionRise,
         {
           size: 12,
           font: type.display,
           colour: palette.ink,
-          align: "center",
+          align: labelAlign(marker.side),
           baseline: "bottom",
         },
       );
@@ -874,11 +896,19 @@ export const gardenerPainter: WorldPainter = {
       context.fill();
     }
     if (isFull(paint) && paint.camera.scale > labelScale.item) {
-      lettering(paint, item.title, point.x + 10 * unit + 6, point.y + 2, {
-        size: 11.5,
-        font: type.body,
-        colour: palette.ink,
-      });
+      const side = itemSide(paint, item);
+      lettering(
+        paint,
+        itemLabel(item.title),
+        point.x + side * (10 * unit + 6),
+        point.y + 2,
+        {
+          size: 11.5,
+          font: type.body,
+          colour: palette.ink,
+          align: labelAlign(side),
+        },
+      );
     }
   },
 
@@ -970,11 +1000,13 @@ export const gardenerPainter: WorldPainter = {
       context.stroke();
     }
     if (isFull(paint) && paint.camera.scale > labelScale.requirement) {
-      lettering(paint, question.title, point.x, point.y + 26, {
+      // The question's words run away from the marker it holds up.
+      const side = questionSide(scene.layout, question);
+      lettering(paint, question.title, point.x - side * 30, point.y + 26, {
         size: 11.5,
         font: type.body,
         colour: palette.mute,
-        align: "center",
+        align: labelAlign(side),
         baseline: "top",
         italic: true,
       });

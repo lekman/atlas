@@ -17,11 +17,14 @@ import {
 import type { Point } from "./camera";
 import {
   computeLayout,
-  itemPosition,
+  itemStep,
   polar,
   rings,
+  taskPlace,
+  watchRadius,
   type Layout,
   type Orientation,
+  type TaskPlace,
 } from "./layout";
 
 export interface Motion {
@@ -151,12 +154,18 @@ export const vesselStandOff = 26;
 
 /**
  * The angle, from the horizontal, at which an agent sits from its task.
- * Every world writes a task's label to its right, along its row, and puts
- * the workstream marker, its caption and any open question to its left. So
- * the agent sits to the right, tipped well above or below the row, which
- * keeps it clear of the label and of the marker's caption.
+ * Every world writes a task's label outward along its row, and puts the
+ * workstream marker and any open question on the inner side. So the agent
+ * sits on the label's side, tipped well above or below the row.
  */
 const workingAngle = (55 * Math.PI) / 180;
+
+/**
+ * How far along its label's side an agent's spot moves for each row it
+ * clears, in world units: more than `vesselClearance`, so agents at
+ * neighbouring tasks in one group never share a spot.
+ */
+const workingRowShift = 45;
 
 /**
  * The task an agent works at `time`, as an item id. A running agent with
@@ -177,24 +186,31 @@ export function currentTask(
 }
 
 /**
- * The spot beside a task where an agent holds. It is to the right of the
- * task, above its row when the task is in the upper half of its client and
- * below it in the lower half, so the agent stays on the side away from the
- * client's centre. `slot` gives a second agent at the same task the other
- * side of the row, and a third and fourth spots further out.
+ * The spot beside a task where an agent holds: on the side its label runs,
+ * tipped above or below its group, never on another item's label. The
+ * agent goes past the nearer end of the group, the end with fewer items
+ * between, or away from the client's centre when both are as near. Each
+ * row it clears moves the spot further along, so agents at neighbouring
+ * tasks keep apart. `slot` gives a second agent at the same task the other
+ * end of the group, and a third and fourth spots further out.
  */
 export function workingSpot(
-  task: Point,
-  centre: Point,
+  place: TaskPlace,
   slot = 0,
   distance = workingDistance,
 ): Point {
-  const away = task.y > centre.y ? 1 : -1;
-  const side = slot % 2 === 0 ? away : -away;
+  const nearer =
+    place.above < place.below ? -1 : place.above > place.below ? 1 : place.away;
+  const vertical = slot % 2 === 0 ? nearer : -nearer;
+  const rows = vertical < 0 ? place.above : place.below;
   const reach = distance * (1 + Math.floor(slot / 2) * 0.45);
   return {
-    x: task.x + Math.cos(workingAngle) * reach,
-    y: task.y + side * Math.sin(workingAngle) * reach,
+    x:
+      place.task.x +
+      place.side * (Math.cos(workingAngle) * reach + rows * workingRowShift),
+    y:
+      place.task.y +
+      vertical * (Math.sin(workingAngle) * reach + rows * itemStep),
   };
 }
 
@@ -466,8 +482,8 @@ export class Scene {
       (candidate) => candidate.id === itemId,
     );
     if (!item) return null;
-    const task = itemPosition(this.layout, item);
-    const centre = this.layout.clients.get(item.clientId) ?? { x: 0, y: 0 };
+    const place = taskPlace(this.layout, item);
+    const { task } = place;
     // Every agent that works this task keeps its spot here while it is
     // away at another, so no agent moves because a neighbour did. Agents
     // take spots before vessels, so a launch never moves an agent. Within
@@ -488,10 +504,10 @@ export class Scene {
       sharing.findIndex((other) => other.id === agent.id),
     );
     if (!isVessel(agent))
-      return { itemId, task, spot: workingSpot(task, centre, slot, distance) };
+      return { itemId, task, spot: workingSpot(place, slot, distance) };
     const kept = this.keptSpots(agent, time, reducedMotion, distance);
     const candidates = Array.from({ length: 8 }, (_, index) =>
-      workingSpot(task, centre, slot + index, distance),
+      workingSpot(place, slot + index, distance),
     );
     const clear = (spot: Point) =>
       kept.every(
@@ -529,7 +545,7 @@ export class Scene {
     return {
       itemId,
       task,
-      spot: spot ?? workingSpot(task, centre, slot, distance),
+      spot: spot ?? workingSpot(place, slot, distance),
     };
   }
 
@@ -608,7 +624,7 @@ export class Scene {
         return polar(
           centre,
           time * (reducedMotion ? 0 : 0.12) + phase,
-          isHome ? rings.homeWatch : rings.watch,
+          isHome ? rings.homeWatch : watchRadius(this.layout, clientId),
         );
       case "waiting":
         return work ? work.spot : { x: centre.x + 40, y: centre.y - 40 };

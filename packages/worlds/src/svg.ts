@@ -9,8 +9,8 @@
  */
 import { clientOfAgent, isVessel, type Dataset } from "@atlas/core";
 
+import { captionInset, labelAnchor, workstreamCaption } from "./labels";
 import { computeLayout, type Orientation } from "./layout";
-import { workstreamCaption } from "./paint";
 import { paletteFor } from "./lighting";
 import { Scene, vesselScale } from "./scene";
 import type { Lighting, World } from "./types";
@@ -82,11 +82,14 @@ export function renderSnapshot(
 
   for (const marker of layout.markers) {
     const { x, y } = marker.position;
+    // The caption on the map is shortened and runs outward, as on the
+    // canvas; the tooltip keeps the full title.
     const caption = workstreamCaption(marker);
+    const full = workstreamCaption(marker, Number.POSITIVE_INFINITY);
     parts.push(
-      `<g><title>${escapeXml(`${caption}: ${marker.workstreamId ? vocabulary.workstream : "work with no workstream"}`)}</title>`,
+      `<g><title>${escapeXml(`${full}: ${marker.workstreamId ? vocabulary.workstream : "work with no workstream"}`)}</title>`,
       `<rect x="${(x - 12).toFixed(1)}" y="${(y - 12).toFixed(1)}" width="24" height="24" rx="5" fill="${palette.ground}" stroke="${palette.ink}" stroke-width="3"${marker.workstreamId ? "" : ' stroke-dasharray="5 4"'}/>`,
-      `<text x="${x.toFixed(1)}" y="${(y - 26).toFixed(1)}" text-anchor="middle" font-family="${font}" font-size="24" fill="${palette.ink}">${escapeXml(caption)}</text>`,
+      `<text x="${(x - marker.side * captionInset).toFixed(1)}" y="${(y - 26).toFixed(1)}" text-anchor="${labelAnchor(marker.side)}" font-family="${font}" font-size="24" fill="${palette.ink}">${escapeXml(caption)}</text>`,
     );
     for (const id of marker.shown) {
       const point = layout.fixed.get(id);

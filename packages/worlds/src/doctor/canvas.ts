@@ -14,11 +14,17 @@
 import { externalSourceNames, isVessel } from "@atlas/core";
 
 import { worldToScreen, type Point } from "../camera";
-import { decisionPosition, itemPosition, questionPosition } from "../layout";
+import {
+  decisionPosition,
+  itemPosition,
+  questionPosition,
+  questionSide,
+} from "../layout";
 import {
   agentLabelSize,
   bodyScale,
   clientIdOfAgent,
+  itemSide,
   label,
   labelScale,
   pixels,
@@ -28,9 +34,14 @@ import {
   showsAgentName,
   showsAgentStatus,
   withAlpha,
+} from "../paint";
+import {
+  captionInset,
+  itemLabel,
+  labelAlign,
   workstreamCaption,
   workstreamCaptionRise,
-} from "../paint";
+} from "../labels";
 import type { PaintContext, WorldPainter } from "../types";
 import {
   department,
@@ -653,17 +664,21 @@ export const doctorPainter: WorldPainter = {
     }
 
     if (isFull(paint) && paint.camera.scale > labelScale.requirement) {
-      const reach = size.along + 14;
-      const x = point.x + Math.cos(angle) * reach;
-      const y = point.y + Math.sin(angle) * reach;
       const cos = Math.cos(angle);
       const sin = Math.sin(angle);
+      // A wing to the side of the hospital signs below itself, so its
+      // words stay inside the orbit, clear of the workstreams beyond.
+      const side = Math.abs(cos) > 0.45;
+      const reach = size.along + 14;
+      const x = side ? point.x : point.x + cos * reach;
+      const y = side ? point.y + size.across + 8 : point.y + sin * reach;
       label(paint, requirement.title, x, y, {
         size: 10,
         font: type.mono,
         colour: done ? palette.mute : shade.labelDepartment,
-        align: cos > 0.45 ? "left" : cos < -0.45 ? "right" : "center",
-        baseline: sin > 0.45 ? "top" : sin < -0.45 ? "bottom" : "middle",
+        align: "center",
+        baseline:
+          side || sin > 0.45 ? "top" : sin < -0.45 ? "bottom" : "middle",
       });
     }
   },
@@ -704,14 +719,20 @@ export const doctorPainter: WorldPainter = {
     }
     context.restore();
     if (isFull(paint) && paint.camera.scale > labelScale.requirement) {
-      label(paint, workstreamCaption(marker), x, y - workstreamCaptionRise, {
-        size: 10,
-        font: type.mono,
-        colour: palette.ink,
-        align: "center",
-        baseline: "bottom",
-        italic: unsorted,
-      });
+      label(
+        paint,
+        workstreamCaption(marker),
+        x - marker.side * captionInset,
+        y - workstreamCaptionRise,
+        {
+          size: 10,
+          font: type.mono,
+          colour: palette.ink,
+          align: labelAlign(marker.side),
+          baseline: "bottom",
+          italic: unsorted,
+        },
+      );
     }
   },
 
@@ -741,11 +762,19 @@ export const doctorPainter: WorldPainter = {
     const angle = from ? Math.atan2(point.y - from.y, point.x - from.x) : 0;
     drawBed(paint, point, angle, item.state, item.priority === "high");
     if (isFull(paint) && paint.camera.scale > labelScale.item) {
-      label(paint, item.title, point.x + pixels(paint, 16), point.y, {
-        size: 10,
-        font: type.mono,
-        colour: shade.labelItem,
-      });
+      const side = itemSide(paint, item);
+      label(
+        paint,
+        itemLabel(item.title),
+        point.x + side * pixels(paint, 16),
+        point.y,
+        {
+          size: 10,
+          font: type.mono,
+          colour: shade.labelItem,
+          align: labelAlign(side),
+        },
+      );
     }
   },
 
@@ -832,13 +861,13 @@ export const doctorPainter: WorldPainter = {
       label(
         paint,
         `Result pending · ${question.title}`,
-        point.x - pixels(paint, 12),
+        point.x + questionSide(scene.layout, question) * pixels(paint, 12),
         point.y - pixels(paint, 16),
         {
           size: 10,
           font: type.mono,
           colour: shade.sample,
-          align: "right",
+          align: labelAlign(questionSide(scene.layout, question)),
         },
       );
     }
