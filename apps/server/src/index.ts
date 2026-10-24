@@ -25,6 +25,7 @@ export {
 } from "./store";
 export {
   claimantOf,
+  mapItemLogRows,
   mapTaskRows,
   mergeTasks,
   onlyClients,
@@ -32,6 +33,7 @@ export {
   summariseUnknownClaims,
   type ClientRow,
   type HistoryRow,
+  type ItemLogRow,
   type ItemRow,
   type MergedDataset,
   type TaskClaim,
@@ -45,6 +47,7 @@ export {
 export {
   createTaskCache,
   failureName,
+  itemLogLimit,
   noTaskSource,
   type TaskCache,
   type TaskCacheOptions,
@@ -54,6 +57,7 @@ export {
   passwordFromCommand,
   PasswordCommandFailed,
   postgresTaskSource,
+  readItemLogRows,
   readTaskRows,
   splitCommand,
   type TaskDatabaseSettings,

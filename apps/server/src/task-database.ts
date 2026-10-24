@@ -6,9 +6,11 @@
 import { SQL } from "bun";
 
 import {
+  mapItemLogRows,
   mapTaskRows,
   type ClientRow,
   type HistoryRow,
+  type ItemLogRow,
   type ItemRow,
   type TaskRows,
   type TaskSource,
@@ -67,28 +69,57 @@ export function readTaskRows(sql: SQL): Promise<TaskRows> {
 }
 
 /**
+ * One item's log, newest first, in a read-only transaction. `by` is a
+ * keyword in SQL, so the column is quoted.
+ */
+export function readItemLogRows(
+  sql: SQL,
+  itemId: string,
+  limit: number,
+): Promise<ItemLogRow[]> {
+  return sql.begin(async (transaction) => {
+    await transaction`SET TRANSACTION READ ONLY`;
+    const rows = await transaction<ItemLogRow[]>`
+      SELECT at, status::text, note, "by"
+      FROM item_log
+      WHERE item_id = ${itemId}
+      ORDER BY at DESC
+      LIMIT ${limit}`;
+    return [...rows];
+  });
+}
+
+/**
  * A task source that reads Postgres. One connection, closed when idle, so
  * a poll every half minute holds nothing open between reads.
  */
 export function postgresTaskSource(settings: TaskDatabaseSettings): TaskSource {
   let sql: SQL | undefined;
+  async function connection(): Promise<SQL> {
+    if (!sql) {
+      const password = settings.password ? await settings.password() : "";
+      sql = new SQL({
+        adapter: "postgres",
+        hostname: settings.hostname,
+        port: settings.port,
+        database: settings.database,
+        username: settings.username,
+        password,
+        max: 1,
+        idleTimeout: 10,
+        connectionTimeout: connectionTimeoutSeconds,
+      });
+    }
+    return sql;
+  }
   return {
     async read() {
-      if (!sql) {
-        const password = settings.password ? await settings.password() : "";
-        sql = new SQL({
-          adapter: "postgres",
-          hostname: settings.hostname,
-          port: settings.port,
-          database: settings.database,
-          username: settings.username,
-          password,
-          max: 1,
-          idleTimeout: 10,
-          connectionTimeout: connectionTimeoutSeconds,
-        });
-      }
-      return mapTaskRows(await readTaskRows(sql));
+      return mapTaskRows(await readTaskRows(await connection()));
+    },
+    async readItemLog(itemId, limit) {
+      return mapItemLogRows(
+        await readItemLogRows(await connection(), itemId, limit),
+      );
     },
   };
 }

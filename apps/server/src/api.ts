@@ -2,14 +2,15 @@
  * The HTTP API and the event stream. Every view and every agent reads the
  * same routes; the web app is served beside them from the same origin.
  *
- * | Route              | What it does                                            |
- * | ------------------ | ------------------------------------------------------- |
- * | GET  /api/health   | Whether the server is up, its version and task counts   |
- * | GET  /api/dataset  | Every record, and the last event they include           |
- * | GET  /api/events   | The event log after `?after=<sequence>`, oldest first   |
- * | POST /api/events   | Adds one event, writes its effect and streams it        |
- * | GET  /api/stream   | Server-sent events after `?after=`, then each new one   |
- * | POST /mcp          | The MCP tools agents call (see `mcp.ts`)                |
+ * | Route                   | What it does                                          |
+ * | ----------------------- | ----------------------------------------------------- |
+ * | GET  /api/health        | Whether the server is up, its version and task counts |
+ * | GET  /api/dataset       | Every record, and the last event they include         |
+ * | GET  /api/events        | The event log after `?after=<sequence>`, oldest first |
+ * | POST /api/events        | Adds one event, writes its effect and streams it      |
+ * | GET  /api/stream        | Server-sent events after `?after=`, then each new one |
+ * | GET  /api/items/:id/log | One item's log from the task database, newest first   |
+ * | POST /mcp               | The MCP tools agents call (see `mcp.ts`)              |
  *
  * With a task source, every read lays the task database's clients,
  * workstreams and tasks over SQLite (see `task-source.ts`), and the stream
@@ -19,7 +20,7 @@
  */
 import { ZodError } from "zod/v4";
 
-import type { AtlasEvent } from "@atlas/core";
+import { Identifier, type AtlasEvent, type ItemLog } from "@atlas/core";
 
 import type { AtlasDatabase } from "./database";
 import {
@@ -48,6 +49,9 @@ import { mergeTasks, type MergedDataset } from "./task-source";
 const maximumBodyBytes = 64 * 1024;
 /** How often an idle stream sends a comment, so proxies keep it open. */
 const keepAliveMilliseconds = 25_000;
+
+/** The item log route: `/api/items/<id>/log`. */
+const itemLogPath = /^\/api\/items\/([^/]+)\/log$/;
 
 /** The last event the dataset in a response already holds. */
 export const sequenceHeader = "x-atlas-sequence";
@@ -257,6 +261,27 @@ export function createApi({
     });
   }
 
+  /**
+   * One item's log. Empty without a task source, and for an item the task
+   * source does not hold. The log line names the failure only.
+   */
+  async function itemLog(rawId: string): Promise<Response> {
+    let id: string;
+    try {
+      id = decodeURIComponent(rawId);
+    } catch {
+      return problem(400, "the item id is not a valid identifier");
+    }
+    if (!Identifier.safeParse(id).success)
+      return problem(400, "the item id is not a valid identifier");
+    if (!tasks) return json({ entries: [] } satisfies ItemLog);
+    try {
+      return json({ entries: await tasks.readItemLog(id) } satisfies ItemLog);
+    } catch {
+      return problem(503, "the task database did not answer");
+    }
+  }
+
   async function postEvent(request: Request): Promise<Response> {
     // A JSON content type makes a cross-site form or script send a preflight,
     // which this server never answers, so another site cannot post here
@@ -332,6 +357,9 @@ export function createApi({
         );
 
       const route = `${request.method} ${url.pathname}`;
+      const itemLogMatch = itemLogPath.exec(url.pathname);
+      if (itemLogMatch?.[1] && request.method === "GET")
+        return itemLog(itemLogMatch[1]);
       switch (route) {
         case "GET /api/dataset": {
           // Read together, so the page knows which events the dataset holds.
