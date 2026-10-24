@@ -176,6 +176,51 @@ export const TaskHistoryEntry = z.object({
 });
 export type TaskHistoryEntry = z.infer<typeof TaskHistoryEntry>;
 
+export const issueStates = ["open", "closed"] as const;
+/** The GitHub issue the work is done for. Its key may repeat the tracker's. */
+export const TrackedIssue = z.object({
+  key: z.string().min(1),
+  url: z.url(),
+  state: z.enum(issueStates),
+});
+export type TrackedIssue = z.infer<typeof TrackedIssue>;
+
+/** A git worktree: a second checkout of the repository, in its own folder. */
+export const Worktree = z.object({
+  path: z.string().min(1),
+});
+export type Worktree = z.infer<typeof Worktree>;
+
+/** The branch the work is on, and the worktree it is checked out in, if any. */
+export const TrackedBranch = z.object({
+  name: z.string().min(1),
+  worktree: Worktree.optional(),
+});
+export type TrackedBranch = z.infer<typeof TrackedBranch>;
+
+export const pullRequestStates = ["draft", "open", "merged", "closed"] as const;
+export const checkStates = ["passing", "failing", "pending", "none"] as const;
+/** The pull request for the branch, and how its checks stand. */
+export const TrackedPullRequest = z.object({
+  number: z.number().int().positive(),
+  url: z.url(),
+  state: z.enum(pullRequestStates),
+  checks: z.enum(checkStates),
+});
+export type TrackedPullRequest = z.infer<typeof TrackedPullRequest>;
+
+/**
+ * Where the development of a backlog item stands: its issue, its branch
+ * and its pull request. Each part is optional, because work often has an
+ * issue before it has a branch, and a branch before it has a pull request.
+ */
+export const DevelopmentTracking = z.object({
+  issue: TrackedIssue.optional(),
+  branch: TrackedBranch.optional(),
+  pullRequest: TrackedPullRequest.optional(),
+});
+export type DevelopmentTracking = z.infer<typeof DevelopmentTracking>;
+
 export const backlogStates = ["todo", "doing", "review", "done"] as const;
 /**
  * A backlog item, which the day plan calls a task. Every planning field is
@@ -204,6 +249,8 @@ export const BacklogItem = z.object({
   /** The details document that explains it. */
   detailsId: Identifier.optional(),
   history: z.array(TaskHistoryEntry).optional(),
+  /** The issue, branch and pull request the work is developed on. */
+  development: DevelopmentTracking.optional(),
 });
 export type BacklogItem = z.infer<typeof BacklogItem>;
 
