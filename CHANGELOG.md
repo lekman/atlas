@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.6.0](https://github.com/lekman/atlas/compare/v0.5.0...v0.6.0) (2026-10-24)
+
+
+### Features
+
+* **ui:** work an item from the HUD, with a details pane ([#35](https://github.com/lekman/atlas/issues/35)) ([444c2dc](https://github.com/lekman/atlas/commit/444c2dc93d2c6c3ef9c842ba1883e3efee948a8d))
+* **web:** offer only the Astronomer world for now ([#34](https://github.com/lekman/atlas/issues/34)) ([602daee](https://github.com/lekman/atlas/commit/602daee09c3cdb15f8750017328969d6da6d4a5a))
+* **worlds:** agents fly to their tasks and work them ([#32](https://github.com/lekman/atlas/issues/32)) ([4db25ff](https://github.com/lekman/atlas/commit/4db25ffa63834ef6a0e08e7779f815d30d3ee570))
+* **worlds:** subagents launch from their ship as small vessels ([#36](https://github.com/lekman/atlas/issues/36)) ([f5a8254](https://github.com/lekman/atlas/commit/f5a825488550880a0cb8f94cea7f7ea097e5c259))
+
 ## [0.5.0](https://github.com/lekman/atlas/compare/v0.4.1...v0.5.0) (2026-10-24)
 
 
