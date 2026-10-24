@@ -23,6 +23,7 @@ import {
   decisionPosition,
   itemPosition,
   questionPosition,
+  questionSide,
   rings,
   workPosition,
 } from "../layout";
@@ -30,6 +31,7 @@ import {
   agentLabelSize,
   bodyScale,
   curveBetween,
+  itemSide,
   label,
   labelScale,
   pixels,
@@ -39,9 +41,14 @@ import {
   showsAgentName,
   showsAgentStatus,
   withAlpha,
+} from "../paint";
+import {
+  captionInset,
+  itemLabel,
+  labelAlign,
   workstreamCaption,
   workstreamCaptionRise,
-} from "../paint";
+} from "../labels";
 import { hashString, seededRandom } from "../random";
 import type { Palette, PaintContext, WorldPainter } from "../types";
 import { arcPoints, curvePoints, paintBrush, swell } from "./brush";
@@ -1426,14 +1433,20 @@ export const samuraiPainter: WorldPainter = {
     }
     context.restore();
     if (isFull(paint) && paint.camera.scale > labelScale.requirement) {
-      text(paint, workstreamCaption(marker), x, y - workstreamCaptionRise, {
-        size: 12,
-        font: type.body,
-        colour: look.palette.ink,
-        align: "center",
-        baseline: "bottom",
-        italic: unsorted,
-      });
+      text(
+        paint,
+        workstreamCaption(marker),
+        x - marker.side * captionInset,
+        y - workstreamCaptionRise,
+        {
+          size: 12,
+          font: type.body,
+          colour: look.palette.ink,
+          align: labelAlign(marker.side),
+          baseline: "bottom",
+          italic: unsorted,
+        },
+      );
     }
   },
 
@@ -1523,12 +1536,20 @@ export const samuraiPainter: WorldPainter = {
     }
     context.restore();
     if (isFull(paint) && paint.camera.scale > labelScale.item) {
-      text(paint, item.title, point.x + radius + 7, point.y, {
-        size: 11.5,
-        font: type.body,
-        colour: lookOf(paint).palette.ink,
-        alpha: 0.92,
-      });
+      const side = itemSide(paint, item);
+      text(
+        paint,
+        itemLabel(item.title),
+        point.x + side * (radius + 7),
+        point.y,
+        {
+          size: 11.5,
+          font: type.body,
+          colour: lookOf(paint).palette.ink,
+          alpha: 0.92,
+          align: labelAlign(side),
+        },
+      );
     }
   },
 
@@ -1585,21 +1606,31 @@ export const samuraiPainter: WorldPainter = {
       attentionRing(paint, point, 19, 26, look.palette.status.waiting, phase);
     }
     if (isFull(paint) && paint.camera.scale > labelScale.requirement) {
-      text(paint, question.title, point.x + 22, point.y - pixels(paint, 6), {
-        size: 11.5,
-        font: type.body,
-        colour: look.palette.ink,
-      });
+      // The question's words run away from the marker it holds up.
+      const side = questionSide(scene.layout, question);
+      text(
+        paint,
+        question.title,
+        point.x + side * 22,
+        point.y - pixels(paint, 6),
+        {
+          size: 11.5,
+          font: type.body,
+          colour: look.palette.ink,
+          align: labelAlign(side),
+        },
+      );
       text(
         paint,
         `Report for ${question.asks}`,
-        point.x + 22,
+        point.x + side * 22,
         point.y + pixels(paint, 8),
         {
           size: 10,
           font: type.mono,
           colour: forYou ? look.palette.status.waiting : look.palette.mute,
           letterSpacing: 0.4,
+          align: labelAlign(side),
         },
       );
     }

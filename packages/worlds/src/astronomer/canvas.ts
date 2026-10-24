@@ -10,12 +10,16 @@ import {
   decisionPosition,
   itemPosition,
   questionPosition,
+  questionSide,
   rings,
+  smallestOrbit,
+  watchRadius,
 } from "../layout";
 import {
   agentLabelSize,
   bodyScale,
   curveBetween,
+  itemSide,
   label,
   labelScale,
   pixels,
@@ -24,9 +28,14 @@ import {
   showsAgentName,
   showsAgentStatus,
   withAlpha,
+} from "../paint";
+import {
+  captionInset,
+  itemLabel,
+  labelAlign,
   workstreamCaption,
   workstreamCaptionRise,
-} from "../paint";
+} from "../labels";
 import { seededRandom } from "../random";
 import type { Motion } from "../scene";
 import type { PaintContext, WorldPainter } from "../types";
@@ -302,6 +311,7 @@ export const astronomerPainter: WorldPainter = {
     for (const [ring, alpha, dashed] of [
       [rings.requirement, 0.18, false],
       [rings.homeWatch, 0.12, true],
+      [paint.scene.layout.orbits.get(home.id) ?? smallestOrbit, 0.16, false],
     ] as const) {
       context.beginPath();
       context.arc(centre.x, centre.y, ring, 0, Math.PI * 2);
@@ -471,9 +481,14 @@ export const astronomerPainter: WorldPainter = {
     context.arc(centre.x, centre.y, 9, 0, Math.PI * 2);
     context.fill();
 
+    // The station orbit is a thin line through the client's workstream
+    // stations; the watch ring, dashed and ticked, sits inside it.
+    const orbit = paint.scene.layout.orbits.get(client.id) ?? smallestOrbit;
+    const watch = watchRadius(paint.scene.layout, client.id);
     for (const [ring, alpha, dashed] of [
       [rings.requirement, 0.2, false],
-      [rings.watch, 0.1, true],
+      [watch, 0.1, true],
+      [orbit, 0.16, false],
     ] as const) {
       context.beginPath();
       context.arc(centre.x, centre.y, ring, 0, Math.PI * 2);
@@ -489,12 +504,12 @@ export const astronomerPainter: WorldPainter = {
       const length = tick % 6 ? 6 : 14;
       context.beginPath();
       context.moveTo(
-        centre.x + Math.cos(angle) * rings.watch,
-        centre.y + Math.sin(angle) * rings.watch,
+        centre.x + Math.cos(angle) * watch,
+        centre.y + Math.sin(angle) * watch,
       );
       context.lineTo(
-        centre.x + Math.cos(angle) * (rings.watch + length),
-        centre.y + Math.sin(angle) * (rings.watch + length),
+        centre.x + Math.cos(angle) * (watch + length),
+        centre.y + Math.sin(angle) * (watch + length),
       );
       context.stroke();
     }
@@ -509,7 +524,7 @@ export const astronomerPainter: WorldPainter = {
         ? `[ ${client.name.toUpperCase()} ]`
         : client.name.toUpperCase(),
       centre.x,
-      centre.y - (isFull(paint) ? 360 : 250),
+      centre.y - (isFull(paint) ? orbit + 150 : 250),
       {
         size: isFull(paint)
           ? Math.max(10, Math.min(15, (15 * paint.camera.scale) / 0.4))
@@ -525,7 +540,7 @@ export const astronomerPainter: WorldPainter = {
         paint,
         `SYS-${String(index).padStart(2, "0")} · ${probes} ${probes === 1 ? "PROBE" : "PROBES"}`,
         centre.x,
-        centre.y - 360 + pixels(paint, 17),
+        centre.y - orbit - 150 + pixels(paint, 17),
         {
           size: 9.5,
           font: type.mono,
@@ -617,13 +632,13 @@ export const astronomerPainter: WorldPainter = {
       label(
         paint,
         workstreamCaption(marker).toUpperCase(),
-        x,
+        x - marker.side * captionInset,
         y - workstreamCaptionRise,
         {
           size: 9.5,
           font: type.mono,
           colour: "#bde8ff",
-          align: "center",
+          align: labelAlign(marker.side),
           baseline: "bottom",
           letterSpacing: 0.6,
         },
@@ -685,10 +700,12 @@ export const astronomerPainter: WorldPainter = {
       context.stroke();
     }
     if (isFull(paint) && paint.camera.scale > labelScale.item) {
-      label(paint, item.title, point.x + 12, point.y, {
+      const side = itemSide(paint, item);
+      label(paint, itemLabel(item.title), point.x + side * 12, point.y, {
         size: 10,
         font: type.mono,
         colour: "#8fb4c8",
+        align: labelAlign(side),
       });
     }
   },
@@ -765,16 +782,17 @@ export const astronomerPainter: WorldPainter = {
       context.setLineDash([]);
     }
     if (isFull(paint) && paint.camera.scale > labelScale.requirement) {
+      const side = questionSide(scene.layout, question);
       label(
         paint,
         `? ${question.title}`,
-        point.x - pixels(paint, 8),
+        point.x + side * pixels(paint, 8),
         point.y - pixels(paint, 14),
         {
           size: 10,
           font: type.mono,
           colour: "#ffcf8a",
-          align: "right",
+          align: labelAlign(side),
         },
       );
     }

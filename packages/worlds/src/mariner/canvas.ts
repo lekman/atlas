@@ -16,12 +16,15 @@ import {
   decisionPosition,
   itemPosition,
   questionPosition,
+  questionSide,
   rings,
+  smallestOrbit,
 } from "../layout";
 import {
   agentLabelSize,
   bodyScale,
   curveBetween,
+  itemSide,
   label,
   labelScale,
   pixels,
@@ -31,9 +34,14 @@ import {
   showsAgentName,
   showsAgentStatus,
   withAlpha,
+} from "../paint";
+import {
+  captionInset,
+  itemLabel,
+  labelAlign,
   workstreamCaption,
   workstreamCaptionRise,
-} from "../paint";
+} from "../labels";
 import { seededRandom } from "../random";
 import type { Motion } from "../scene";
 import type { PaintContext, WorldPainter } from "../types";
@@ -526,6 +534,20 @@ export const marinerPainter: WorldPainter = {
     const palette = paletteOf(paint);
     const centre = paint.scene.layout.clients.get(client.id);
     if (!centre) return;
+    // The sea lane: a faint dashed ring through the client's buoys.
+    context.setLineDash([pixels(paint, 4), pixels(paint, 6)]);
+    context.strokeStyle = inksOf(paint).orbit;
+    context.lineWidth = pixels(paint, 1);
+    context.beginPath();
+    context.arc(
+      centre.x,
+      centre.y,
+      paint.scene.layout.orbits.get(client.id) ?? smallestOrbit,
+      0,
+      Math.PI * 2,
+    );
+    context.stroke();
+    context.setLineDash([]);
     drawLand(paint, client.id, centre, islandRadius);
     context.strokeStyle = inksOf(paint).hachure;
     context.lineWidth = pixels(paint, 0.8);
@@ -665,14 +687,20 @@ export const marinerPainter: WorldPainter = {
     }
     context.restore();
     if (isFull(paint) && paint.camera.scale > labelScale.requirement) {
-      label(paint, workstreamCaption(marker), x, y - workstreamCaptionRise, {
-        size: 12,
-        font: type.mono,
-        colour: palette.ink,
-        align: "center",
-        baseline: "bottom",
-        italic: unsorted,
-      });
+      label(
+        paint,
+        workstreamCaption(marker),
+        x - marker.side * captionInset,
+        y - workstreamCaptionRise,
+        {
+          size: 12,
+          font: type.mono,
+          colour: palette.ink,
+          align: labelAlign(marker.side),
+          baseline: "bottom",
+          italic: unsorted,
+        },
+      );
     }
   },
 
@@ -726,11 +754,13 @@ export const marinerPainter: WorldPainter = {
     }
     context.restore();
     if (isFull(paint) && paint.camera.scale > labelScale.item) {
-      label(paint, item.title, point.x + 14, point.y, {
+      const side = itemSide(paint, item);
+      label(paint, itemLabel(item.title), point.x + side * 14, point.y, {
         size: 11.5,
         font: type.mono,
         colour: ink.cargoLabel,
         alpha: 0.9,
+        align: labelAlign(side),
       });
     }
   },
@@ -782,12 +812,20 @@ export const marinerPainter: WorldPainter = {
         align: "center",
         letterSpacing: 2,
       });
-      label(paint, question.title, point.x, point.y + pixels(paint, 8), {
-        size: 11.5,
-        font: type.mono,
-        colour: ink.fogLabel,
-        align: "center",
-      });
+      // The question's words run away from the buoy it holds up.
+      const side = questionSide(scene.layout, question);
+      label(
+        paint,
+        question.title,
+        point.x - side * 30,
+        point.y + pixels(paint, 8),
+        {
+          size: 11.5,
+          font: type.mono,
+          colour: ink.fogLabel,
+          align: labelAlign(side),
+        },
+      );
     }
     context.restore();
   },

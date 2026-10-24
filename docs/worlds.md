@@ -75,25 +75,46 @@ choices: [Mariner](worlds/mariner.md), [Woodsman](worlds/woodsman.md),
 
 ### How Work Is Drawn
 
-A client's work is grouped by workstream. Each workstream is a marker
-beside its client, in two columns either side of it in landscape and one
-column through it in portrait. Beside each marker sit at most five items,
-the most urgent first: high priority before normal before low, then the
-earliest planned day, with unscheduled work last. The marker's caption
-counts the rest ("Quality · 3 more"). Work with no workstream gathers at a
-marker called Unsorted, in every world.
+A client's work is grouped by workstream. Each workstream is a marker on
+one orbit round its client, the same in every world and in both
+orientations. The markers are evenly spaced, starting at the top and
+going clockwise in workstream order, with a marker called Unsorted last
+for work with no workstream. The orbit grows with the number of markers,
+so no group's labels touch another's even when every label is at its
+longest. Clients are spread apart to fit their systems, with home in the
+middle. Astronomer draws the orbit as a thin line through the stations,
+and Mariner as a dashed sea lane through the buoys.
+
+Beside each marker sit at most five items, the most urgent first: high
+priority before normal before low, then the earliest planned day, with
+unscheduled work last. The marker's caption counts the rest ("Quality ·
+3 more"). Labels run outward, away from the client. On the right half of
+the orbit, items sit to the right of their marker with labels to their
+right; on the left half, to the left, with labels right-aligned to their
+left. The caption runs the same way.
 
 Only work in progress or in review, or planned for a day and not done, is
-drawn. Requirements sit in the space between the columns, decisions close
-in to the client, and an open question floats left of the marker of the
-item it blocks.
+drawn. Requirements, decisions, docked agents and watchers stay inside
+the orbit. An open question floats on the inner side of the marker of the
+item it blocks, its words running away from the marker.
+
+An item's label on the map shows at most 42 characters, and a marker's
+title at most 36. A longer one is cut at a word where it can be, or
+mid-word when a single word is too long, and ends in "…". The count of
+items not drawn is never cut. The full title stays in the HUD, the
+inspector, the Details pane and every accessible name. The still SVG map
+shortens its captions the same way, and keeps the full title in each
+caption's tooltip; it draws items as dots without labels.
 
 ### How Agents Work
 
 A running agent works its task. It flies to a spot beside the item and
-holds there, facing it. The spot is to the item's right, above its row in
-the upper half of the client and below it in the lower half, so the agent
-covers neither the item nor its label. An agent working several items
+holds there, facing it. The spot is on the side the item's label runs,
+past the nearer end of its group: above the group for the upper items,
+below it for the lower ones, and away from the client's centre for the
+middle one. Each row it clears moves the spot further along, so agents at
+neighbouring items keep apart, and no agent covers an item's label or its
+marker's caption. An agent working several items
 works each for 20 seconds, then flies to the next, and round again. In
 Astronomer the probe mines its moon with a laser, with sparks and
 fragments drifting off. In Mariner the vessel lies alongside its cargo and

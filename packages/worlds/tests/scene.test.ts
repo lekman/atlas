@@ -6,21 +6,31 @@ import {
   type AtlasEvent,
   type Dataset,
 } from "@atlas/core";
-import { busyClientId, busyDataset, sampleDataset } from "@atlas/fixtures";
+import {
+  busyClientId,
+  busyDataset,
+  crowdedClientId,
+  crowdedDataset,
+  sampleDataset,
+} from "@atlas/fixtures";
 
 import {
   advanceMotion,
   arrivalDistance,
+  captionInset,
   computeLayout,
   currentTask,
   fitAroundPanels,
   fitCamera,
   focusOn,
   hoverAmplitude,
+  itemLabel,
   itemPosition,
+  orbitRadius,
   Scene,
   shownPerWorkstream,
   taskDwellSeconds,
+  taskPlace,
   unsortedTitle,
   vesselArrivalDistance,
   vesselBeamClearance,
@@ -169,12 +179,128 @@ describe("a busy client", () => {
   }
 });
 
+describe("workstreams on an orbit", () => {
+  const markersOf = (dataset: Dataset, clientId: string) =>
+    computeLayout(dataset, "landscape").markers.filter(
+      (marker) => marker.clientId === clientId,
+    );
+
+  it("spaces markers evenly on one circle, from the top, clockwise in order", () => {
+    const layout = computeLayout(busyDataset, "landscape");
+    const centre = layout.clients.get(busyClientId)!;
+    const radius = layout.orbits.get(busyClientId)!;
+    const markers = layout.markers.filter(
+      (marker) => marker.clientId === busyClientId,
+    );
+    expect(markers.map((marker) => marker.title)).toEqual([
+      "Go-live",
+      "Quality",
+      "Operations portal",
+      "Data platform",
+      "Access and security",
+      "Reporting",
+      unsortedTitle,
+    ]);
+    const step = (Math.PI * 2) / markers.length;
+    markers.forEach((marker, index) => {
+      const { x, y } = marker.position;
+      expect(Math.hypot(x - centre.x, y - centre.y)).toBeCloseTo(radius, 6);
+      expect(marker.angle).toBeCloseTo(-Math.PI / 2 + index * step, 6);
+    });
+    // The first is straight above the centre; the next is to its right.
+    expect(markers[0]!.position.x).toBeCloseTo(centre.x, 6);
+    expect(markers[0]!.position.y).toBeLessThan(centre.y);
+    expect(markers[1]!.position.x).toBeGreaterThan(centre.x);
+  });
+
+  it("runs labels outward: right on the right half, left on the left", () => {
+    for (const dataset of [busyDataset, crowdedDataset, sampleDataset]) {
+      const layout = computeLayout(dataset, "landscape");
+      for (const marker of layout.markers) {
+        const centre = layout.clients.get(marker.clientId)!;
+        const across = marker.position.x - centre.x;
+        if (Math.abs(across) > 1) expect(marker.side).toBe(across > 0 ? 1 : -1);
+        for (const id of marker.shown) {
+          const item = layout.fixed.get(id)!;
+          expect(Math.sign(item.x - marker.position.x)).toBe(marker.side);
+        }
+      }
+    }
+  });
+
+  it("grows the orbit with the number of markers, never below the smallest", () => {
+    const radii = [1, 4, 7, 8, 9, 12].map(orbitRadius);
+    for (let index = 1; index < radii.length; index++)
+      expect(radii[index]!).toBeGreaterThanOrEqual(radii[index - 1]!);
+    expect(radii.at(-1)!).toBeGreaterThan(radii[0]!);
+  });
+
+  it("draws eight workstreams and unsorted work for a crowded client", () => {
+    const markers = markersOf(crowdedDataset, crowdedClientId);
+    expect(markers).toHaveLength(9);
+    expect(markers.at(-1)?.workstreamId).toBeNull();
+    for (const marker of markers) {
+      expect(marker.shown).toHaveLength(shownPerWorkstream);
+      expect(marker.more).toBeGreaterThan(0);
+    }
+  });
+
+  for (const orientation of ["landscape", "portrait"] as const) {
+    it(`keeps labels apart with eight workstreams and unsorted, ${orientation}`, () => {
+      expect(overlappingLabels(crowdedDataset, orientation)).toEqual([]);
+    });
+
+    it(`keeps every client's system apart, home in the middle, ${orientation}`, () => {
+      for (const dataset of [sampleDataset, busyDataset, crowdedDataset]) {
+        const layout = computeLayout(dataset, orientation);
+        const home = dataset.clients.find((client) => client.home === true)!;
+        expect(layout.clients.get(home.id)).toEqual({ x: 0, y: 0 });
+        const systems = [...layout.clients.entries()];
+        systems.forEach(([id, centre], index) => {
+          for (const [otherId, other] of systems.slice(index + 1)) {
+            const apart = Math.hypot(centre.x - other.x, centre.y - other.y);
+            expect(apart).toBeGreaterThan(
+              layout.orbits.get(id)! + layout.orbits.get(otherId)!,
+            );
+          }
+        });
+        // Every marker sits inside the map's bounds.
+        for (const marker of layout.markers) {
+          expect(marker.position.x).toBeGreaterThan(layout.bounds.left);
+          expect(marker.position.x).toBeLessThan(layout.bounds.right);
+          expect(marker.position.y).toBeGreaterThan(layout.bounds.top);
+          expect(marker.position.y).toBeLessThan(layout.bounds.bottom);
+        }
+      }
+    });
+  }
+
+  it("keeps requirements and decisions inside the orbit", () => {
+    for (const dataset of [sampleDataset, crowdedDataset]) {
+      const layout = computeLayout(dataset, "landscape");
+      for (const record of [...dataset.requirements, ...dataset.decisions]) {
+        const centre = layout.clients.get(record.clientId)!;
+        const point = layout.fixed.get(record.id)!;
+        expect(Math.hypot(point.x - centre.x, point.y - centre.y)).toBeLessThan(
+          layout.orbits.get(record.clientId)! - 50,
+        );
+      }
+    }
+  });
+});
+
 interface Box {
   name: string;
   left: number;
   right: number;
   top: number;
   bottom: number;
+}
+
+/** The left and right of a label that starts at `from` and runs towards `side`. */
+function across(from: number, side: 1 | -1, width: number) {
+  const to = from + side * width;
+  return { left: Math.min(from, to), right: Math.max(from, to) };
 }
 
 /**
@@ -198,19 +324,19 @@ function overlappingLabels(
       const { x, y } = marker.position;
       boxes.push({
         name: `caption ${caption}`,
-        left: x - width(caption) / 2,
-        right: x + width(caption) / 2,
+        ...across(x - marker.side * captionInset, marker.side, width(caption)),
         top: y - workstreamCaptionRise - height,
         bottom: y - workstreamCaptionRise,
       });
       if (scale < 1.05) continue;
       for (const id of marker.shown) {
         const point = layout.fixed.get(id)!;
-        const title = dataset.items.find((item) => item.id === id)!.title;
+        const title = itemLabel(
+          dataset.items.find((item) => item.id === id)!.title,
+        );
         boxes.push({
           name: `item ${title}`,
-          left: point.x + 12,
-          right: point.x + 14 + width(title),
+          ...across(point.x + marker.side * 12, marker.side, width(title) + 2),
           top: point.y - height / 2,
           bottom: point.y + height / 2,
         });
@@ -342,17 +468,81 @@ describe("agents at work", () => {
     expect(currentTask({ ...schema, workingOn: [] }, 5, false)).toBeNull();
   });
 
-  it("holds beside the task, to the right of it and clear of its row", () => {
-    const centre = { x: 0, y: 0 };
-    const above = workingSpot({ x: -300, y: -60 }, centre);
-    expect(above.x).toBeGreaterThan(-300);
-    expect(above.y).toBeLessThan(-60 - 40);
-    const below = workingSpot({ x: 300, y: 60 }, centre);
-    expect(below.x).toBeGreaterThan(300);
-    expect(below.y).toBeGreaterThan(60 + 40);
-    // A second agent at the same task takes the other side of the row.
-    expect(workingSpot({ x: -300, y: -60 }, centre, 1).y).toBeGreaterThan(-60);
+  it("holds on its task's label side, past the nearer end of the group", () => {
+    const place = (side: 1 | -1, above: number, below: number) => ({
+      task: { x: 100, y: 0 },
+      side,
+      above,
+      below,
+      away: -1 as const,
+    });
+    // The top item of a group: the agent goes above it, on the label side.
+    const top = workingSpot(place(1, 0, 4));
+    expect(top.x).toBeGreaterThan(100);
+    expect(top.y).toBeLessThan(-40);
+    // On the left half of the orbit, labels run left, and so does the spot.
+    expect(workingSpot(place(-1, 0, 4)).x).toBeLessThan(100);
+    // The bottom item: below, clear of the rows above it.
+    expect(workingSpot(place(1, 4, 0)).y).toBeGreaterThan(40);
+    // The second item clears the top item's row as well as its own.
+    expect(workingSpot(place(1, 1, 3)).y).toBeLessThan(-40 - 22);
+    // A second agent at the same task goes past the other end.
+    expect(workingSpot(place(1, 0, 4), 1).y).toBeGreaterThan(4 * 22 + 40);
   });
+
+  for (const orientation of ["landscape", "portrait"] as const)
+    it(`never holds on an item's label or a caption, ${orientation}`, () => {
+      const scale = 1.06;
+      const width = (text: string) => (text.length * 7) / scale;
+      const height = 13 / scale;
+      // An agent's body, round its spot, at its largest.
+      const body = 12;
+      for (const dataset of [busyDataset, crowdedDataset, sampleDataset]) {
+        const layout = computeLayout(dataset, orientation);
+        const boxes: Box[] = [];
+        for (const marker of layout.markers) {
+          const caption = workstreamCaption(marker);
+          boxes.push({
+            name: `caption ${caption}`,
+            ...across(
+              marker.position.x - marker.side * captionInset,
+              marker.side,
+              width(caption),
+            ),
+            top: marker.position.y - workstreamCaptionRise - height,
+            bottom: marker.position.y - workstreamCaptionRise,
+          });
+          for (const id of marker.shown) {
+            const point = layout.fixed.get(id)!;
+            const title = itemLabel(
+              dataset.items.find((item) => item.id === id)!.title,
+            );
+            boxes.push({
+              name: `item ${title}`,
+              ...across(point.x, marker.side, 14 + width(title)),
+              top: point.y - height / 2,
+              bottom: point.y + height / 2,
+            });
+          }
+        }
+        const found: string[] = [];
+        for (const item of dataset.items) {
+          if (!layout.shown.has(item.id)) continue;
+          for (const slot of [0, 1]) {
+            const spot = workingSpot(taskPlace(layout, item), slot);
+            for (const box of boxes)
+              if (
+                spot.x > box.left - body &&
+                spot.x < box.right + body &&
+                spot.y > box.top - body &&
+                spot.y < box.bottom + body
+              )
+                found.push(`${item.id} slot ${slot} on ${box.name}`);
+          }
+        }
+        expect(found).toEqual([]);
+      }
+    });
 
   it("flies to its next task, and does not circle", () => {
     const scene = new Scene(sampleDataset);
@@ -410,11 +600,12 @@ describe("agents at work", () => {
     const parked = scene.workTarget(release, 3, false)!;
     expect(scene.agentTarget(release, 3, false)).toEqual(parked.spot);
     expect(scene.agentTarget(release, 11, false)).toEqual(parked.spot);
-    const centre = scene.layout.clients.get("halcyon")!;
     const running = scene.workTarget(schema, 3, false)!;
     expect(running.itemId).toBe(parked.itemId);
-    expect(running.spot).toEqual(workingSpot(running.task, centre, 0));
-    expect(parked.spot).toEqual(workingSpot(parked.task, centre, 1));
+    const item = sampleDataset.items.find((each) => each.id === parked.itemId)!;
+    const place = taskPlace(scene.layout, item);
+    expect(running.spot).toEqual(workingSpot(place, 0));
+    expect(parked.spot).toEqual(workingSpot(place, 1));
   });
 
   it("leaves watching and idle agents with no task to work", () => {
@@ -569,10 +760,13 @@ describe("launch vessels", () => {
     // spot an agent keeps, at this task or the next row.
     const vessel = scene.dataset.agents.at(-1)!;
     const work = scene.workTarget(vessel, 3, false)!;
-    const centre = scene.layout.clients.get("halcyon")!;
+    const place = taskPlace(
+      scene.layout,
+      sampleDataset.items.find((item) => item.id === "cut-over")!,
+    );
     expect(work.itemId).toBe("cut-over");
-    expect(work.spot).not.toEqual(workingSpot(work.task, centre, 0));
-    expect(work.spot).not.toEqual(workingSpot(work.task, centre, 1));
+    expect(work.spot).not.toEqual(workingSpot(place, 0));
+    expect(work.spot).not.toEqual(workingSpot(place, 1));
     for (const agent of sampleDataset.agents)
       for (const time of [3, 3 + taskDwellSeconds]) {
         const kept = scene.workTarget(agent, time, false);

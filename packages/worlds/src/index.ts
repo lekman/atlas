@@ -28,6 +28,7 @@ export function isWorldId(value: unknown): value is WorldId {
 
 export { astronomer, doctor, gardener, mariner, samurai, woodsman };
 export * from "./camera";
+export * from "./labels";
 export * from "./layout";
 export * from "./lighting";
 export * from "./paint";

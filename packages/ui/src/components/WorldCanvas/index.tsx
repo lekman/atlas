@@ -13,6 +13,7 @@ import {
   hitTest,
   interpolateCamera,
   paintScene,
+  smallestOrbit,
   zoomAt,
   type Bounds,
   type Camera,
@@ -78,8 +79,14 @@ const focusMargin = 90;
 /** An area narrower or shorter than this is ignored, and the canvas is used. */
 const smallestFocusArea = 160;
 const doubleTapMilliseconds = 300;
-/** How far from a client's centre a double tap still counts as its system. */
-const systemRadius = { client: 380, home: 240 } as const;
+/**
+ * How far past a client's workstream orbit a double tap still counts as
+ * its system, and how much room a flight to a system leaves round the
+ * orbit, in world units: enough for the captions above the top marker.
+ */
+const systemMargin = 70;
+/** Room above a workstream marker for its caption, in world units. */
+const captionRoom = 95;
 
 export function WorldCanvas(props: WorldCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -254,7 +261,7 @@ export function WorldCanvas(props: WorldCanvasProps) {
       const centre = scene.layout.clients.get(client.id);
       if (!centre) continue;
       const reach =
-        client.home === true ? systemRadius.home : systemRadius.client;
+        (scene.layout.orbits.get(client.id) ?? smallestOrbit) + systemMargin;
       const distance = Math.hypot(world.x - centre.x, world.y - centre.y);
       if (distance < reach && distance < bestDistance) {
         best = client.id;
@@ -268,17 +275,35 @@ export function WorldCanvas(props: WorldCanvasProps) {
     const { scene } = live.current;
     const centre = scene.layout.clients.get(clientId);
     if (!centre) return;
-    const isHome =
-      scene.dataset.clients.find((client) => client.id === clientId)?.home ===
-      true;
     const { width, height } = size.current;
-    const span = isHome ? 260 : 400;
-    const scale = clampScale(Math.min(width, height) / (span * 2));
+    // The whole orbit, with room above each marker for its caption and
+    // below for its items. Labels run sideways off the orbit, so they are
+    // left to pan to: a busy system on a laptop then opens close enough
+    // to read its items' labels.
+    const orbit = scene.layout.orbits.get(clientId) ?? smallestOrbit;
+    const box = {
+      left: centre.x - orbit - systemMargin,
+      right: centre.x + orbit + systemMargin,
+      top: centre.y - orbit,
+      bottom: centre.y + orbit,
+    };
+    for (const marker of scene.layout.markers) {
+      if (marker.clientId !== clientId) continue;
+      box.top = Math.min(box.top, marker.position.y - captionRoom);
+      box.bottom = Math.max(box.bottom, marker.position.y + systemMargin);
+    }
+    const scale = clampScale(
+      Math.min(width / (box.right - box.left), height / (box.bottom - box.top)),
+    );
+    const middle = {
+      x: (box.left + box.right) / 2,
+      y: (box.top + box.bottom) / 2,
+    };
     userMoved.current = true;
     zoomedSystem.current = clientId;
     flight.current = {
       from: { ...camera.current },
-      to: focusOn(centre, scale, width, height),
+      to: focusOn(middle, scale, width, height),
       start: performance.now() / 1000,
       duration: 0.6,
     };

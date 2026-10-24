@@ -2,15 +2,15 @@
  * The drawing order every world shares, the hit targets it leaves behind for
  * pointer input, and the small helpers painters use.
  */
-import { clientOfAgent, isVessel, type Agent } from "@atlas/core";
+import {
+  clientOfAgent,
+  isVessel,
+  type Agent,
+  type BacklogItem,
+} from "@atlas/core";
 
 import { worldToScreen, type Point } from "./camera";
-import {
-  decisionPosition,
-  itemPosition,
-  questionPosition,
-  type WorkstreamMarker,
-} from "./layout";
+import { decisionPosition, itemPosition, questionPosition } from "./layout";
 import { paletteFor } from "./lighting";
 import { vesselScale } from "./scene";
 import type { PaintContext, World } from "./types";
@@ -246,20 +246,15 @@ export function curveBetween(
 }
 
 /**
- * The words above a workstream marker: its title, and how many of its items
- * on the map are not drawn. Plain words in every world.
+ * The way an item's label runs from it: outward from its workstream's
+ * marker, so right on the right half of the orbit and left on the left.
  */
-export function workstreamCaption(marker: WorkstreamMarker): string {
-  return marker.more > 0
-    ? `${marker.title} · ${marker.more} more`
-    : marker.title;
+export function itemSide(
+  paint: PaintContext,
+  item: Pick<BacklogItem, "id">,
+): 1 | -1 {
+  return paint.scene.layout.markerOfItem.get(item.id)?.side ?? 1;
 }
-
-/**
- * How far above its marker a workstream's caption sits, in world units:
- * clear of the top item in its group, whose label shows only further in.
- */
-export const workstreamCaptionRise = 56;
 
 /** Labels for work appear only when zoomed in far enough to read them. */
 export const labelScale = {

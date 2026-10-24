@@ -30,8 +30,12 @@ export const ringHalf = 380;
 export const streetWidth = 34;
 export const mainRoadWidth = 46;
 export const driveWidth = 22;
-/** Half the side of the square of ground a hospital keeps clear of streets. */
-export const hospitalReach = 330;
+/**
+ * Half the side of the square of ground a hospital keeps clear of streets:
+ * past the workstream markers on an orbit of up to seven, and the caption
+ * above the top one, so the markers stand inside the grounds.
+ */
+export const hospitalReach = 470;
 /** How far from its centre a hospital's ambulance bay (or The Practice's car park) sits. */
 export const bayDistance = 200;
 /**

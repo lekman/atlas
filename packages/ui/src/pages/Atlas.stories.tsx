@@ -1,6 +1,8 @@
 import {
   busyClientId,
   busyDataset,
+  crowdedClientId,
+  crowdedDataset,
   sampleDataset,
   sampleItemLogLoader,
   sampleRecordedEvents,
@@ -32,6 +34,11 @@ const meta = {
 
 export default meta;
 type Story = StoryObj<typeof meta>;
+
+/** The first item on the crowded client whose title is longer than the map shows. */
+const longTitled = crowdedDataset.items.find(
+  (item) => item.clientId === crowdedClientId && item.title.length > 100,
+)!;
 
 /** As it sits in the Claude desktop sidebar: a narrow column beside your sessions. */
 function Sidebar({ children }: { children: ReactNode }) {
@@ -174,9 +181,10 @@ export const MarinerCommsLogSelectedItem: Story = {
 
 /**
  * A client with about a hundred items, zoomed in. Work is grouped by
- * workstream: a space station each, with at most five of its most urgent
- * items drawn and a count of the rest. Done and unscheduled work stay off
- * the map.
+ * workstream: a space station each, evenly spaced on one orbit round the
+ * star, with at most five of its most urgent items drawn beside it and a
+ * count of the rest. Labels run outward, away from the star. Done and
+ * unscheduled work stay off the map.
  */
 export const AstronomerBusyClient: Story = {
   name: "Astronomer, Busy Client",
@@ -189,7 +197,10 @@ export const AstronomerBusyClient: Story = {
   },
 };
 
-/** The same busy client in Mariner: a buoy for each workstream, its cargo beside it. */
+/**
+ * The same busy client in Mariner: a buoy for each workstream on a sea
+ * lane round the island, its cargo beside it.
+ */
 export const MarinerBusyClient: Story = {
   name: "Mariner, Busy Client",
   args: {
@@ -198,6 +209,44 @@ export const MarinerBusyClient: Story = {
     initialWorld: "mariner",
     initialMode: "full",
     initialClient: busyClientId,
+  },
+};
+
+/**
+ * A client with eight workstreams and unsorted work, each with more work
+ * than it draws, and titles as long as real ones. The orbit grows to keep
+ * nine groups apart, the spacing between systems grows with it, and long
+ * titles and workstream names are shortened on the map with "…".
+ */
+export const AstronomerEightWorkstreams: Story = {
+  name: "Astronomer, Eight Workstreams",
+  args: {
+    dataset: crowdedDataset,
+    script: [],
+    initialWorld: "astronomer",
+    initialMode: "full",
+    initialClient: crowdedClientId,
+  },
+};
+
+/**
+ * A long-titled item selected on the crowded client: the map flies close
+ * and shows its shortened label, and the HUD shows the title in full.
+ */
+export const LongTitleSelected: Story = {
+  name: "Long Title Selected",
+  args: {
+    dataset: crowdedDataset,
+    script: [],
+    initialWorld: "astronomer",
+    initialMode: "full",
+    initialSelection: longTitled.id,
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(await canvas.findAllByText(longTitled.title)).not.toHaveLength(
+      0,
+    );
   },
 };
 

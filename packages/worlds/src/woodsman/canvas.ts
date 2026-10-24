@@ -12,12 +12,14 @@ import {
   decisionPosition,
   itemPosition,
   questionPosition,
+  questionSide,
   rings,
 } from "../layout";
 import {
   agentLabelSize,
   bodyScale,
   curveBetween,
+  itemSide,
   labelScale,
   pixels,
   pulsePhase,
@@ -26,9 +28,14 @@ import {
   showsAgentName,
   showsAgentStatus,
   withAlpha,
+} from "../paint";
+import {
+  captionInset,
+  itemLabel,
+  labelAlign,
   workstreamCaption,
   workstreamCaptionRise,
-} from "../paint";
+} from "../labels";
 import { hashString, seededRandom } from "../random";
 import type { PaintContext, WorldPainter } from "../types";
 import {
@@ -1090,14 +1097,20 @@ export const woodsmanPainter: WorldPainter = {
     }
     context.restore();
     if (isFull(paint) && paint.camera.scale > labelScale.requirement) {
-      text(paint, workstreamCaption(marker), x, y - workstreamCaptionRise, {
-        size: 12,
-        font: type.body,
-        colour: palette.ink,
-        align: "center",
-        baseline: "bottom",
-        italic: unsorted,
-      });
+      text(
+        paint,
+        workstreamCaption(marker),
+        x - marker.side * captionInset,
+        y - workstreamCaptionRise,
+        {
+          size: 12,
+          font: type.body,
+          colour: palette.ink,
+          align: labelAlign(marker.side),
+          baseline: "bottom",
+          italic: unsorted,
+        },
+      );
     }
   },
 
@@ -1182,10 +1195,12 @@ export const woodsmanPainter: WorldPainter = {
     }
     context.restore();
     if (isFull(paint) && paint.camera.scale > labelScale.item) {
-      text(paint, item.title, point.x + 13 * unit, point.y, {
+      const side = itemSide(paint, item);
+      text(paint, itemLabel(item.title), point.x + side * 13 * unit, point.y, {
         size: 11.5,
         font: type.body,
         colour: "#3b3326",
+        align: labelAlign(side),
       });
     }
   },
@@ -1245,11 +1260,13 @@ export const woodsmanPainter: WorldPainter = {
       context.stroke();
     }
     if (isFull(paint) && paint.camera.scale > labelScale.requirement) {
-      text(paint, question.title, point.x, point.y + 22, {
+      // The question's words run away from the marker it holds up.
+      const side = questionSide(scene.layout, question);
+      text(paint, question.title, point.x - side * 30, point.y + 22, {
         size: 11.5,
         font: type.body,
         colour: "#34382e",
-        align: "center",
+        align: labelAlign(side),
         baseline: "top",
         italic: true,
       });
