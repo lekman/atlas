@@ -20,6 +20,12 @@ export interface Configuration {
   requireTokens: boolean;
   /** Where tasks come from, or `undefined` to serve SQLite alone. */
   tasks?: TaskDatabaseConfiguration;
+  /**
+   * Show invented development tracking (issue, branch, pull request) on
+   * items tracked on GitHub, until the real integration exists. Set by
+   * `ATLAS_FAKE_DEVELOPMENT=true`; the stored records never change.
+   */
+  fakeDevelopment: boolean;
 }
 
 /**
@@ -103,5 +109,6 @@ export function readConfiguration(
     seed: readSeed(environment.ATLAS_SEED),
     requireTokens: environment.ATLAS_REQUIRE_TOKENS === "true",
     tasks: readTasks(environment),
+    fakeDevelopment: environment.ATLAS_FAKE_DEVELOPMENT === "true",
   };
 }

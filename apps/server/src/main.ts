@@ -69,6 +69,7 @@ const api = createApi({
   version: rootPackage.version,
   build,
   requireTokens: configuration.requireTokens,
+  fakeDevelopment: configuration.fakeDevelopment,
   ...(tasks ? { tasks } : {}),
 });
 
@@ -92,7 +93,7 @@ const server = Bun.serve({
 });
 
 console.log(
-  `atlas ${rootPackage.version} listening on ${server.url}, tokens ${configuration.requireTokens ? "required" : "optional"}, tasks from ${tasks ? "the task database" : "SQLite"}`,
+  `atlas ${rootPackage.version} listening on ${server.url}, tokens ${configuration.requireTokens ? "required" : "optional"}, tasks from ${tasks ? "the task database" : "SQLite"}${configuration.fakeDevelopment ? ", development tracking fake" : ""}`,
 );
 
 function shutdown() {
