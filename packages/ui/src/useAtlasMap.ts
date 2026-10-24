@@ -45,7 +45,7 @@ export interface AtlasMap {
   preview(cue: SoundCue): void;
 }
 
-const logLimit = 40;
+const logLimit = 100;
 
 export function cueFor(event: AtlasEvent): SoundCue {
   switch (event.type) {
