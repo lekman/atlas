@@ -414,3 +414,22 @@ export const AnswerAQuestion: Story = {
     ).not.toBeInTheDocument();
   },
 };
+
+/** The web app's bar: Sound alone, so the map keeps the whole screen. */
+export const SoundOnlyControls: Story = {
+  name: "Sound Only Controls",
+  args: {
+    initialWorld: "astronomer",
+    initialMode: "full",
+    script: [],
+    controls: ["sound"],
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole("button", { name: "Sound" }),
+    ).toBeInTheDocument();
+    for (const name of [/choose a world/i, /^key$/i, /collapse/i])
+      await expect(canvas.queryByRole("button", { name })).toBeNull();
+  },
+};

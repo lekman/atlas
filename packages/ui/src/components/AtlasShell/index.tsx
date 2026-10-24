@@ -108,16 +108,30 @@ export interface AtlasShellProps {
    * function that disconnects.
    */
   subscribe?(fire: (event: AtlasEvent) => void): () => void;
+  /**
+   * The buttons in the bar, for an app that offers only some. Every button
+   * when left out. Without "expand", Escape no longer collapses the view.
+   */
+  controls?: readonly AtlasControl[];
 }
 
 type Popover = "world" | "key" | "sound" | null;
+
+/** The buttons the bar can show, top right. */
+export type AtlasControl = "world" | "key" | "sound" | "expand";
+const allControls: readonly AtlasControl[] = [
+  "world",
+  "key",
+  "sound",
+  "expand",
+];
 
 const storageKey = "atlas.preferences";
 
 interface Preferences {
   world?: WorldId;
   lighting?: LightingPreference;
-  sound?: Pick<SoundSettings, "volume" | "categories">;
+  sound?: Pick<SoundSettings, "volume" | "categories"> & { enabled?: boolean };
 }
 
 /**
@@ -136,7 +150,7 @@ function readPreferences(): Preferences {
     if (lightingPreferences.includes(lighting as LightingPreference))
       preferences.lighting = lighting as LightingPreference;
     if (typeof sound === "object" && sound !== null) {
-      const { volume, categories } = sound as Record<string, unknown>;
+      const { volume, categories, enabled } = sound as Record<string, unknown>;
       const known = defaultSoundSettings.categories;
       if (
         typeof volume === "number" &&
@@ -150,6 +164,7 @@ function readPreferences(): Preferences {
         )
       ) {
         preferences.sound = {
+          ...(typeof enabled === "boolean" ? { enabled } : {}),
           volume,
           categories: Object.fromEntries(
             Object.keys(known).map((key) => [
@@ -225,10 +240,14 @@ export function AtlasShell(props: AtlasShellProps) {
     props.initialSelection ?? null,
   );
   const [popover, setPopover] = useState<Popover>(null);
+  const shownControls = props.controls ?? allControls;
+  const offers = (control: AtlasControl) => shownControls.includes(control);
   const [sound, setSound] = useState<SoundSettings>({
     ...defaultSoundSettings,
     ...remembered.sound,
-    enabled: false,
+    // A remembered "on" stays on. The browser still holds audio back until
+    // the first click or tap, and the player resumes then.
+    enabled: remembered.sound?.enabled ?? false,
   });
   const [camera, setCamera] = useState<Camera | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -248,12 +267,17 @@ export function AtlasShell(props: AtlasShellProps) {
       writePreferences({
         world: worldId,
         lighting: lightingPreference,
-        sound: { volume: sound.volume, categories: sound.categories },
+        sound: {
+          enabled: sound.enabled,
+          volume: sound.volume,
+          categories: sound.categories,
+        },
       });
   }, [
     props.remember,
     worldId,
     lightingPreference,
+    sound.enabled,
     sound.volume,
     sound.categories,
   ]);
@@ -286,7 +310,7 @@ export function AtlasShell(props: AtlasShellProps) {
       else if (mode === "full" && selected && detailsOpen)
         setDetailsOpen(false);
       else if (mode === "full" && selected) deselect();
-      else if (mode === "full") setMode("compact");
+      else if (mode === "full" && offers("expand")) setMode("compact");
     };
     window.addEventListener("keydown", escape);
     return () => window.removeEventListener("keydown", escape);
@@ -411,58 +435,66 @@ export function AtlasShell(props: AtlasShellProps) {
         <p className="atlas-brand">
           Atlas <span>{world.name}</span>
         </p>
-        <button
-          type="button"
-          className="atlas-icon-button"
-          aria-label="Choose a world"
-          aria-expanded={popover === "world"}
-          onClick={() => toggle("world")}
-        >
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <circle cx="12" cy="12" r="9" />
-            <path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18" />
-          </svg>
-        </button>
-        <button
-          type="button"
-          className="atlas-icon-button"
-          aria-label="Key"
-          aria-expanded={popover === "key"}
-          onClick={() => toggle("key")}
-        >
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M4 6h16M4 12h16M4 18h10" />
-          </svg>
-        </button>
-        <button
-          type="button"
-          className="atlas-icon-button"
-          aria-label="Sound"
-          aria-expanded={popover === "sound"}
-          aria-pressed={sound.enabled}
-          onClick={() => toggle("sound")}
-        >
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M4 9h4l5-4v14l-5-4H4z" />
-            {sound.enabled && <path d="M17 9c1.5 1.5 1.5 4.5 0 6" />}
-          </svg>
-        </button>
-        <button
-          type="button"
-          className="atlas-icon-button atlas-expand"
-          onClick={() => setMode(mode === "full" ? "compact" : "full")}
-        >
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path
-              d={
-                mode === "full"
-                  ? "M4 14h6v6M20 10h-6V4M10 14l-7 7M14 10l7-7"
-                  : "M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7"
-              }
-            />
-          </svg>
-          {mode === "full" ? "Collapse" : "Expand"}
-        </button>
+        {offers("world") && (
+          <button
+            type="button"
+            className="atlas-icon-button"
+            aria-label="Choose a world"
+            aria-expanded={popover === "world"}
+            onClick={() => toggle("world")}
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18" />
+            </svg>
+          </button>
+        )}
+        {offers("key") && (
+          <button
+            type="button"
+            className="atlas-icon-button"
+            aria-label="Key"
+            aria-expanded={popover === "key"}
+            onClick={() => toggle("key")}
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 6h16M4 12h16M4 18h10" />
+            </svg>
+          </button>
+        )}
+        {offers("sound") && (
+          <button
+            type="button"
+            className="atlas-icon-button"
+            aria-label="Sound"
+            aria-expanded={popover === "sound"}
+            aria-pressed={sound.enabled}
+            onClick={() => toggle("sound")}
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 9h4l5-4v14l-5-4H4z" />
+              {sound.enabled && <path d="M17 9c1.5 1.5 1.5 4.5 0 6" />}
+            </svg>
+          </button>
+        )}
+        {offers("expand") && (
+          <button
+            type="button"
+            className="atlas-icon-button atlas-expand"
+            onClick={() => setMode(mode === "full" ? "compact" : "full")}
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d={
+                  mode === "full"
+                    ? "M4 14h6v6M20 10h-6V4M10 14l-7 7M14 10l7-7"
+                    : "M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7"
+                }
+              />
+            </svg>
+            {mode === "full" ? "Collapse" : "Expand"}
+          </button>
+        )}
       </header>
 
       <WorldCanvas

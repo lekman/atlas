@@ -2,6 +2,7 @@ import "./atlas.css";
 
 export {
   AtlasShell,
+  type AtlasControl,
   type AtlasMode,
   type AtlasShellProps,
 } from "./components/AtlasShell";
