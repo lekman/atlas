@@ -25,10 +25,39 @@ import {
 
 export interface Motion {
   position: Point;
-  /** Radians. Drawn as the direction of travel. */
+  /** Radians. The direction of travel, or towards the task once beside it. */
   heading: number;
   /** Most recent first. Empty under reduced motion. */
   trail: Point[];
+  /**
+   * The task the agent is beside or flying to, and whether it has arrived.
+   * Null when the agent has no task on the map, or its status keeps it
+   * elsewhere (watching, idle).
+   */
+  work: WorkState | null;
+}
+
+/** Where an agent works a task, and the spot beside it where it holds. */
+export interface WorkTarget {
+  itemId: string;
+  /** Where the task is drawn. */
+  task: Point;
+  /** Where the agent holds while it works the task, before any hover. */
+  spot: Point;
+}
+
+export interface WorkState extends WorkTarget {
+  /** True once the agent holds at its spot; painters draw the work then. */
+  arrived: boolean;
+}
+
+/** How a body moves towards a target; an agent and a smaller vessel alike. */
+export interface MotionOptions {
+  /** How quickly the body closes on its target, per second. */
+  rate: number;
+  reducedMotion: boolean;
+  /** Turn to face this point once at the work spot, if given. */
+  work?: WorkTarget | null;
 }
 
 export type Effect =
@@ -51,6 +80,117 @@ export type Effect =
   | { kind: "ring"; agentId: string; start: number; duration: number };
 
 const trailLength = 40;
+
+/** Seconds an agent with several tasks works each one before moving on. */
+export const taskDwellSeconds = 20;
+
+/**
+ * How far from its task an agent holds, in world units. It is far enough
+ * to clear the task and the agent's own nose, so the work between them
+ * shows at overview zoom.
+ */
+export const workingDistance = 70;
+
+/** How close to its spot an agent must be to count as arrived. */
+export const arrivalDistance = 8;
+
+/** How far a working agent drifts about its spot. None under reduced motion. */
+export const hoverAmplitude = 2.5;
+
+/**
+ * The angle, from the horizontal, at which an agent sits from its task.
+ * Every world writes a task's label to its right, along its row, and puts
+ * the workstream marker, its caption and any open question to its left. So
+ * the agent sits to the right, tipped well above or below the row, which
+ * keeps it clear of the label and of the marker's caption.
+ */
+const workingAngle = (55 * Math.PI) / 180;
+
+/**
+ * The task an agent works at `time`, as an item id. A running agent with
+ * several tasks works each for `taskDwellSeconds`, then the next, round and
+ * round. Any other status, and reduced motion, keep it at the first.
+ */
+export function currentTask(
+  agent: Pick<Agent, "status" | "workingOn">,
+  time: number,
+  reducedMotion: boolean,
+): string | null {
+  const { workingOn } = agent;
+  if (workingOn.length === 0) return null;
+  if (agent.status !== "running" || reducedMotion || workingOn.length === 1)
+    return workingOn[0] ?? null;
+  const turn = Math.floor(Math.max(0, time) / taskDwellSeconds);
+  return workingOn[turn % workingOn.length] ?? null;
+}
+
+/**
+ * The spot beside a task where an agent holds. It is to the right of the
+ * task, above its row when the task is in the upper half of its client and
+ * below it in the lower half, so the agent stays on the side away from the
+ * client's centre. `slot` gives a second agent at the same task the other
+ * side of the row, and a third and fourth spots further out.
+ */
+export function workingSpot(
+  task: Point,
+  centre: Point,
+  slot = 0,
+  distance = workingDistance,
+): Point {
+  const away = task.y > centre.y ? 1 : -1;
+  const side = slot % 2 === 0 ? away : -away;
+  const reach = distance * (1 + Math.floor(slot / 2) * 0.45);
+  return {
+    x: task.x + Math.cos(workingAngle) * reach,
+    y: task.y + side * Math.sin(workingAngle) * reach,
+  };
+}
+
+/**
+ * One step of a body easing towards its target: position, heading and
+ * trail. Shared by every agent, and meant for anything else that flies to
+ * a task and works it.
+ */
+export function advanceMotion(
+  motion: Motion,
+  target: Point,
+  seconds: number,
+  options: MotionOptions,
+): void {
+  const blend = Math.min(1, seconds * options.rate);
+  const next = {
+    x: motion.position.x + (target.x - motion.position.x) * blend,
+    y: motion.position.y + (target.y - motion.position.y) * blend,
+  };
+  const dx = next.x - motion.position.x;
+  const dy = next.y - motion.position.y;
+  motion.position = next;
+  const work = options.work ?? null;
+  const arrived =
+    work !== null &&
+    Math.hypot(next.x - work.spot.x, next.y - work.spot.y) <=
+      arrivalDistance + hoverAmplitude;
+  motion.work = work ? { ...work, arrived } : null;
+  if (work && arrived) {
+    const facing = Math.atan2(work.task.y - next.y, work.task.x - next.x);
+    motion.heading = options.reducedMotion
+      ? facing
+      : turnTowards(motion.heading, facing, Math.min(1, seconds * 5));
+  } else if (Math.hypot(dx, dy) > 0.05) {
+    motion.heading = Math.atan2(dy, dx);
+  }
+  if (options.reducedMotion) motion.trail = [];
+  else {
+    motion.trail.unshift(next);
+    if (motion.trail.length > trailLength) motion.trail.pop();
+  }
+}
+
+/** An angle turned part of the shortest way towards another. */
+function turnTowards(from: number, to: number, share: number): number {
+  const difference = Math.atan2(Math.sin(to - from), Math.cos(to - from));
+  return from + difference * share;
+}
 
 export class Scene {
   dataset: Dataset;
@@ -136,31 +276,76 @@ export class Scene {
   step(time: number, seconds: number, reducedMotion: boolean): void {
     for (const agent of this.dataset.agents) {
       const target = this.agentTarget(agent, time, reducedMotion);
+      const work = this.holdsAtWork(agent)
+        ? this.workTarget(agent, time, reducedMotion)
+        : null;
       const motion = this.motions.get(agent.id);
       if (!motion) {
         this.motions.set(agent.id, {
           position: target,
-          heading: -Math.PI / 2,
+          heading: work
+            ? Math.atan2(work.task.y - target.y, work.task.x - target.x)
+            : -Math.PI / 2,
           trail: [],
+          work: work ? { ...work, arrived: true } : null,
         });
         continue;
       }
-      const rate = agent.status === "running" ? 6 : 2.2;
-      const blend = Math.min(1, seconds * rate);
-      const next = {
-        x: motion.position.x + (target.x - motion.position.x) * blend,
-        y: motion.position.y + (target.y - motion.position.y) * blend,
-      };
-      const dx = next.x - motion.position.x;
-      const dy = next.y - motion.position.y;
-      if (Math.hypot(dx, dy) > 0.05) motion.heading = Math.atan2(dy, dx);
-      motion.position = next;
-      if (reducedMotion) motion.trail = [];
-      else {
-        motion.trail.unshift(next);
-        if (motion.trail.length > trailLength) motion.trail.pop();
-      }
+      advanceMotion(motion, target, seconds, {
+        rate: agent.status === "running" ? 3 : 2.2,
+        reducedMotion,
+        work,
+      });
     }
+  }
+
+  /**
+   * Where an agent works its current task: the task and the spot beside
+   * it. Null when the agent has no task. Agents sharing a task each get a
+   * spot of their own, running agents first and then in the order the
+   * dataset lists them.
+   */
+  workTarget(
+    agent: Pick<Agent, "id" | "status" | "workingOn">,
+    time: number,
+    reducedMotion: boolean,
+    distance = workingDistance,
+  ): WorkTarget | null {
+    const itemId = currentTask(agent, time, reducedMotion);
+    const item = this.dataset.items.find(
+      (candidate) => candidate.id === itemId,
+    );
+    if (!itemId || !item) return null;
+    const task = itemPosition(this.layout, item);
+    const centre = this.layout.clients.get(item.clientId) ?? { x: 0, y: 0 };
+    // Every agent that works this task keeps its spot here while it is
+    // away at another, so no agent moves because a neighbour did. Running
+    // agents take the first spots, so a beam or a line never has to cross a
+    // neighbour's label to reach the task.
+    const sharing = this.dataset.agents
+      .filter(
+        (other) => this.holdsAtWork(other) && other.workingOn.includes(itemId),
+      )
+      .sort(
+        (left, right) =>
+          Number(right.status === "running") -
+          Number(left.status === "running"),
+      );
+    const slot = Math.max(
+      0,
+      sharing.findIndex((other) => other.id === agent.id),
+    );
+    return { itemId, task, spot: workingSpot(task, centre, slot, distance) };
+  }
+
+  /** Whether this status puts an agent beside its task. */
+  holdsAtWork(agent: Pick<Agent, "status">): boolean {
+    return (
+      agent.status === "running" ||
+      agent.status === "waiting" ||
+      agent.status === "blocked" ||
+      agent.status === "error"
+    );
   }
 
   /** Where the agent's status puts it, before easing. */
@@ -172,17 +357,19 @@ export class Scene {
       true;
     const index = this.dataset.agents.indexOf(agent);
     const phase = index * 1.7;
-    const firstItem = this.dataset.items.find(
-      (item) => item.id === agent.workingOn[0],
-    );
-    const near = firstItem ? itemPosition(this.layout, firstItem) : null;
+    const work = this.holdsAtWork(agent)
+      ? this.workTarget(agent, time, reducedMotion)
+      : null;
 
     switch (agent.status) {
       case "running": {
-        const speed = reducedMotion ? 0 : 0.9;
-        return near
-          ? polar(near, time * speed + phase, 34)
-          : polar(centre, time * (reducedMotion ? 0 : 0.25) + phase, 150);
+        if (!work)
+          return polar(centre, time * (reducedMotion ? 0 : 0.25) + phase, 150);
+        if (reducedMotion) return work.spot;
+        return {
+          x: work.spot.x + Math.cos(time * 0.8 + phase) * hoverAmplitude,
+          y: work.spot.y + Math.sin(time * 1.3 + phase) * hoverAmplitude,
+        };
       }
       case "watching":
         return polar(
@@ -191,14 +378,10 @@ export class Scene {
           isHome ? rings.homeWatch : rings.watch,
         );
       case "waiting":
-        return near
-          ? { x: near.x + 30, y: near.y - 30 }
-          : { x: centre.x + 40, y: centre.y - 40 };
+        return work ? work.spot : { x: centre.x + 40, y: centre.y - 40 };
       case "blocked":
       case "error":
-        return near
-          ? { x: near.x + 32, y: near.y + 28 }
-          : { x: centre.x + 40, y: centre.y + 40 };
+        return work ? work.spot : { x: centre.x + 40, y: centre.y + 40 };
       case "idle": {
         const siblings = this.dataset.agents.filter(
           (candidate) => clientOfAgent(this.dataset, candidate) === clientId,

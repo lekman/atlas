@@ -30,6 +30,7 @@ choices: [Mariner](worlds/mariner.md), [Woodsman](worlds/woodsman.md),
 | Workstream     | Space station        | Buoy         | Signpost                  |
 | Backlog item   | Moon                 | Cargo        | Cairn                     |
 | Agent          | Probe                | Vessel       | Scout                     |
+| Agent at work  | Mining laser         | Fishing line | Beside the cairn          |
 | Open question  | Comet                | Fog bank     | Unmarked fork             |
 | Decision       | Charted star         | Lighthouse   | Blazed tree               |
 | Agent to agent | Tight beam           | Signal flags | Bird call                 |
@@ -43,6 +44,7 @@ choices: [Mariner](worlds/mariner.md), [Woodsman](worlds/woodsman.md),
 | Workstream     | Cold frame      | Camp           | Ward                |
 | Backlog item   | Plant           | Campaign       | Admission (a bed)   |
 | Agent          | Bee             | Retainer       | Staff member        |
+| Agent at work  | Hovering at it  | Beside it      | At the bedside      |
 | Open question  | Dandelion clock | Scout's report | Pending test result |
 | Decision       | Trellis         | Seal           | Recorded diagnosis  |
 | Agent to agent | Pollen drift    | Messenger      | Ambulance run       |
@@ -83,6 +85,24 @@ Only work in progress or in review, or planned for a day and not done, is
 drawn. Requirements sit in the space between the columns, decisions close
 in to the client, and an open question floats left of the marker of the
 item it blocks.
+
+### How Agents Work
+
+A running agent works its task. It flies to a spot beside the item and
+holds there, facing it. The spot is to the item's right, above its row in
+the upper half of the client and below it in the lower half, so the agent
+covers neither the item nor its label. An agent working several items
+works each for 20 seconds, then flies to the next, and round again. In
+Astronomer the probe mines its moon with a laser, with sparks and
+fragments drifting off. In Mariner the vessel lies alongside its cargo and
+fishes it, a line to a bobbing float with ripples spreading round it. The
+other worlds park the agent beside its item.
+
+A waiting, blocked or failed agent parks beside its first item, with no
+laser or line. A watching agent still circles its client, and an idle one
+docks at it. Under reduced motion the agent stays at its first item, does
+not hover, and the laser or line is drawn still. The still SVG map draws
+the laser or line as a plain line.
 
 ## Day and Night
 

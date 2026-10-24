@@ -9,7 +9,7 @@
  * masthead light, and Turtle Bay's windows and pier light are on. The night
  * inks are in `palette.ts`, the lights in `night.ts`.
  */
-import { externalSourceNames } from "@atlas/core";
+import { externalSourceNames, type AgentStatus } from "@atlas/core";
 
 import type { Point } from "../camera";
 import {
@@ -31,6 +31,7 @@ import {
   workstreamCaptionRise,
 } from "../paint";
 import { seededRandom } from "../random";
+import type { Motion } from "../scene";
 import type { PaintContext, WorldPainter } from "../types";
 import { coastRadius, islandRadius, traceCoast } from "./coast";
 import { beam, beamAngle, glow, lantern, moonlight } from "./night";
@@ -49,6 +50,143 @@ const isNight = (paint: PaintContext) => paint.lighting === "night";
 const inksOf = (paint: PaintContext): MarinerInks =>
   marinerInks(paint.lighting);
 const paletteOf = (paint: PaintContext) => marinerPaletteFor(paint.lighting);
+
+/**
+ * A vessel's size in world units. `scale` shrinks it for a smaller boat; 1
+ * is an agent's ship.
+ */
+function vesselSize(paint: PaintContext, scale: number): number {
+  return (
+    pixels(paint, isFull(paint) ? 9 : 6) *
+    Math.max(1, paint.camera.scale * 1.5) *
+    scale
+  );
+}
+
+/**
+ * Which way a vessel points. Under way it follows its course; as it comes
+ * alongside its cargo it turns broadside, so the cargo lies off its port
+ * side where the line goes over. A ship that is not running lies at anchor.
+ */
+function vesselHeading(status: AgentStatus, motion: Motion): number {
+  if (status !== "running") return -Math.PI / 2 + 0.2;
+  const work = motion.work;
+  if (!work) return motion.heading;
+  const distance = Math.hypot(
+    motion.position.x - work.spot.x,
+    motion.position.y - work.spot.y,
+  );
+  const alongside = Math.max(0, Math.min(1, 1 - distance / 40));
+  return motion.heading + (Math.PI / 2) * alongside;
+}
+
+/** A hull with its sail in the status colour, at `size`. */
+function drawVessel(
+  paint: PaintContext,
+  position: Point,
+  heading: number,
+  colour: string,
+  size: number,
+) {
+  const { context } = paint;
+  context.save();
+  context.translate(position.x, position.y);
+  context.rotate(heading + Math.PI / 2);
+  context.fillStyle = inksOf(paint).hull;
+  context.beginPath();
+  context.moveTo(0, -size * 1.3);
+  context.quadraticCurveTo(size * 0.7, -size * 0.2, size * 0.45, size * 1.1);
+  context.lineTo(-size * 0.45, size * 1.1);
+  context.quadraticCurveTo(-size * 0.7, -size * 0.2, 0, -size * 1.3);
+  context.fill();
+  context.fillStyle = colour;
+  context.beginPath();
+  context.moveTo(0, -size * 0.9);
+  context.quadraticCurveTo(size * 1.1, -size * 0.1, 0, size * 0.75);
+  context.closePath();
+  context.fill();
+  context.restore();
+}
+
+/** How far short of the cargo the float rides, in world units. */
+const floatStandOff = 13;
+
+/**
+ * A fishing line from a vessel's side to the cargo it works: a slack line
+ * to a float riding beside the cargo, the float bobbing, and small ripple
+ * rings spreading round it. Under reduced motion the line and float hold
+ * still and there are no ripples. `scale` makes it finer for a smaller
+ * boat; `seed` keeps two floats from bobbing in step.
+ */
+function drawFishingLine(
+  paint: PaintContext,
+  from: Point,
+  cargo: Point,
+  scale: number,
+  seed: number,
+) {
+  const { context, time, reducedMotion } = paint;
+  const ink = inksOf(paint);
+  const back = Math.atan2(from.y - cargo.y, from.x - cargo.x);
+  const bob = reducedMotion
+    ? 0
+    : Math.sin(time * 2.3 + seed * 1.9) * pixels(paint, 1.6 * scale);
+  const float = {
+    x: cargo.x + Math.cos(back) * floatStandOff,
+    y: cargo.y + Math.sin(back) * floatStandOff + bob,
+  };
+  context.save();
+  if (!reducedMotion) {
+    for (let ring = 0; ring < 2; ring++) {
+      const life = (time * 0.45 + ring / 2 + seed * 0.29) % 1;
+      const radius = pixels(paint, (4 + life * 13) * scale);
+      context.strokeStyle = `rgba(${ink.wake},${(1 - life) * 0.55})`;
+      context.lineWidth = pixels(paint, 1);
+      context.beginPath();
+      context.ellipse(
+        float.x,
+        float.y - bob,
+        radius,
+        radius * 0.6,
+        0,
+        0,
+        Math.PI * 2,
+      );
+      context.stroke();
+    }
+  }
+  // The line hangs slack from the rod to the float, then runs down to the
+  // cargo under the water, drawn fainter and broken.
+  const curve = curveBetween(from, float, 0.14);
+  context.strokeStyle = withAlpha(ink.hull, 0.85);
+  context.lineWidth = pixels(paint, 1.1 * scale);
+  context.beginPath();
+  context.moveTo(from.x, from.y);
+  context.quadraticCurveTo(curve.control.x, curve.control.y, float.x, float.y);
+  context.stroke();
+  context.setLineDash([pixels(paint, 2), pixels(paint, 2.5)]);
+  context.strokeStyle = withAlpha(ink.hull, 0.45);
+  context.beginPath();
+  context.moveTo(float.x, float.y);
+  context.lineTo(cargo.x, cargo.y);
+  context.stroke();
+  context.setLineDash([]);
+  const radius = pixels(paint, 4.2 * scale);
+  context.fillStyle = ink.tower;
+  context.beginPath();
+  context.arc(float.x, float.y, radius, 0, Math.PI * 2);
+  context.fill();
+  context.fillStyle = ink.hull;
+  context.beginPath();
+  context.arc(float.x, float.y, radius, Math.PI, Math.PI * 2);
+  context.fill();
+  context.strokeStyle = ink.hull;
+  context.lineWidth = pixels(paint, 0.9 * scale);
+  context.beginPath();
+  context.arc(float.x, float.y, radius, 0, Math.PI * 2);
+  context.stroke();
+  context.restore();
+}
 
 const soundingsCache = new WeakMap<
   object,
@@ -755,28 +893,20 @@ export const marinerPainter: WorldPainter = {
         context.stroke();
       }
     }
-    const size =
-      pixels(paint, isFull(paint) ? 9 : 6) *
-      Math.max(1, paint.camera.scale * 1.5);
-    const heading =
-      agent.status === "running" ? motion.heading : -Math.PI / 2 + 0.2;
-    context.save();
-    context.translate(position.x, position.y);
-    context.rotate(heading + Math.PI / 2);
-    context.fillStyle = ink.hull;
-    context.beginPath();
-    context.moveTo(0, -size * 1.3);
-    context.quadraticCurveTo(size * 0.7, -size * 0.2, size * 0.45, size * 1.1);
-    context.lineTo(-size * 0.45, size * 1.1);
-    context.quadraticCurveTo(-size * 0.7, -size * 0.2, 0, -size * 1.3);
-    context.fill();
-    context.fillStyle = colour;
-    context.beginPath();
-    context.moveTo(0, -size * 0.9);
-    context.quadraticCurveTo(size * 1.1, -size * 0.1, 0, size * 0.75);
-    context.closePath();
-    context.fill();
-    context.restore();
+    const size = vesselSize(paint, 1);
+    const heading = vesselHeading(agent.status, motion);
+    if (agent.status === "running" && motion.work?.arrived)
+      drawFishingLine(
+        paint,
+        {
+          x: position.x + Math.cos(heading - Math.PI / 2) * size * 0.55,
+          y: position.y + Math.sin(heading - Math.PI / 2) * size * 0.55,
+        },
+        motion.work.task,
+        1,
+        paint.scene.dataset.agents.indexOf(agent),
+      );
+    drawVessel(paint, position, heading, colour, size);
     if (isNight(paint)) {
       // The masthead light, forward at the bow, clear of the status sail.
       lantern(paint, {

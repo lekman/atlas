@@ -33,14 +33,14 @@ is drawn faded and keeps its label until the reader zooms in.
 
 ## Status Names
 
-| Status   | Samurai               | On the map                                                |
-| -------- | --------------------- | --------------------------------------------------------- |
-| running  | on campaign           | Green banner, moving, with a brush-stroke trail           |
-| watching | keeping watch         | Blue banner, circling its clan                            |
-| waiting  | awaiting your command | Amber banner and a pulsing ring                           |
-| blocked  | besieged              | Red banner, a ring of stakes close around, a pulsing ring |
-| error    | wounded               | Red banner torn and its pole leaning, and a pulsing ring  |
-| idle     | at rest               | Grey banner furled against its pole                       |
+| Status   | Samurai               | On the map                                                 |
+| -------- | --------------------- | ---------------------------------------------------------- |
+| running  | on campaign           | Green banner beside its campaign, a brush trail as it goes |
+| watching | keeping watch         | Blue banner, circling its clan                             |
+| waiting  | awaiting your command | Amber banner and a pulsing ring                            |
+| blocked  | besieged              | Red banner, a ring of stakes close around, a pulsing ring  |
+| error    | wounded               | Red banner torn and its pole leaning, and a pulsing ring   |
+| idle     | at rest               | Grey banner furled against its pole                        |
 
 Every pulsing ring sits on a steady thin ring of the same colour, so what
 needs the reader is never missed between beats. Under reduced motion the

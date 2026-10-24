@@ -5,6 +5,7 @@
  */
 import { externalSourceNames } from "@atlas/core";
 
+import type { Point } from "../camera";
 import {
   decisionPosition,
   itemPosition,
@@ -23,6 +24,7 @@ import {
   workstreamCaptionRise,
 } from "../paint";
 import { seededRandom } from "../random";
+import type { Motion } from "../scene";
 import type { PaintContext, WorldPainter } from "../types";
 import {
   astronomerPalette as palette,
@@ -61,6 +63,151 @@ const continents = (() => {
 })();
 
 const isFull = (paint: PaintContext) => paint.detail === "full";
+
+/**
+ * A probe's half-width in world units. `scale` shrinks it for a smaller
+ * vessel; 1 is an agent's probe.
+ */
+function probeSize(paint: PaintContext, scale: number): number {
+  return (
+    pixels(paint, isFull(paint) ? 7 : 5) *
+    Math.max(1, paint.camera.scale * 1.6) *
+    scale
+  );
+}
+
+/** The tip of a probe's nose, where its laser starts. */
+function probeNose(position: Point, heading: number, size: number): Point {
+  return {
+    x: position.x + Math.cos(heading) * size * 1.4,
+    y: position.y + Math.sin(heading) * size * 1.4,
+  };
+}
+
+/** A probe and its ion trail, at the half-width `size`. */
+function drawProbe(
+  paint: PaintContext,
+  motion: Motion,
+  colour: string,
+  size: number,
+) {
+  const { context } = paint;
+  const { position, heading, trail } = motion;
+  if (trail.length > 2) {
+    context.lineWidth = pixels(paint, 1.4);
+    for (let index = 1; index < trail.length; index++) {
+      const from = trail[index - 1];
+      const to = trail[index];
+      if (!from || !to) continue;
+      context.strokeStyle = withAlpha(
+        colour,
+        (1 - index / trail.length) * 0.55,
+      );
+      context.beginPath();
+      context.moveTo(from.x, from.y);
+      context.lineTo(to.x, to.y);
+      context.stroke();
+    }
+  }
+  context.save();
+  context.translate(position.x, position.y);
+  context.rotate(heading + Math.PI / 2);
+  context.fillStyle = colour;
+  context.beginPath();
+  context.moveTo(0, -size * 1.4);
+  context.lineTo(size, size);
+  context.lineTo(0, size * 0.45);
+  context.lineTo(-size, size);
+  context.closePath();
+  context.fill();
+  context.restore();
+}
+
+/** Sparks and fragments thrown off a task under the laser. */
+const sparkCount = 6;
+
+/** A moon's radius in world units, where a laser meets it. */
+const moonSurface = 5;
+
+/**
+ * A mining laser from a probe's nose to the task it works: a thin bright
+ * core in a soft cyan glow, flickering, with sparks and rock fragments
+ * drifting off the task. Under reduced motion it is a still line and
+ * nothing drifts. `scale` thins it for a smaller vessel; `seed` keeps two
+ * lasers from flickering in step.
+ */
+function drawMiningLaser(
+  paint: PaintContext,
+  from: Point,
+  task: Point,
+  scale: number,
+  seed: number,
+) {
+  const { context, time, reducedMotion } = paint;
+  // The beam stops at the moon's surface, not its centre.
+  const back = Math.atan2(from.y - task.y, from.x - task.x);
+  const to = {
+    x: task.x + Math.cos(back) * moonSurface,
+    y: task.y + Math.sin(back) * moonSurface,
+  };
+  const flicker = reducedMotion
+    ? 1
+    : 0.78 +
+      0.14 * Math.sin(time * 31 + seed * 2.1) +
+      0.08 * Math.sin(time * 53 + seed);
+  context.save();
+  context.lineCap = "round";
+  context.strokeStyle = withAlpha(palette.accent, 0.3 * flicker);
+  context.lineWidth = pixels(paint, 6 * scale);
+  context.beginPath();
+  context.moveTo(from.x, from.y);
+  context.lineTo(to.x, to.y);
+  context.stroke();
+  context.strokeStyle = withAlpha("#e9fdff", 0.95 * flicker);
+  context.lineWidth = pixels(paint, 1.4 * scale);
+  context.stroke();
+  // A small hot point where the beam meets the rock.
+  context.fillStyle = withAlpha("#ffffff", 0.9 * flicker);
+  context.beginPath();
+  context.arc(to.x, to.y, pixels(paint, 2.2 * scale), 0, Math.PI * 2);
+  context.fill();
+  if (!reducedMotion) {
+    for (let index = 0; index < sparkCount; index++) {
+      const cycle = time * 0.9 + index / sparkCount + seed * 0.37;
+      const life = cycle % 1;
+      const random = seededRandom(Math.floor(cycle) * 31 + index + seed * 7);
+      const fragment = index % 3 === 0;
+      const angle = back + (random() - 0.5) * 2.4;
+      // At least a few pixels on screen, and in proportion to the moon close in.
+      const reach =
+        Math.max(pixels(paint, fragment ? 12 : 22), fragment ? 9 : 16) *
+        scale *
+        life;
+      const point = {
+        x: to.x + Math.cos(angle) * reach,
+        y: to.y + Math.sin(angle) * reach,
+      };
+      const fade = 1 - life;
+      if (fragment) {
+        const side = Math.max(pixels(paint, 2.6), 1.3) * scale;
+        context.fillStyle = withAlpha("#8fb4c8", fade * 0.9);
+        context.fillRect(point.x - side / 2, point.y - side / 2, side, side);
+      } else {
+        context.fillStyle = withAlpha("#fff1d6", fade);
+        context.beginPath();
+        context.arc(
+          point.x,
+          point.y,
+          Math.max(pixels(paint, 1.8), 0.8) * scale,
+          0,
+          Math.PI * 2,
+        );
+        context.fill();
+      }
+    }
+  }
+  context.restore();
+}
 
 export const astronomerPainter: WorldPainter = {
   background(paint) {
@@ -670,39 +817,18 @@ export const astronomerPainter: WorldPainter = {
   },
 
   agent(paint, agent, motion, colour) {
+    const size = probeSize(paint, 1);
+    if (agent.status === "running" && motion.work?.arrived)
+      drawMiningLaser(
+        paint,
+        probeNose(motion.position, motion.heading, size),
+        motion.work.task,
+        1,
+        paint.scene.dataset.agents.indexOf(agent),
+      );
+    drawProbe(paint, motion, colour, size);
     const { context } = paint;
-    const { position, heading, trail } = motion;
-    if (trail.length > 2) {
-      context.lineWidth = pixels(paint, 1.4);
-      for (let index = 1; index < trail.length; index++) {
-        const from = trail[index - 1];
-        const to = trail[index];
-        if (!from || !to) continue;
-        context.strokeStyle = withAlpha(
-          colour,
-          (1 - index / trail.length) * 0.55,
-        );
-        context.beginPath();
-        context.moveTo(from.x, from.y);
-        context.lineTo(to.x, to.y);
-        context.stroke();
-      }
-    }
-    const size =
-      pixels(paint, isFull(paint) ? 7 : 5) *
-      Math.max(1, paint.camera.scale * 1.6);
-    context.save();
-    context.translate(position.x, position.y);
-    context.rotate(heading + Math.PI / 2);
-    context.fillStyle = colour;
-    context.beginPath();
-    context.moveTo(0, -size * 1.4);
-    context.lineTo(size, size);
-    context.lineTo(0, size * 0.45);
-    context.lineTo(-size, size);
-    context.closePath();
-    context.fill();
-    context.restore();
+    const { position } = motion;
 
     if (paint.scene.needsAttention(agent)) {
       const phase = pulsePhase(
