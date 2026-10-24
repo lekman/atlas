@@ -20,7 +20,6 @@ import {
   openSync,
   readFileSync,
   readSync,
-  statSync,
   watch,
   type FSWatcher,
 } from "node:fs";
@@ -457,38 +456,33 @@ export function createGithubReader({
     if (!connection) return false;
     const dataset = connection.dataset();
     let changed = false;
-    let inode: string | undefined;
+    // Open the path and identify the file by its descriptor, so the file
+    // read is the file checked.
+    let opened: { descriptor: number; inode: string } | undefined;
     try {
-      inode = String(statSync(eventsPath, { bigint: true }).ino);
+      const descriptor = openSync(eventsPath, "r");
+      opened = {
+        descriptor,
+        inode: String(fstatSync(descriptor, { bigint: true }).ino),
+      };
     } catch (error) {
       // A missing file means no events yet.
       if (failureName(error) !== "ENOENT")
         report(
           "events",
-          `events.jsonl could not be read (${failureName(error)})`,
-        );
-    }
-    // A different file at the path, or none: finish the one still open first.
-    if (file && file.inode !== inode) {
-      changed = drain(dataset) || changed;
-      closeFile();
-    }
-    if (inode === undefined) return changed;
-    if (!file) {
-      try {
-        const descriptor = openSync(eventsPath, "r");
-        file = {
-          descriptor,
-          inode: String(fstatSync(descriptor, { bigint: true }).ino),
-        };
-      } catch (error) {
-        report(
-          "events",
           `events.jsonl could not be opened (${failureName(error)})`,
         );
-        return changed;
-      }
     }
+    if (file && file.inode === opened?.inode) closeSync(opened.descriptor);
+    else {
+      // A different file at the path, or none: finish the one still open first.
+      if (file) {
+        changed = drain(dataset) || changed;
+        closeFile();
+      }
+      file = opened;
+    }
+    if (!file) return changed;
     report("events", undefined);
     if (!cursor || cursor.inode !== file.inode) {
       discarding = false;
