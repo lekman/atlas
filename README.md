@@ -6,8 +6,8 @@ as a world you choose.
 Atlas shows groups of agents (Claude sessions on several accounts, Gemini,
 n8n workflows, scripts), which client each one works for, and the
 requirements, backlog items, open questions and decisions they connect to.
-It replaces a Markdown dashboard with a database you own, on a machine you
-own, reachable only inside your own private network.
+It is the graphical, game-like interface for a task database you own, on a
+machine you own, reachable only inside your own private network.
 
 | World      | Home          | Clients      | Agents    | Open questions       | Decisions          |
 | ---------- | ------------- | ------------ | --------- | -------------------- | ------------------ |

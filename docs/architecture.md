@@ -1,8 +1,12 @@
 # Architecture
 
-Atlas is a data model with several views. The data lives in one database on
-a machine you own; every agent reads and writes it over MCP; the views draw
-the same rows as a world.
+Atlas is the graphical, game-like interface for your work: it draws
+agents, clients and tasks as a world you choose. Since 24 October 2026,
+tasks are kept in a separate task database (Postgres on the Mac mini, see
+[the plan](plan.md#direction-24-october-2026)), and Atlas reads them
+through its API. Atlas's own SQLite file keeps agents, the event log,
+workstream grouping, the score and machine tokens. The diagram below shows
+the server as built; the adapter to the task database is not built yet.
 
 ```mermaid
 flowchart LR
