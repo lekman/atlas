@@ -60,6 +60,12 @@ export interface WorldCanvasProps {
   focusArea?(): Bounds | null;
   /** Called a few times a second while the camera moves, for the HUD. */
   onCameraChange?(camera: Camera): void;
+  /**
+   * Where to look at start, as the map point in the middle of the canvas
+   * and a scale, for a page restoring its view after a reload. The map
+   * then stays where it was put instead of fitting itself.
+   */
+  initialView?: { x: number; y: number; scale: number } | null;
   /** What a screen reader hears for the map as a whole. */
   label: string;
 }
@@ -91,9 +97,22 @@ export function WorldCanvas(props: WorldCanvasProps) {
   const zoomedSystem = useRef<string | null>(null);
   const size = useRef({ width: 0, height: 0, pixelRatio: 1 });
 
+  const restored = useRef(false);
   const fit = (animate: boolean) => {
     const { width, height } = size.current;
     if (width === 0 || height === 0) return;
+    const view = live.current.initialView;
+    if (view && !restored.current) {
+      restored.current = true;
+      userMoved.current = true;
+      camera.current = {
+        x: width / 2 - view.x * view.scale,
+        y: height / 2 - view.y * view.scale,
+        scale: view.scale,
+      };
+      flight.current = null;
+      return;
+    }
     const { detail, scene } = live.current;
     const padding = detail === "full" ? (width < 760 ? 14 : 70) : 12;
     // The full map opens on home, in the middle of the canvas, at the

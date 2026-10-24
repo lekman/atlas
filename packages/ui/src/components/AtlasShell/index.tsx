@@ -193,6 +193,50 @@ function readPreferences(): Preferences {
   }
 }
 
+const viewKey = "atlas.view";
+
+/** What the reader is looking at, kept for this tab so a reload comes back to it. */
+interface SavedView {
+  selected?: string;
+  detailsOpen?: boolean;
+  /** The map point in the middle of the canvas, and the scale. */
+  view?: { x: number; y: number; scale: number };
+}
+
+/** The view this tab saved, keeping only fields of the right shape. */
+function readView(): SavedView {
+  try {
+    const stored: unknown = JSON.parse(
+      window.sessionStorage.getItem(viewKey) ?? "{}",
+    );
+    if (typeof stored !== "object" || stored === null) return {};
+    const { selected, detailsOpen, view } = stored as Record<string, unknown>;
+    const saved: SavedView = {};
+    if (typeof selected === "string" && selected.length <= 200)
+      saved.selected = selected;
+    if (detailsOpen === true) saved.detailsOpen = true;
+    if (typeof view === "object" && view !== null) {
+      const { x, y, scale } = view as Record<string, unknown>;
+      if (
+        [x, y, scale].every((value) => Number.isFinite(value)) &&
+        (scale as number) > 0
+      )
+        saved.view = { x: x as number, y: y as number, scale: scale as number };
+    }
+    return saved;
+  } catch {
+    return {};
+  }
+}
+
+function writeView(view: SavedView) {
+  try {
+    window.sessionStorage.setItem(viewKey, JSON.stringify(view));
+  } catch {
+    // Blocked storage: the view simply starts fresh after a reload.
+  }
+}
+
 function writePreferences(preferences: Preferences) {
   try {
     window.localStorage.setItem(storageKey, JSON.stringify(preferences));
@@ -234,10 +278,15 @@ export function AtlasShell(props: AtlasShellProps) {
   const lighting = resolveLighting(lightingPreference, deviceIsDark);
   const isPhone = useMediaQuery(phoneQuery);
   // The one selected record. Collapse keeps it, so Expand comes back to it.
+  // A reload, such as the one after a deploy, comes back to the same view:
+  // the selection, the open details and where the map was looking.
+  const [saved] = useState<SavedView>(() => (props.remember ? readView() : {}));
   const [selected, setSelected] = useState<string | null>(
-    props.initialSelection ?? null,
+    props.initialSelection ?? saved.selected ?? null,
   );
-  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(
+    !props.initialSelection && saved.detailsOpen === true && !!saved.selected,
+  );
   const deselect = () => {
     setSelected(null);
     setDetailsOpen(false);
@@ -262,6 +311,23 @@ export function AtlasShell(props: AtlasShellProps) {
     enabled: remembered.sound?.enabled ?? false,
   });
   const [camera, setCamera] = useState<Camera | null>(null);
+  useEffect(() => {
+    if (!props.remember) return;
+    const shell = shellRef.current;
+    const view =
+      camera && shell && shell.clientWidth > 0
+        ? {
+            x: (shell.clientWidth / 2 - camera.x) / camera.scale,
+            y: (shell.clientHeight / 2 - camera.y) / camera.scale,
+            scale: camera.scale,
+          }
+        : saved.view;
+    writeView({
+      ...(selected ? { selected } : {}),
+      ...(selected && detailsOpen ? { detailsOpen: true } : {}),
+      ...(view ? { view } : {}),
+    });
+  }, [props.remember, selected, detailsOpen, camera, saved.view]);
   const [toast, setToast] = useState<string | null>(null);
   const shellRef = useRef<HTMLDivElement>(null);
   const world = worlds[worldId];
@@ -556,6 +622,7 @@ export function AtlasShell(props: AtlasShellProps) {
       </header>
 
       <WorldCanvas
+        initialView={saved.view ?? null}
         scene={map.scene}
         world={world}
         detail={mode}
