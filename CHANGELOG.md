@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.10.0](https://github.com/lekman/atlas/compare/v0.9.0...v0.10.0) (2026-10-24)
+
+
+### Features
+
+* **server:** read GitHub pull request and issue state from gh-events ([#50](https://github.com/lekman/atlas/issues/50)) ([34aba3d](https://github.com/lekman/atlas/commit/34aba3d0f5e7f3c33afa20e83f6df520c8369c9b))
+* **server:** show pull requests closed without merging, and finish rotated logs after a restart ([#53](https://github.com/lekman/atlas/issues/53)) ([285f2bc](https://github.com/lekman/atlas/commit/285f2bc4a34c9a5a5cf36f568b575c0d4e87db1f))
+* **ui:** the Comms Log is a drawer, shut until asked ([#51](https://github.com/lekman/atlas/issues/51)) ([e7a9e81](https://github.com/lekman/atlas/commit/e7a9e81a008f38e50037457b93e980e0be2a6de4))
+
 ## [0.9.0](https://github.com/lekman/atlas/compare/v0.8.0...v0.9.0) (2026-10-24)
 
 
