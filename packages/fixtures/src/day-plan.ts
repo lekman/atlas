@@ -52,6 +52,30 @@ function jira(key: string) {
   };
 }
 
+/** An invented GitHub issue, on the reserved `.example` domain. */
+function issue(repository: string, number: number, state: "open" | "closed") {
+  return {
+    key: `#${number}`,
+    url: `https://github.example/${repository}/issues/${number}`,
+    state,
+  };
+}
+
+/** An invented GitHub pull request, on the reserved `.example` domain. */
+function pullRequest(
+  repository: string,
+  number: number,
+  state: "draft" | "open" | "merged" | "closed",
+  checks: "passing" | "failing" | "pending" | "none",
+) {
+  return {
+    number,
+    url: `https://github.example/${repository}/pull/${number}`,
+    state,
+    checks,
+  };
+}
+
 const cutOverRunbook = `---
 tags: [halcyon, cut-over]
 ---
@@ -171,6 +195,20 @@ export const sampleDayPlan: DayPlan = DayPlan.parse({
       scheduledFor: sampleToday,
       detailsId: "cut-over-rehearsal",
       state: "doing",
+      // An open issue, a branch on its own worktree, a draft pull request.
+      development: {
+        issue: issue("halcyon/tenant-platform", 142, "open"),
+        branch: {
+          name: "feature/142-tenant-cut-over-rehearsal",
+          worktree: { path: "~/work/tenant-platform-cut-over" },
+        },
+        pullRequest: pullRequest(
+          "halcyon/tenant-platform",
+          148,
+          "draft",
+          "pending",
+        ),
+      },
       history: [
         { kind: "added", on: "2026-10-12" },
         { kind: "moved", on: "2026-10-16", from: "2026-10-16" },
@@ -191,6 +229,17 @@ export const sampleDayPlan: DayPlan = DayPlan.parse({
       scheduledFor: sampleToday,
       state: "done",
       doneOn: sampleToday,
+      // Finished: the issue closed by a merged pull request.
+      development: {
+        issue: issue("halcyon/tenant-platform", 139, "closed"),
+        branch: { name: "fix/139-flaky-sign-in-test" },
+        pullRequest: pullRequest(
+          "halcyon/tenant-platform",
+          144,
+          "merged",
+          "passing",
+        ),
+      },
     }),
     task("rewrite-reports", "halcyon", "Rewrite reporting in a new framework", {
       summary: "Nice to have; the current reports work.",
@@ -214,6 +263,11 @@ export const sampleDayPlan: DayPlan = DayPlan.parse({
       value: 8,
       scheduledFor: tomorrow,
       detailsId: "webhook-retries",
+      // Started: an issue and a branch, with no pull request yet.
+      development: {
+        issue: issue("kestrel/partner-api", 88, "open"),
+        branch: { name: "feature/88-partner-webhook-retries" },
+      },
     }),
 
     // Larchwood Studio.
@@ -256,6 +310,17 @@ export const sampleDayPlan: DayPlan = DayPlan.parse({
       effort: "XL",
       value: 8,
       scheduledFor: "2026-10-28",
+      // In review, and the checks are failing.
+      development: {
+        issue: issue("meridian/release-tooling", 207, "open"),
+        branch: { name: "feature/207-split-release-train" },
+        pullRequest: pullRequest(
+          "meridian/release-tooling",
+          212,
+          "open",
+          "failing",
+        ),
+      },
     }),
   ],
   notes: [

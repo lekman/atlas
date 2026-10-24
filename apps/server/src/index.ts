@@ -7,6 +7,11 @@ export {
 } from "./configuration";
 export { openDatabase, type AtlasDatabase } from "./database";
 export {
+  inventDevelopment,
+  shortSlug,
+  withFakeDevelopment,
+} from "./fake-development";
+export {
   appendEvent,
   EventRejected,
   isEmpty,

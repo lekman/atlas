@@ -1,10 +1,14 @@
 import {
+  type AgentStatus,
   clientOfAgent,
   findRecord,
   isOnMap,
   orderByUrgency,
   type Dataset,
   type DetailsDocument,
+  type DevelopmentTracking,
+  type TrackedIssue,
+  type TrackedPullRequest,
 } from "@atlas/core";
 import type { World } from "@atlas/worlds";
 import { useEffect, useId, useRef, type ReactNode } from "react";
@@ -34,8 +38,14 @@ export interface DetailsPaneProps {
 
 /**
  * Everything known about one record, in a pane over the map: its fields,
- * its history, the records it links to, and its details document when there
- * is one.
+ * its development tracking, its history, the records it links to, and its
+ * details document when there is one.
+ *
+ * The pane is often wide, so the sections sit side by side in columns that
+ * fill it: the fields, then Tracking, then History and Links. The columns
+ * wrap to two and then one as the pane narrows, and are one on a phone. The
+ * reading order is the same at every width, because the columns are in
+ * source order.
  *
  * The pane is blue glass so it reads as a layer over the chart rather than
  * part of it: the world's watching blue, 18% into its panel colour, at 88%
@@ -96,6 +106,7 @@ export function DetailsPane({
   let client = "";
   let summary: string | undefined;
   let history: ReactNode = null;
+  let development: DevelopmentTracking | undefined;
 
   switch (found.kind) {
     case "agent": {
@@ -211,6 +222,7 @@ export function DetailsPane({
             ))}
           </ul>
         );
+      development = item.development;
       if (item.requirementId) linked.push(["For", links([item.requirementId])]);
       if (item.workstreamId)
         linked.push([vocabulary.workstream, links([item.workstreamId])]);
@@ -262,6 +274,7 @@ export function DetailsPane({
     }
   }
   const shownLinks = linked.filter(([, value]) => value !== null);
+  const tracking = development && trackingRows(development);
 
   return (
     <aside
@@ -292,46 +305,65 @@ export function DetailsPane({
         role="region"
         aria-labelledby={titleId}
       >
-        <dl className="atlas-details-fields">
-          <div>
-            <dt>{world.name}</dt>
-            <dd>{themed}</dd>
-          </div>
-          <div>
-            <dt>Real term</dt>
-            <dd>{real}</dd>
-          </div>
-          <div>
-            <dt>Client</dt>
-            <dd>{client}</dd>
-          </div>
-          {fields.map(([term, value]) => (
-            <div key={term}>
-              <dt>{term}</dt>
-              <dd>{value}</dd>
-            </div>
-          ))}
-        </dl>
         {summary && <p className="atlas-details-summary">{summary}</p>}
-        {history && (
-          <section aria-labelledby={`${titleId}-history`}>
-            <h3 id={`${titleId}-history`}>History</h3>
-            {history}
-          </section>
-        )}
-        {shownLinks.length > 0 && (
-          <section aria-labelledby={`${titleId}-links`}>
-            <h3 id={`${titleId}-links`}>Links</h3>
-            <dl className="atlas-details-fields">
-              {shownLinks.map(([term, value]) => (
-                <div key={term}>
-                  <dt>{term}</dt>
-                  <dd>{value}</dd>
-                </div>
-              ))}
-            </dl>
-          </section>
-        )}
+        <div className="atlas-details-columns">
+          <dl className="atlas-details-fields">
+            <div>
+              <dt>{world.name}</dt>
+              <dd>{themed}</dd>
+            </div>
+            <div>
+              <dt>Real term</dt>
+              <dd>{real}</dd>
+            </div>
+            <div>
+              <dt>Client</dt>
+              <dd>{client}</dd>
+            </div>
+            {fields.map(([term, value]) => (
+              <div key={term}>
+                <dt>{term}</dt>
+                <dd>{value}</dd>
+              </div>
+            ))}
+          </dl>
+          {tracking && tracking.length > 0 && (
+            <section aria-labelledby={`${titleId}-tracking`}>
+              <h3 id={`${titleId}-tracking`}>Tracking</h3>
+              <dl className="atlas-details-fields">
+                {tracking.map(([term, value]) => (
+                  <div key={term}>
+                    <dt>{term}</dt>
+                    <dd>{value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </section>
+          )}
+          {(history || shownLinks.length > 0) && (
+            <div className="atlas-details-column">
+              {history && (
+                <section aria-labelledby={`${titleId}-history`}>
+                  <h3 id={`${titleId}-history`}>History</h3>
+                  {history}
+                </section>
+              )}
+              {shownLinks.length > 0 && (
+                <section aria-labelledby={`${titleId}-links`}>
+                  <h3 id={`${titleId}-links`}>Links</h3>
+                  <dl className="atlas-details-fields">
+                    {shownLinks.map(([term, value]) => (
+                      <div key={term}>
+                        <dt>{term}</dt>
+                        <dd>{value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </section>
+              )}
+            </div>
+          )}
+        </div>
         {document && (
           <DetailsReader
             document={document}
@@ -347,5 +379,110 @@ export function DetailsPane({
         )}
       </div>
     </aside>
+  );
+}
+
+/** A link to GitHub, opened in a new tab that cannot reach back to Atlas. */
+function outside(url: string, text: string) {
+  return (
+    <a href={url} target="_blank" rel="noopener noreferrer">
+      {text}
+    </a>
+  );
+}
+
+/**
+ * The Tracking rows: the issue, the branch and the pull request, each only
+ * when the record has it.
+ */
+function trackingRows({
+  issue,
+  branch,
+  pullRequest,
+}: DevelopmentTracking): Array<[string, ReactNode]> {
+  const rows: Array<[string, ReactNode]> = [];
+  if (issue)
+    rows.push([
+      "Issue",
+      <span className="atlas-details-tracking">
+        {outside(issue.url, issue.key)}
+        <StatusLabel tone={toneOf.issue[issue.state]}>
+          {issue.state}
+        </StatusLabel>
+      </span>,
+    ]);
+  if (branch)
+    rows.push([
+      "Branch",
+      <span className="atlas-details-tracking">
+        <code>{branch.name}</code>
+        {branch.worktree && (
+          <span className="atlas-details-worktree">
+            on a worktree, <code>{branch.worktree.path}</code>
+          </span>
+        )}
+      </span>,
+    ]);
+  if (pullRequest)
+    rows.push([
+      "Pull request",
+      <span className="atlas-details-tracking">
+        {outside(pullRequest.url, `#${pullRequest.number}`)}
+        <StatusLabel tone={toneOf.pullRequest[pullRequest.state]}>
+          {pullRequest.state}
+        </StatusLabel>
+        <StatusLabel tone={toneOf.checks[pullRequest.checks]}>
+          {pullRequest.checks === "none"
+            ? "no checks"
+            : `checks ${pullRequest.checks}`}
+        </StatusLabel>
+      </span>,
+    ]);
+  return rows;
+}
+
+/**
+ * Which status colour each tracking state takes: green for work moving or
+ * landed, blue for a pull request waiting on review or checks still
+ * running, red for failing checks, grey for draft, closed and nothing.
+ */
+const toneOf: {
+  issue: Record<TrackedIssue["state"], AgentStatus>;
+  pullRequest: Record<TrackedPullRequest["state"], AgentStatus>;
+  checks: Record<TrackedPullRequest["checks"], AgentStatus>;
+} = {
+  issue: { open: "running", closed: "idle" },
+  pullRequest: {
+    draft: "idle",
+    open: "watching",
+    merged: "running",
+    closed: "idle",
+  },
+  checks: {
+    passing: "running",
+    pending: "watching",
+    failing: "error",
+    none: "idle",
+  },
+};
+
+/**
+ * A state as a small label: the word in ink, with a border and a square in
+ * the status colour. The word carries the meaning, so the colour is never
+ * the only sign. The text is ink because status colours as text fall under
+ * 4.5 : 1 on the Mariner's blue glass (green about 4.2 : 1, grey about
+ * 4.0 : 1), where ink is about 10.9 : 1.
+ */
+function StatusLabel({
+  tone,
+  children,
+}: {
+  tone: AgentStatus;
+  children: ReactNode;
+}) {
+  return (
+    <span className="atlas-status-label" data-tone={tone}>
+      {children}
+    </span>
   );
 }

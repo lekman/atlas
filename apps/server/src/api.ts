@@ -13,7 +13,9 @@
  *
  * With a task source, every read lays the task database's clients,
  * workstreams and tasks over SQLite (see `task-source.ts`), and the stream
- * sends a `refresh` event whenever they change.
+ * sends a `refresh` event whenever they change. With `fakeDevelopment`,
+ * the dataset sent to views carries invented development tracking (see
+ * `fake-development.ts`), and health says so.
  */
 import { ZodError } from "zod/v4";
 
@@ -27,6 +29,7 @@ import {
   type Caller,
   type NodeLookup,
 } from "./identity";
+import { withFakeDevelopment } from "./fake-development";
 import { everyClient } from "./machines";
 import { handleMcp } from "./mcp";
 import {
@@ -93,6 +96,11 @@ export interface ApiOptions {
    * so a page that reconnects to a newer run reloads itself.
    */
   build?: string;
+  /**
+   * Lay invented development tracking over items tracked on GitHub in the
+   * dataset views read. Off unless `ATLAS_FAKE_DEVELOPMENT=true`.
+   */
+  fakeDevelopment?: boolean;
 }
 
 export interface Api {
@@ -125,6 +133,7 @@ export function createApi({
   lookupNode = tailscaleNodeLookup(),
   tasks,
   build,
+  fakeDevelopment = false,
 }: ApiOptions): Api {
   const streams = new Set<(text: string) => void>();
   const closers = new Set<() => void>();
@@ -162,11 +171,13 @@ export function createApi({
    * list_agents reply, which needs a token.
    */
   function health() {
+    const development = fakeDevelopment ? { development: "fake" } : {};
     if (!tasks)
       return {
         status: "ok",
         version,
         ...(build ? { build } : {}),
+        ...development,
         tasks: {
           ...noTaskSource,
           dangling: 0,
@@ -179,6 +190,7 @@ export function createApi({
       status: "ok",
       version,
       ...(build ? { build } : {}),
+      ...development,
       tasks: {
         ...tasks.health(),
         dangling: merge?.dangling ?? 0,
@@ -324,7 +336,9 @@ export function createApi({
         case "GET /api/dataset": {
           // Read together, so the page knows which events the dataset holds.
           const { dataset, sequence } = readSnapshot(database, overlay);
-          const response = json(dataset);
+          const response = json(
+            fakeDevelopment ? withFakeDevelopment(dataset) : dataset,
+          );
           response.headers.set(sequenceHeader, String(sequence));
           return response;
         }

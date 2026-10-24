@@ -59,9 +59,25 @@ every world.
 | Agent        | Account, host, how it can be reached, status, what it works on, a note, the agent it was launched from if it is a vessel |
 | Requirement  | What a client needs to be true                                                                                           |
 | Workstream   | A subject a client's work is grouped under, and its place among the others                                               |
-| Backlog item | Work, optionally serving a requirement and in a workstream, with state                                                   |
+| Backlog item | Work, optionally serving a requirement and in a workstream, with state and development tracking                          |
 | Question     | What blocks a requirement or item, and who must answer                                                                   |
 | Decision     | What was decided, what it settles, the question it came from                                                             |
+
+A backlog item may carry **development tracking** (`development`): where
+the code for it stands. Each of its three parts is optional, because work
+often has an issue before it has a branch, and a branch before it has a
+pull request.
+
+| Part          | Holds                                                                         |
+| ------------- | ----------------------------------------------------------------------------- |
+| `issue`       | The GitHub issue: key, address, `open` or `closed`. It may repeat the tracker |
+| `branch`      | The branch name, and the git worktree's path when the work is on one          |
+| `pullRequest` | Number, address, `draft`, `open`, `merged` or `closed`, and its checks        |
+
+Checks are `passing`, `failing`, `pending` or `none`. Nothing fills
+development tracking from GitHub yet. The SQLite store does not keep it and
+the task database does not have it, so today it comes only from the
+invented fixtures and from the fake values described under "The Server".
 
 The map draws a backlog item only when it is in progress or in review, or
 planned for a day and not done. Each workstream draws at most five of
@@ -149,6 +165,24 @@ names another. `ATLAS_SEED=fixtures` seeds the invented dataset into an
 empty database. `ATLAS_SEED=<path>.json` seeds a whole dataset from a file
 instead, checked against the core schema. A file with real clients is built
 on the Mac mini from the vault and kept outside this repository.
+
+`ATLAS_FAKE_DEVELOPMENT=true` shows invented development tracking until
+the GitHub integration exists. It is off unless set to exactly `true`.
+When on, every backlog item whose tracker is GitHub and that has no
+development tracking gets values worked out from its id, tracker key,
+title and state, so the same item shows the same values on every read:
+
+| Item state | Invented tracking                                                                                                                                   |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| To do      | The tracker's issue, open                                                                                                                           |
+| Doing      | The issue, a branch `feature/<number>-<slug>` on a worktree, and in most cases a draft or open pull request with checks pending, passing or failing |
+| In review  | The issue, the branch on a worktree, and an open pull request                                                                                       |
+| Done       | The issue closed, the branch, and a merged pull request with passing checks                                                                         |
+
+The values are laid over `GET /api/dataset` only. They are never written to
+SQLite, never sent to MCP tools, and never replace tracking an item already
+has. `GET /api/health` reports `development: "fake"` while the setting is
+on, so nobody mistakes the values for real ones.
 
 ### The Task Source
 
@@ -366,8 +400,14 @@ adds Details. The map flies to the record, and to the work a question
 blocks, in the space left clear by the log and the HUD.
 
 Details opens a blue glass pane over the map, between the log and the HUD,
-with every field of the record, its history, the records it links to and
-its details document when one has been imported. Escape closes the pane,
+with every field of the record, its development tracking, its history, the
+records it links to and its details document when one has been imported.
+The sections sit in columns that fill the pane: the fields, then Tracking,
+then History and Links. They fall to two columns and then one as the pane
+narrows, and are always one on a phone. Tracking shows the issue, the
+branch (and its worktree) and the pull request, each state as a word in a
+label marked in its status colour; links to GitHub open in a new tab. The
+HUD shows the pull request on one line: number, state and checks. Escape closes the pane,
 then clears the selection, then returns to the compact view. On a phone,
 where the HUD has no room, the selected record is a sheet along the bottom
 and the pane fills the width above it.
