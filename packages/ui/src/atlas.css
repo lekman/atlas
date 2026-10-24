@@ -1577,3 +1577,35 @@ button.atlas-wiki-link {
     animation: none;
   }
 }
+
+/* Background sound choices in the settings panel. */
+.atlas-background {
+  margin: 14px 0 0;
+  padding: 0;
+  border: 0;
+}
+.atlas-background-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0 0 8px;
+  cursor: pointer;
+}
+.atlas-background-option input {
+  accent-color: var(--atlas-accent);
+  margin: 3px 0 0;
+}
+.atlas-background-option span {
+  display: flex;
+  flex-direction: column;
+}
+.atlas-background-option strong {
+  font-weight: 500;
+  color: var(--atlas-ink);
+  font-size: 13px;
+}
+.atlas-background-option em {
+  font-style: normal;
+  color: var(--atlas-mute);
+  font-size: 12px;
+}
