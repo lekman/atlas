@@ -427,6 +427,49 @@ describe("tailing events.jsonl", () => {
     });
   });
 
+  test("shows a pull request closed without merging", async () => {
+    writeFileSync(registryPath(), registryText([openIssue, openPullRequest]));
+    const { reader } = start();
+    reader.poll();
+    reader.stop();
+    writeFileSync(registryPath(), registryText([openIssue]));
+    appendFileSync(eventsPath(), line("closed", 12));
+    const restarted = start();
+    restarted.reader.poll();
+    expect(githubEvents()).toEqual([
+      "retry-webhooks: Pull request #12 closed without merging",
+    ]);
+    const dataset = Dataset.parse(await read(restarted.api, "/api/dataset"));
+    expect(
+      dataset.items.find((item) => item.id === issueItem.id)?.development
+        ?.pullRequest,
+    ).toMatchObject({ number: 12, state: "closed" });
+  });
+
+  test("after a restart, finishes a file rotated meanwhile, found by its inode", () => {
+    writeFileSync(registryPath(), registryText([openIssue, openPullRequest]));
+    appendFileSync(eventsPath(), line("ci_failed", 12));
+    const first = start();
+    first.reader.poll();
+    first.reader.stop();
+    first.api.close();
+    // While Atlas is down, gh-events appends, rotates to its dated name and
+    // starts a new file.
+    appendFileSync(
+      eventsPath(),
+      line("ci_failed", 12, { sha: otherSha, key: `x:${otherSha}` }),
+    );
+    renameSync(eventsPath(), join(directory, "events.20261024T133000Z.jsonl"));
+    writeFileSync(eventsPath(), line("issue_assigned", 7));
+    const second = start();
+    second.reader.poll();
+    expect(githubEvents()).toEqual([
+      "retry-webhooks: Pull request #12: checks failed",
+      "retry-webhooks: Pull request #12: checks failed",
+      "retry-webhooks: Issue #7 assigned",
+    ]);
+  });
+
   test("tells open pages to reload when what it knows changes", async () => {
     writeFileSync(registryPath(), registryText([]));
     const { reader, api } = start();
