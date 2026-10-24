@@ -229,8 +229,12 @@ export function WorldCanvas(props: WorldCanvasProps) {
     // restarts when a prop changes.
   }, []);
 
-  // Refit when the view changes between compact and full.
+  // Refit when the view changes between compact and full, but not on the
+  // first render: the size effect has fitted, or restored a saved view.
+  const shownDetail = useRef(props.detail);
   useEffect(() => {
+    if (shownDetail.current === props.detail) return;
+    shownDetail.current = props.detail;
     userMoved.current = false;
     zoomedSystem.current = null;
     const timer = window.setTimeout(() => fit(true), 30);
