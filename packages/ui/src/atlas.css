@@ -269,8 +269,8 @@
 
 /* ── Full view overlays ─────────────────────────────────────────────── */
 /* The readout sits in the bottom corner, opposite the log, so the right
-   column is free for the inspector cards. A handle on its top edge opens
-   the needs-you list upward. */
+   column is free for the inspector cards. A handle under the HUD title
+   opens the needs-you list upward. */
 .atlas-hud {
   position: absolute;
   bottom: calc(16px + env(safe-area-inset-bottom, 0px));
@@ -296,6 +296,9 @@
 .atlas-hud[data-open="true"] {
   z-index: 7;
   backdrop-filter: blur(10px);
+}
+.atlas-hud-title {
+  margin: 10px 0 0;
 }
 .atlas-hud-readout {
   display: flex;
