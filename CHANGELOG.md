@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.0](https://github.com/lekman/atlas/compare/v0.4.1...v0.5.0) (2026-10-24)
+
+
+### Features
+
+* **ui:** a handle on the readout opens what needs you ([#29](https://github.com/lekman/atlas/issues/29)) ([9b01e26](https://github.com/lekman/atlas/commit/9b01e26b4d73bbe0aed49d79a043c2df4071563b))
+* **ui:** title the corner readout HUD ([#31](https://github.com/lekman/atlas/issues/31)) ([9b7effa](https://github.com/lekman/atlas/commit/9b7effab42f1706f57173696f4a777a3f018e55a))
+
 ## [0.4.1](https://github.com/lekman/atlas/compare/v0.4.0...v0.4.1) (2026-10-24)
 
 
