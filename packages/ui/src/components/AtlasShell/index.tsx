@@ -48,7 +48,7 @@ import { DetailsPane } from "../DetailsPane";
 import { HudReadout } from "../HudReadout";
 import { Inspector, type InspectorAction } from "../Inspector";
 import { KeyPanel } from "../KeyPanel";
-import { LogPanel, type LogSubject } from "../LogPanel";
+import { LogPanel, type LogDrawer, type LogSubject } from "../LogPanel";
 import { NeedsYouList } from "../NeedsYouList";
 import { SoundPanel } from "../SoundPanel";
 import { WorldCanvas } from "../WorldCanvas";
@@ -323,6 +323,7 @@ export function AtlasShell(props: AtlasShellProps) {
   const [selected, setSelected] = useState<string | null>(
     props.initialSelection ?? saved.selected ?? null,
   );
+  const [logDrawer, setLogDrawer] = useState<LogDrawer>("shut");
   const [detailsOpen, setDetailsOpen] = useState(
     !props.initialSelection && saved.detailsOpen === true && !!saved.selected,
   );
@@ -787,6 +788,10 @@ export function AtlasShell(props: AtlasShellProps) {
             subject={logSubject}
             showingAllEvents={showingAllEvents}
             onShowAllEventsChange={setShowingAllEvents}
+            // Open in full while an item's details are open; otherwise as
+            // the reader left the drawer, shut to begin with.
+            drawer={selected && detailsOpen && !isPhone ? "full" : logDrawer}
+            onDrawerChange={setLogDrawer}
           />
           {isPhone
             ? selected && (

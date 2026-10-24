@@ -1,4 +1,5 @@
 import type { World } from "@atlas/worlds";
+import { useRef, type KeyboardEvent, type PointerEvent } from "react";
 
 import { describeEvent } from "../../describe";
 import type { LogLine } from "../../recordLog";
@@ -32,7 +33,24 @@ export interface LogPanelProps {
   showingAllEvents?: boolean;
   /** All events was pressed, with whether it is now on. */
   onShowAllEventsChange?(showAll: boolean): void;
+  /**
+   * The column's drawer: shut (a short box of the latest lines), a height
+   * in pixels the reader dragged it to, or open the full height. Leave out
+   * for a log that is always open.
+   */
+  drawer?: LogDrawer;
+  /** The handle was dragged, clicked or moved with the keyboard. */
+  onDrawerChange?(drawer: LogDrawer): void;
 }
+
+export type LogDrawer = "shut" | "full" | number;
+
+/** Below this, a drag shuts the drawer. */
+const shutBelow = 120;
+/** A press that moves less than this is a click, not a drag. */
+const dragThreshold = 4;
+/** How far a key press on the handle moves it. */
+const keyStep = 60;
 
 /** The time of a line, with the day in front when it is not today. */
 const clock = (time: Date, seconds: boolean) => {
@@ -63,7 +81,64 @@ export function LogPanel({
   subject = null,
   showingAllEvents = false,
   onShowAllEventsChange,
+  drawer,
+  onDrawerChange,
 }: LogPanelProps) {
+  const sectionRef = useRef<HTMLElement>(null);
+  const drag = useRef<{
+    startY: number;
+    startHeight: number;
+    moved: boolean;
+  } | null>(null);
+  const open = drawer !== undefined && drawer !== "shut";
+  const tallest = () => {
+    const parent = sectionRef.current?.parentElement;
+    return Math.max(
+      shutBelow,
+      (parent?.clientHeight ?? window.innerHeight) - 80,
+    );
+  };
+  const currentHeight = () =>
+    sectionRef.current?.getBoundingClientRect().height ?? 0;
+  const settle = (height: number): LogDrawer =>
+    height < shutBelow
+      ? "shut"
+      : height >= tallest() - 8
+        ? "full"
+        : Math.round(height);
+  const onPointerDown = (event: PointerEvent<HTMLButtonElement>) => {
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    drag.current = {
+      startY: event.clientY,
+      startHeight: currentHeight(),
+      moved: false,
+    };
+  };
+  const onPointerMove = (event: PointerEvent<HTMLButtonElement>) => {
+    const current = drag.current;
+    if (!current) return;
+    const distance = current.startY - event.clientY;
+    if (!current.moved && Math.abs(distance) < dragThreshold) return;
+    current.moved = true;
+    onDrawerChange?.(
+      settle(Math.min(current.startHeight + distance, tallest())),
+    );
+  };
+  const onPointerUp = () => {
+    const current = drag.current;
+    drag.current = null;
+    if (current && !current.moved) onDrawerChange?.(open ? "shut" : "full");
+  };
+  const onKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+    if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+      event.preventDefault();
+      const step = event.key === "ArrowUp" ? keyStep : -keyStep;
+      onDrawerChange?.(settle(Math.min(currentHeight() + step, tallest())));
+    } else if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      onDrawerChange?.(open ? "shut" : "full");
+    }
+  };
   const narrowed = subject !== null && !showingAllEvents;
   const lines: readonly LogLine[] = narrowed
     ? subject.lines
@@ -77,10 +152,35 @@ export function LogPanel({
   const titleId = `atlas-log-${variant}`;
   return (
     <section
+      ref={sectionRef}
       className={`atlas-log atlas-log-${variant}`}
       aria-labelledby={titleId}
       data-narrowed={narrowed}
+      data-drawer={
+        drawer === undefined
+          ? undefined
+          : typeof drawer === "number"
+            ? "height"
+            : drawer
+      }
+      style={typeof drawer === "number" ? { height: drawer } : undefined}
     >
+      {drawer !== undefined && (
+        <button
+          type="button"
+          className="atlas-drawer-handle"
+          aria-expanded={open}
+          aria-label={open ? "Shorten the log" : "Open the whole log"}
+          title="Drag up to read more of the log"
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={() => (drag.current = null)}
+          onKeyDown={onKeyDown}
+        >
+          <span aria-hidden="true" />
+        </button>
+      )}
       <h2 className="atlas-section-title" id={titleId}>
         <span>{world.vocabulary.log}</span>
         <span>{variant === "panel" ? `${lines.length} entries` : "live"}</span>
