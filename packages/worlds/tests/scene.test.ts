@@ -4,14 +4,19 @@ import { isOnMap, orderByUrgency, type Dataset } from "@atlas/core";
 import { busyClientId, busyDataset, sampleDataset } from "@atlas/fixtures";
 
 import {
+  arrivalDistance,
   computeLayout,
+  currentTask,
   fitAroundPanels,
   fitCamera,
   focusOn,
+  hoverAmplitude,
   itemPosition,
   Scene,
   shownPerWorkstream,
+  taskDwellSeconds,
   unsortedTitle,
+  workingSpot,
   workstreamCaption,
   workstreamCaptionRise,
   screenToWorld,
@@ -294,6 +299,118 @@ describe("scene", () => {
     scene.step(0, 0.016, false);
     scene.reset(sampleDataset);
     expect(scene.motions.size).toBe(0);
+  });
+});
+
+describe("agents at work", () => {
+  const schema = sampleDataset.agents.find((agent) => agent.id === "schema")!;
+  const distance = (a: { x: number; y: number }, b: { x: number; y: number }) =>
+    Math.hypot(a.x - b.x, a.y - b.y);
+
+  it("works each task for the dwell time, then the next, round and round", () => {
+    expect(schema.workingOn.length).toBeGreaterThanOrEqual(2);
+    const [first, second] = schema.workingOn;
+    expect(currentTask(schema, 0, false)).toBe(first!);
+    expect(currentTask(schema, taskDwellSeconds - 0.01, false)).toBe(first!);
+    expect(currentTask(schema, taskDwellSeconds, false)).toBe(second!);
+    expect(
+      currentTask(schema, taskDwellSeconds * schema.workingOn.length, false),
+    ).toBe(first!);
+  });
+
+  it("stays on the first task under reduced motion, or when not running", () => {
+    const [first] = schema.workingOn;
+    expect(currentTask(schema, taskDwellSeconds * 1.5, true)).toBe(first!);
+    expect(
+      currentTask(
+        { ...schema, status: "waiting" },
+        taskDwellSeconds * 1.5,
+        false,
+      ),
+    ).toBe(first!);
+    expect(currentTask({ ...schema, workingOn: [] }, 5, false)).toBeNull();
+  });
+
+  it("holds beside the task, to the right of it and clear of its row", () => {
+    const centre = { x: 0, y: 0 };
+    const above = workingSpot({ x: -300, y: -60 }, centre);
+    expect(above.x).toBeGreaterThan(-300);
+    expect(above.y).toBeLessThan(-60 - 40);
+    const below = workingSpot({ x: 300, y: 60 }, centre);
+    expect(below.x).toBeGreaterThan(300);
+    expect(below.y).toBeGreaterThan(60 + 40);
+    // A second agent at the same task takes the other side of the row.
+    expect(workingSpot({ x: -300, y: -60 }, centre, 1).y).toBeGreaterThan(-60);
+  });
+
+  it("flies to its next task, and does not circle", () => {
+    const scene = new Scene(sampleDataset);
+    const [first, second] = schema.workingOn;
+    const at = (time: number) => scene.agentTarget(schema, time, false);
+    const work = (time: number) => scene.workTarget(schema, time, false)!;
+    expect(work(1).itemId).toBe(first!);
+    expect(work(taskDwellSeconds + 1).itemId).toBe(second!);
+    for (const time of [1, 4, 9, 15])
+      expect(distance(at(time), work(time).spot)).toBeLessThanOrEqual(
+        hoverAmplitude * Math.SQRT2,
+      );
+    expect(
+      distance(work(1).spot, work(taskDwellSeconds + 1).spot),
+    ).toBeGreaterThan(100);
+  });
+
+  it("arrives, faces its task and keeps still under reduced motion", () => {
+    const scene = new Scene(sampleDataset);
+    for (let frame = 0; frame < 240; frame++)
+      scene.step(30 + frame / 60, 1 / 60, true);
+    const motion = scene.motions.get("schema")!;
+    const work = scene.workTarget(schema, 0, true)!;
+    expect(work.itemId).toBe(schema.workingOn[0]!);
+    expect(motion.work?.arrived).toBe(true);
+    expect(motion.work?.itemId).toBe(work.itemId);
+    expect(distance(motion.position, work.spot)).toBeLessThan(arrivalDistance);
+    expect(scene.agentTarget(schema, 30, true)).toEqual(work.spot);
+    expect(scene.agentTarget(schema, 47, true)).toEqual(work.spot);
+    const facing = Math.atan2(
+      work.task.y - motion.position.y,
+      work.task.x - motion.position.x,
+    );
+    expect(Math.cos(motion.heading - facing)).toBeGreaterThan(0.99);
+    expect(motion.trail).toEqual([]);
+  });
+
+  it("is not at work while still flying there", () => {
+    const scene = new Scene(sampleDataset);
+    scene.step(1, 1 / 60, false);
+    const motion = scene.motions.get("schema")!;
+    expect(motion.work?.arrived).toBe(true);
+    // The next task, a dwell later: one frame in, it is still under way.
+    scene.step(taskDwellSeconds + 1, 1 / 60, false);
+    expect(motion.work?.itemId).toBe(schema.workingOn[1]!);
+    expect(motion.work?.arrived).toBe(false);
+  });
+
+  it("parks a waiting agent beside its task, still, and gives a running one the first spot", () => {
+    const scene = new Scene(sampleDataset);
+    const release = sampleDataset.agents.find(
+      (agent) => agent.id === "release",
+    )!;
+    expect(release.status).toBe("waiting");
+    const parked = scene.workTarget(release, 3, false)!;
+    expect(scene.agentTarget(release, 3, false)).toEqual(parked.spot);
+    expect(scene.agentTarget(release, 11, false)).toEqual(parked.spot);
+    const centre = scene.layout.clients.get("halcyon")!;
+    const running = scene.workTarget(schema, 3, false)!;
+    expect(running.itemId).toBe(parked.itemId);
+    expect(running.spot).toEqual(workingSpot(running.task, centre, 0));
+    expect(parked.spot).toEqual(workingSpot(parked.task, centre, 1));
+  });
+
+  it("leaves watching and idle agents with no task to work", () => {
+    const scene = new Scene(sampleDataset);
+    scene.step(0, 1 / 60, false);
+    for (const id of ["gaps-watch", "test-runner"])
+      expect(scene.motions.get(id)!.work).toBeNull();
   });
 });
 

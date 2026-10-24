@@ -4,8 +4,8 @@
  * Used where a canvas cannot run: the Claude Code plugin pane (desktop and
  * iPhone draw an `Svg` element, never script), thumbnails, and link previews.
  * It shows where every client and agent is, each client's workstreams with
- * the work drawn beside them, and what needs you, with the same status
- * colours as the live map, and nothing else.
+ * the work drawn beside them, what each running agent is working, and what
+ * needs you, with the same status colours as the live map, and nothing else.
  */
 import { clientOfAgent, type Dataset } from "@atlas/core";
 
@@ -100,6 +100,10 @@ export function renderSnapshot(
   for (const agent of dataset.agents) {
     const position = scene.agentTarget(agent, 0, true);
     const colour = palette.status[agent.status];
+    const work =
+      agent.status === "running" ? scene.workTarget(agent, 0, true) : null;
+    if (work && world.stillMap.work)
+      parts.push(world.stillMap.work(work.spot, work.task, lighting));
     if (scene.needsAttention(agent)) {
       parts.push(
         `<circle cx="${position.x.toFixed(1)}" cy="${position.y.toFixed(1)}" r="34" fill="none" stroke="${colour}" stroke-width="5" stroke-opacity="0.7"/>`,

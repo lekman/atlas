@@ -23,6 +23,17 @@ type Story = StoryObj<typeof meta>;
 /** The whole map at overview zoom, with every label the full view draws. */
 export const FullMap: Story = { name: "Full Map" };
 
+/**
+ * Halcyon Labs up close, where a running ship sails to its cargo, heaves to
+ * beside it and fishes it with a line and a bobbing float. Schema works the
+ * cut-over, then sails to the database tests after twenty seconds, and back
+ * again.
+ */
+export const AgentsAtWork: Story = {
+  name: "Agents at Work",
+  args: { zoomClientId: "halcyon" },
+};
+
 /** The map as the sidebar shows it: client and home names only. */
 export const CompactMap: Story = {
   name: "Compact Map",

@@ -65,4 +65,16 @@ export const marinerStillMap: StillMap = {
       : ""),
   client: (centre, id, lighting) => island(id, centre, islandRadius, lighting),
   labelOffset: 150,
+  // A fishing line to a float riding beside the cargo.
+  work: (from, task, lighting = "day") => {
+    const [line, float] =
+      lighting === "night" ? ["#aaa392", "#d9dde0"] : ["#3d2a17", "#f6efde"];
+    const angle = Math.atan2(from.y - task.y, from.x - task.x);
+    const x = (task.x + Math.cos(angle) * 18).toFixed(1);
+    const y = (task.y + Math.sin(angle) * 18).toFixed(1);
+    return (
+      `<line x1="${from.x.toFixed(1)}" y1="${from.y.toFixed(1)}" x2="${x}" y2="${y}" stroke="${line}" stroke-width="2.5"/>` +
+      `<circle cx="${x}" cy="${y}" r="7" fill="${float}" stroke="${line}" stroke-width="2"/>`
+    );
+  },
 };

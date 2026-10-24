@@ -153,7 +153,7 @@ export const sampleDataset: Dataset = Dataset.parse({
       "MacBook",
       "remote-control",
       "running",
-      ["cut-over"],
+      ["cut-over", "database-tests"],
       "Rehearsing the tenant cut-over on staging",
     ),
     agent(
@@ -187,8 +187,8 @@ export const sampleDataset: Dataset = Dataset.parse({
       "MacBook",
       "remote-control",
       "running",
-      ["webhooks"],
-      "Partner webhooks",
+      ["webhooks", "rate-limits"],
+      "Partner webhooks, then rate limits",
     ),
     agent(
       "policy-writer",

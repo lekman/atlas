@@ -177,6 +177,11 @@ export interface StillMap {
   client(centre: Point, clientId: string, lighting?: Lighting): string;
   /** Where a client's name sits relative to its centre. */
   labelOffset: number;
+  /**
+   * How a running agent at `from` works its task at `task`, held still: a
+   * beam, a line. Absent where the world draws nothing between them.
+   */
+  work?(from: Point, task: Point, lighting?: Lighting): string;
 }
 
 export interface World {

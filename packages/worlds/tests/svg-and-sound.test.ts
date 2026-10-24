@@ -11,6 +11,23 @@ import {
 } from "../src";
 
 describe("still map", () => {
+  it("draws a still beam or line from a running agent to its task", () => {
+    const options = { width: 400, height: 300 };
+    const astronomer = renderSnapshot(
+      worlds.astronomer,
+      sampleDataset,
+      options,
+    );
+    expect(astronomer).toContain('stroke="#e9fdff"');
+    const mariner = renderSnapshot(worlds.mariner, sampleDataset, options);
+    expect(mariner).toContain('r="7" fill="#f6efde"');
+    const night = renderSnapshot(worlds.mariner, sampleDataset, {
+      ...options,
+      lighting: "night",
+    });
+    expect(night).toContain('r="7" fill="#d9dde0"');
+  });
+
   for (const world of Object.values(worlds)) {
     it(`draws every agent in the ${world.name} world`, () => {
       const svg = renderSnapshot(world, sampleDataset, {

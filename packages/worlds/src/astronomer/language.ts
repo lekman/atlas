@@ -32,4 +32,8 @@ export const astronomerStillMap: StillMap = {
     `<circle cx="${centre.x}" cy="${centre.y}" r="12" fill="#fff4dc"/>` +
     `<circle cx="${centre.x}" cy="${centre.y}" r="330" fill="none" stroke="#5edcff" stroke-opacity="0.15" stroke-width="3" stroke-dasharray="8 16"/>`,
   labelOffset: -250,
+  // A mining laser, still: a soft cyan glow round a bright core.
+  work: (from, task) =>
+    `<line x1="${from.x.toFixed(1)}" y1="${from.y.toFixed(1)}" x2="${task.x.toFixed(1)}" y2="${task.y.toFixed(1)}" stroke="#5edcff" stroke-opacity="0.3" stroke-width="10" stroke-linecap="round"/>` +
+    `<line x1="${from.x.toFixed(1)}" y1="${from.y.toFixed(1)}" x2="${task.x.toFixed(1)}" y2="${task.y.toFixed(1)}" stroke="#e9fdff" stroke-width="3" stroke-linecap="round"/>`,
 };

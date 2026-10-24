@@ -21,11 +21,14 @@ export function WorldDemonstration({
   events,
   detail,
   lighting = "day",
+  zoomClientId,
 }: {
   world: WorldId;
   events: AtlasEvent[];
   detail: "compact" | "full";
   lighting?: Lighting;
+  /** Fly in to this client's system on load, so its work reads up close. */
+  zoomClientId?: string;
 }) {
   const definition = worlds[world];
   const map = useAtlasMap({
@@ -63,6 +66,7 @@ export function WorldDemonstration({
         lighting={lighting}
         selectedId={selected}
         onSelect={setSelected}
+        zoomClientId={zoomClientId ?? null}
         label={`${definition.name} map of the sample dataset`}
       />
     </div>
