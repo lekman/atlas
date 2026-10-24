@@ -186,6 +186,13 @@ export function Inspector({
       );
       if (agents.length)
         rows.push([vocabulary.agents, agents.map((agent) => link(agent.id))]);
+      // One compact line; the Details pane has the issue, branch and links.
+      const pullRequest = item.development?.pullRequest;
+      if (pullRequest)
+        rows.push([
+          "Pull request",
+          `#${pullRequest.number} · ${pullRequest.state} · ${pullRequest.checks === "none" ? "no checks" : `checks ${pullRequest.checks}`}`,
+        ]);
       actions = [
         ["dispatch", "Dispatch"],
         ["ask-status", "Ask status"],

@@ -1,4 +1,4 @@
-import { sampleDataset } from "@atlas/fixtures";
+import { sampleDataset, sampleDayPlan } from "@atlas/fixtures";
 import { worlds } from "@atlas/worlds";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, within } from "storybook/test";
@@ -9,6 +9,18 @@ import {
   storyWorld,
   WorldFrame,
 } from "../../stories/WorldFrame";
+
+// The rehearsal from the day plan has a draft pull request with its checks
+// still running.
+const rehearsal = sampleDayPlan.items.find(
+  (item) => item.id === "rehearse-cut-over",
+);
+if (!rehearsal?.development?.pullRequest)
+  throw new Error("the rehearsal has a pull request");
+const withPullRequest = {
+  ...sampleDataset,
+  items: [...sampleDataset.items, rehearsal],
+};
 
 const meta = {
   title: "Components/Inspector",
@@ -49,6 +61,21 @@ export const ARequirement: Story = {
 export const ABacklogItem: Story = {
   name: "A Backlog Item",
   args: { id: "cut-over" },
+};
+/**
+ * A backlog item embedded in the HUD with its pull request on one compact
+ * line: the number, its state and its checks.
+ */
+export const ABacklogItemWithAPullRequest: Story = {
+  name: "A Backlog Item with a Pull Request",
+  args: { dataset: withPullRequest, id: rehearsal.id, variant: "embedded" },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText("Pull request")).toBeInTheDocument();
+    await expect(
+      canvas.getByText("#148 · draft · checks pending"),
+    ).toBeInTheDocument();
+  },
 };
 /** A decision, with what it settled. */
 export const ADecision: Story = {

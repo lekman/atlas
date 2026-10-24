@@ -599,8 +599,81 @@
   font-size: 13.5px;
 }
 .atlas-details-summary {
-  margin: 14px 0 0;
+  margin: 0 0 14px;
   max-width: 68ch;
+}
+/* The sections side by side, so a wide pane is filled rather than read
+   down one narrow column: three columns in a pane from about 930 pixels
+   wide, two from about 620, one below. A column is at least 280 pixels so a field's
+   120-pixel label leaves room for its value. Source order is reading
+   order at every width. */
+.atlas-details-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 18px 28px;
+  align-items: start;
+}
+.atlas-details-columns h3:first-child {
+  margin-top: 0;
+}
+.atlas-details-column > section + section {
+  margin-top: 16px;
+}
+/* Tracking: a link or a name, then its states, wrapping as one line. */
+.atlas-details-tracking {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  min-width: 0;
+}
+.atlas-details-tracking code {
+  font-family: var(--atlas-mono);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.atlas-details-worktree {
+  flex-basis: 100%;
+  font-size: 12.5px;
+}
+/* A state as a word in ink, framed and marked in its status colour. */
+.atlas-status-label {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  padding: 0 6px;
+  border: 1px solid var(--atlas-status-colour, var(--atlas-line));
+  border-radius: 3px;
+  font-family: var(--atlas-mono);
+  font-size: 11px;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+.atlas-status-label::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  align-self: center;
+  border-radius: 1px;
+  background: var(--atlas-status-colour, var(--atlas-line));
+}
+.atlas-status-label[data-tone="running"] {
+  --atlas-status-colour: var(--atlas-running);
+}
+.atlas-status-label[data-tone="watching"] {
+  --atlas-status-colour: var(--atlas-watching);
+}
+.atlas-status-label[data-tone="waiting"] {
+  --atlas-status-colour: var(--atlas-waiting);
+}
+.atlas-status-label[data-tone="blocked"] {
+  --atlas-status-colour: var(--atlas-blocked);
+}
+.atlas-status-label[data-tone="error"] {
+  --atlas-status-colour: var(--atlas-error);
+}
+.atlas-status-label[data-tone="idle"] {
+  --atlas-status-colour: var(--atlas-idle);
 }
 .atlas-details-pane-body .atlas-details {
   margin-top: 18px;
@@ -779,6 +852,10 @@
   }
   .atlas-details-fields > div {
     grid-template-columns: 96px minmax(0, 1fr);
+  }
+  /* A phone reads one column, even unfolded. */
+  .atlas-details-columns {
+    grid-template-columns: minmax(0, 1fr);
   }
   .atlas-sheet {
     flex: none;
