@@ -16,6 +16,10 @@ export const marinerPhrases: Phrases = {
   status: (agent, _was, now, text) => `${agent} now ${now}: ${text}`,
   answered: (decision, where) =>
     `Fog lifts over ${where}. Lighthouse lit: ${decision}`,
+  launched: (vessel, parent, task, text) =>
+    `${parent} lowers the tender ${vessel}, ${task ? `bound for ${task}` : "to lie alongside"}: ${text}`,
+  returned: (vessel, parent, text) =>
+    `Tender ${vessel} back aboard ${parent}: ${text}`,
 };
 
 export function marinerReadout(input: ReadoutInput): Readout {

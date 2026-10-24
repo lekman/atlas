@@ -12,6 +12,8 @@ export const astronomerVocabulary: Vocabulary = {
   item: "moon",
   agent: "probe",
   agents: "probes",
+  vessel: "launch",
+  vessels: "launches",
   question: "comet",
   questions: "comets",
   decision: "charted star",

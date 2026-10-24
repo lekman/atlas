@@ -12,6 +12,8 @@ export const samuraiVocabulary: Vocabulary = {
   item: "campaign",
   agent: "retainer",
   agents: "retainers",
+  vessel: "attendant",
+  vessels: "attendants",
   question: "scout's report",
   questions: "scouts' reports",
   decision: "seal",

@@ -17,6 +17,8 @@ export const doctorVocabulary: Vocabulary = {
   item: "admission",
   agent: "staff member",
   agents: "staff",
+  vessel: "trainee",
+  vessels: "trainees",
   question: "pending test result",
   questions: "pending test results",
   decision: "recorded diagnosis",

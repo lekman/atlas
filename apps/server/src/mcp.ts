@@ -90,7 +90,7 @@ export function createMcpServer({
     { name: "atlas", version },
     {
       instructions:
-        "Atlas is the shared map of agents, clients and work. Call report_status when you start, change what you are doing, wait on someone, or finish. Use your agent id from list_agents.",
+        "Atlas is the shared map of agents, clients and work. Call report_status when you start, change what you are doing, wait on someone, or finish. Call launch_vessel when you start a background agent or subagent, and return_vessel when it finishes. Use your agent id from list_agents.",
     },
   );
   const read = (): Dataset => readDataset(database);
@@ -129,6 +129,7 @@ export function createMcpServer({
             host: agent.host,
             status: agent.status,
             note: agent.note,
+            ...(agent.parentId ? { parentId: agent.parentId } : {}),
           })),
       );
     },
@@ -182,6 +183,90 @@ export function createMcpServer({
       return attempt(() =>
         reply({
           recorded: record({ type: "agent-message", from, to, text }).sequence,
+        }),
+      );
+    },
+  );
+
+  server.registerTool(
+    "launch_vessel",
+    {
+      title: "Launch a vessel",
+      description:
+        "Show a background agent or subagent you start as a small vessel launched from you. It works the items you name, then call return_vessel when it finishes.",
+      inputSchema: {
+        parentId: Identifier.describe(
+          "The agent that launches it: your agent id",
+        ),
+        vesselId: Identifier.describe(
+          "A new id for the vessel, unique in Atlas, such as your id and its task",
+        ),
+        name: z
+          .string()
+          .min(1)
+          .max(80)
+          .describe("A short name for the vessel, as the map shows it"),
+        workingOn: z
+          .array(Identifier)
+          .max(10)
+          .optional()
+          .describe(
+            "Backlog item ids it works, from list_my_work. Leave out to keep it beside you",
+          ),
+        note: z
+          .string()
+          .min(1)
+          .max(280)
+          .describe("One line on what the vessel is doing"),
+      },
+    },
+    ({ parentId, vesselId, name, workingOn, note }) => {
+      const dataset = read();
+      if (!agentNamed(dataset, parentId)) return refuse(`no agent ${parentId}`);
+      for (const itemId of workingOn ?? []) {
+        const item = dataset.items.find((candidate) => candidate.id === itemId);
+        if (!item || !canSee(machine, item.clientId))
+          return refuse(`no item ${itemId}`);
+      }
+      return attempt(() =>
+        reply({
+          recorded: record({
+            type: "agent-launched",
+            agentId: vesselId,
+            parentId,
+            name,
+            ...(workingOn ? { workingOn } : {}),
+            text: note,
+          }).sequence,
+        }),
+      );
+    },
+  );
+
+  server.registerTool(
+    "return_vessel",
+    {
+      title: "Return a vessel",
+      description:
+        "A vessel you launched has finished. It flies back to you and leaves the map.",
+      inputSchema: {
+        vesselId: Identifier.describe("The id you gave it in launch_vessel"),
+        note: z
+          .string()
+          .min(1)
+          .max(280)
+          .describe("One line on what it found or did"),
+      },
+    },
+    ({ vesselId, note }) => {
+      if (!agentNamed(read(), vesselId)) return refuse(`no agent ${vesselId}`);
+      return attempt(() =>
+        reply({
+          recorded: record({
+            type: "agent-returned",
+            agentId: vesselId,
+            text: note,
+          }).sequence,
         }),
       );
     },

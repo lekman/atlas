@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
+import { applyEvent, type LaunchEvent } from "@atlas/core";
 import { sampleDataset } from "@atlas/fixtures";
 import { worlds } from "@atlas/worlds";
 
@@ -61,6 +62,37 @@ describe("log lines", () => {
   });
 });
 
+describe("vessel log lines", () => {
+  const launch = {
+    type: "agent-launched",
+    agentId: "drill-notes",
+    parentId: "schema",
+    name: "Drill notes",
+    workingOn: ["weekend-drill"],
+    text: "Writing up the drill steps",
+  } satisfies LaunchEvent;
+
+  it("names the vessel, its parent and its task", () => {
+    expect(describeEvent(worlds.astronomer, sampleDataset, launch)).toBe(
+      "LAUNCH DRILL NOTES FROM SCHEMA → RUN THE DRILL THIS WEEKEND :: Writing up the drill steps",
+    );
+    expect(describeEvent(worlds.mariner, sampleDataset, launch)).toBe(
+      "Schema lowers the tender Drill notes, bound for Run the drill this weekend: Writing up the drill steps",
+    );
+  });
+
+  it("names the parent a vessel returns to", () => {
+    const launched = applyEvent(sampleDataset, launch);
+    expect(
+      describeEvent(worlds.mariner, launched, {
+        type: "agent-returned",
+        agentId: "drill-notes",
+        text: "Steps written",
+      }),
+    ).toBe("Tender Drill notes back aboard Schema: Steps written");
+  });
+});
+
 describe("sound cues", () => {
   it("rings the needs-you cue when an agent starts waiting", () => {
     expect(
@@ -75,5 +107,8 @@ describe("sound cues", () => {
     expect(
       cueFor({ type: "agent-message", from: "a", to: "b", text: "t" }),
     ).toBe("message");
+    expect(cueFor({ type: "agent-returned", agentId: "x", text: "t" })).toBe(
+      "status",
+    );
   });
 });

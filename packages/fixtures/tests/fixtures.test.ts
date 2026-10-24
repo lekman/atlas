@@ -94,7 +94,8 @@ describe("busy dataset", () => {
 });
 
 describe("sample script", () => {
-  it("only names records that exist", () => {
+  it("only names records that exist when each step happens", () => {
+    let dataset = sampleDataset;
     for (const step of sampleScript) {
       if (step.type === "reset") continue;
       expect(AtlasEvent.safeParse(step).success).toBe(true);
@@ -103,12 +104,32 @@ describe("sample script", () => {
           ? [step.from, step.to]
           : step.type === "external"
             ? [step.recordId]
-            : step.type === "status-change"
+            : step.type === "status-change" || step.type === "agent-returned"
               ? [step.agentId]
-              : [step.questionId];
-      for (const id of ids)
-        expect(findRecord(sampleDataset, id)).not.toBeNull();
+              : step.type === "agent-launched"
+                ? [step.parentId, ...(step.workingOn ?? [])]
+                : [step.questionId];
+      for (const id of ids) expect(findRecord(dataset, id)).not.toBeNull();
+      if (step.type === "agent-launched")
+        expect(findRecord(dataset, step.agentId)).toBeNull();
+      dataset = applyEvent(dataset, step);
     }
+  });
+
+  it("launches two vessels from one agent and returns one of them", () => {
+    let dataset = sampleDataset;
+    for (const step of sampleScript)
+      if (step.type !== "reset") dataset = applyEvent(dataset, step);
+    const launched = sampleScript.filter(
+      (step) => step.type === "agent-launched",
+    );
+    expect(launched.map((step) => step.parentId)).toEqual([
+      "tracking",
+      "tracking",
+    ]);
+    expect(
+      dataset.agents.filter((agent) => agent.parentId === "tracking"),
+    ).toHaveLength(1);
   });
 
   it("can be replayed end to end", () => {

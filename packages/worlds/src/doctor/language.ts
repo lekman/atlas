@@ -27,6 +27,10 @@ export const doctorPhrases: Phrases = {
     `${agent} now ${now} (was ${was}). ${text}`,
   answered: (decision, where) =>
     `Results back at ${where}. Diagnosis recorded: ${decision}`,
+  launched: (vessel, parent, task, text) =>
+    `Trainee ${vessel} sent by ${parent} ${task ? `to ${task}` : "to shadow them"}. ${text}`,
+  returned: (vessel, parent, text) =>
+    `Trainee ${vessel} back with ${parent}. ${text}`,
 };
 
 export function doctorReadout(input: ReadoutInput): Readout {

@@ -15,6 +15,10 @@ export const samuraiPhrases: Phrases = {
   status: (agent, _was, now, text) => `${agent}, now ${now}: ${text}`,
   answered: (decision, where) =>
     `The report from ${where} is opened. Sealed: ${decision}`,
+  launched: (vessel, parent, task, text) =>
+    `${parent} sends the attendant ${vessel} ${task ? `to ${task}` : "to stand by"}: ${text}`,
+  returned: (vessel, parent, text) =>
+    `The attendant ${vessel} returns to ${parent}: ${text}`,
 };
 
 export function samuraiReadout(input: ReadoutInput): Readout {

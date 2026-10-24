@@ -26,6 +26,12 @@ export interface Vocabulary {
   item: string;
   agent: string;
   agents: string;
+  /**
+   * A launch vessel: a background agent or subagent another agent started,
+   * drawn as a smaller craft of the same kind: launch, tender.
+   */
+  vessel: string;
+  vessels: string;
   question: string;
   questions: string;
   decision: string;
@@ -147,6 +153,14 @@ export interface Phrases {
   status(agent: string, was: string, now: string, text: string): string;
   /** `where` is the client's name, or the world's name for home. */
   answered(decision: string, where: string): string;
+  /** `task` is the first task's title, or null when the vessel has none. */
+  launched(
+    vessel: string,
+    parent: string,
+    task: string | null,
+    text: string,
+  ): string;
+  returned(vessel: string, parent: string, text: string): string;
 }
 
 export interface ReadoutInput {

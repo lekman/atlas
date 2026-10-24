@@ -20,12 +20,16 @@ import {
   workPosition,
 } from "../layout";
 import {
+  agentLabelSize,
+  bodyScale,
   curveBetween,
   labelScale,
   pixels,
   pulsePhase,
   setScreenTransform,
   setWorldTransform,
+  showsAgentName,
+  showsAgentStatus,
   withAlpha,
   workstreamCaption,
   workstreamCaptionRise,
@@ -445,9 +449,10 @@ function placeName(
 /** Where a bee is drawn: on its path, with a small looping wobble when tending. */
 function beeLoop(agent: Agent, index: number, time: number): Point {
   if (agent.status !== "running") return { x: 0, y: 0 };
+  const reach = 5 * bodyScale(agent);
   return {
-    x: Math.cos(time * 6.1 + index) * 5,
-    y: Math.sin(time * 6.1 + index) * 5 * 0.7,
+    x: Math.cos(time * 6.1 + index) * reach,
+    y: Math.sin(time * 6.1 + index) * reach * 0.7,
   };
 }
 
@@ -1133,9 +1138,11 @@ export const gardenerPainter: WorldPainter = {
       heading = motion.heading;
     }
 
+    // A forager is a smaller bee, sent out from the one it serves.
     const size =
       pixels(paint, isFull(paint) ? 8.5 : 5.5) *
-      Math.max(1, paint.camera.scale * 1.4);
+      Math.max(1, paint.camera.scale * 1.4) *
+      bodyScale(agent);
     const flutter =
       agent.status === "running" && !reducedMotion
         ? Math.sin(time * 38 + index) * 0.28
@@ -1164,22 +1171,31 @@ export const gardenerPainter: WorldPainter = {
       );
       context.stroke();
     }
-    if (!isFull(paint)) return;
+    if (!showsAgentName(paint, agent)) return;
     const { palette } = gardenLook(paint.lighting);
     lettering(
       paint,
       agent.name,
       position.x + size * 1.5 + pixels(paint, 4),
       position.y - pixels(paint, 7),
-      { size: 12.5, font: type.display, colour: palette.ink },
+      {
+        size: agentLabelSize(agent, 12.5),
+        font: type.display,
+        colour: palette.ink,
+      },
     );
-    if (paint.camera.scale > labelScale.agentStatus) {
+    if (showsAgentStatus(paint, agent)) {
       lettering(
         paint,
         gardenerStatusNames[agent.status],
         position.x + size * 1.5 + pixels(paint, 4),
         position.y + pixels(paint, 8),
-        { size: 11, font: type.body, colour, italic: true },
+        {
+          size: agentLabelSize(agent, 11),
+          font: type.body,
+          colour,
+          italic: true,
+        },
       );
     }
   },

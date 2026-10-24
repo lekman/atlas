@@ -126,6 +126,7 @@ export function findBrokenReferences(dataset: Dataset): string[] {
     dataset.workstreams.map((workstream) => workstream.id),
   );
   const itemIds = new Set(dataset.items.map((item) => item.id));
+  const agentIds = new Set(dataset.agents.map((agent) => agent.id));
   const workIds = new Set([...requirementIds, ...itemIds]);
 
   for (const group of dataset.groups)
@@ -134,6 +135,7 @@ export function findBrokenReferences(dataset: Dataset): string[] {
     need(agent.id, "groupId", agent.groupId, groupIds);
     need(agent.id, "accountId", agent.accountId, accountIds);
     for (const id of agent.workingOn) need(agent.id, "workingOn", id, itemIds);
+    need(agent.id, "parentId", agent.parentId, agentIds);
   }
   for (const requirement of dataset.requirements)
     need(requirement.id, "clientId", requirement.clientId, clientIds);

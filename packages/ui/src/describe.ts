@@ -57,5 +57,24 @@ export function describeEvent(
         : (client?.name ?? "");
       return phrases.answered(event.decision.title, where);
     }
+    case "agent-launched": {
+      const task = event.workingOn?.[0];
+      return phrases.launched(
+        event.name,
+        nameOf(before, event.parentId),
+        task ? nameOf(before, task) : null,
+        event.text,
+      );
+    }
+    case "agent-returned": {
+      const vessel = before.agents.find(
+        (candidate) => candidate.id === event.agentId,
+      );
+      return phrases.returned(
+        vessel?.name ?? event.agentId,
+        vessel?.parentId ? nameOf(before, vessel.parentId) : "",
+        event.text,
+      );
+    }
   }
 }

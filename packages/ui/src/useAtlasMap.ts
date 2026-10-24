@@ -60,6 +60,8 @@ export function cueFor(event: AtlasEvent): SoundCue {
           ? "blocked"
           : "status";
     case "question-answered":
+    case "agent-launched":
+    case "agent-returned":
       return "status";
   }
 }

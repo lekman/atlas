@@ -57,10 +57,12 @@ describe("the MCP tools", () => {
     const { tools } = await client.listTools();
     expect(tools.map((tool) => tool.name).sort()).toEqual([
       "answer_question",
+      "launch_vessel",
       "list_agents",
       "list_my_work",
       "list_open_questions",
       "report_status",
+      "return_vessel",
       "send_message",
     ]);
   });
@@ -180,6 +182,90 @@ describe("the MCP tools", () => {
         })
       ).isError,
     ).toBe(true);
+  });
+
+  test("launch_vessel adds a vessel that list_agents shows with its parent", async () => {
+    const launched = await call("launch_vessel", {
+      parentId: "schema",
+      vesselId: "drill-notes",
+      name: "Drill notes",
+      workingOn: ["weekend-drill"],
+      note: "Writing up the drill steps",
+    });
+    expect(launched.isError).toBe(false);
+    const agents = (await call("list_agents")).value as {
+      id: string;
+      parentId?: string;
+    }[];
+    expect(agents.find((agent) => agent.id === "drill-notes")?.parentId).toBe(
+      "schema",
+    );
+    expect(
+      readDataset(database).agents.find((agent) => agent.id === "drill-notes"),
+    ).toMatchObject({
+      groupId: "go-live",
+      reach: "none",
+      status: "running",
+      workingOn: ["weekend-drill"],
+    });
+    expect(listEvents(database).map((stored) => stored.event.type)).toEqual([
+      "agent-launched",
+    ]);
+  });
+
+  test("launch_vessel refuses a missing parent, a taken id and an unknown item", async () => {
+    const launch = {
+      parentId: "schema",
+      vesselId: "drill-notes",
+      name: "Drill notes",
+      note: "Writing up the drill steps",
+    };
+    const missing = await call("launch_vessel", {
+      ...launch,
+      parentId: "nobody",
+    });
+    expect(missing.isError).toBe(true);
+    expect(String(missing.value)).toContain("no agent nobody");
+    const taken = await call("launch_vessel", {
+      ...launch,
+      vesselId: "portal",
+    });
+    expect(taken.isError).toBe(true);
+    expect(String(taken.value)).toContain("portal already exists");
+    const unknown = await call("launch_vessel", {
+      ...launch,
+      workingOn: ["nothing"],
+    });
+    expect(unknown.isError).toBe(true);
+    expect(listEvents(database)).toHaveLength(0);
+  });
+
+  test("return_vessel removes a vessel and refuses an agent that is not one", async () => {
+    await call("launch_vessel", {
+      parentId: "schema",
+      vesselId: "issuer-check",
+      name: "Issuer check",
+      note: "Tracing the issuer",
+    });
+    const notVessel = await call("return_vessel", {
+      vesselId: "schema",
+      note: "Done",
+    });
+    expect(notVessel.isError).toBe(true);
+    expect(String(notVessel.value)).toContain("not a launched vessel");
+    expect(
+      (await call("return_vessel", { vesselId: "issuer-check", note: "Done" }))
+        .isError,
+    ).toBe(false);
+    expect(readDataset(database)).toEqual(sampleDataset);
+    expect(
+      (await call("return_vessel", { vesselId: "issuer-check", note: "Again" }))
+        .isError,
+    ).toBe(true);
+    expect(listEvents(database).map((stored) => stored.event.type)).toEqual([
+      "agent-launched",
+      "agent-returned",
+    ]);
   });
 
   test("a write reaches open streams like a posted event", async () => {

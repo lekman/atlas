@@ -49,17 +49,17 @@ client-confidential, restricted) and a **boundary** (where it may live).
 One client is marked **home**: your own business, drawn at the centre of
 every world.
 
-| Record       | Holds                                                                      |
-| ------------ | -------------------------------------------------------------------------- |
-| Client       | Name, whether it is home                                                   |
-| Account      | A login an agent runs under, and its runtime (Claude, Gemini, n8n, script) |
-| Agent group  | A group of agents serving one client                                       |
-| Agent        | Account, host, how it can be reached, status, what it works on, a note     |
-| Requirement  | What a client needs to be true                                             |
-| Workstream   | A subject a client's work is grouped under, and its place among the others |
-| Backlog item | Work, optionally serving a requirement and in a workstream, with state     |
-| Question     | What blocks a requirement or item, and who must answer                     |
-| Decision     | What was decided, what it settles, the question it came from               |
+| Record       | Holds                                                                                                                    |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| Client       | Name, whether it is home                                                                                                 |
+| Account      | A login an agent runs under, and its runtime (Claude, Gemini, n8n, script)                                               |
+| Agent group  | A group of agents serving one client                                                                                     |
+| Agent        | Account, host, how it can be reached, status, what it works on, a note, the agent it was launched from if it is a vessel |
+| Requirement  | What a client needs to be true                                                                                           |
+| Workstream   | A subject a client's work is grouped under, and its place among the others                                               |
+| Backlog item | Work, optionally serving a requirement and in a workstream, with state                                                   |
+| Question     | What blocks a requirement or item, and who must answer                                                                   |
+| Decision     | What was decided, what it settles, the question it came from                                                             |
 
 The map draws a backlog item only when it is in progress or in review, or
 planned for a day and not done. Each workstream draws at most five of
@@ -69,8 +69,16 @@ work stays in the data for lists and the day plan.
 
 Everything that changes the picture is an **event**: a message between
 agents, an event from an outside system, a status change, a question
-answered. The same event drives the database write, the animation, the log
-line and the sound.
+answered, a vessel launched or returned. The same event drives the
+database write, the animation, the log line and the sound.
+
+A **launch vessel** is an agent with a parent: a background agent or
+subagent another agent started. `agent-launched` adds it in its parent's
+group, account and host, running, with no way to reach it, working the
+items it names. `agent-returned` removes it. A launch is refused when the
+parent is missing or is itself a vessel, when the new id is already taken
+by any record, or when an item it names is missing. A return is refused
+for an agent that is not a vessel.
 
 ## Boundaries
 
@@ -118,12 +126,16 @@ every open view.
 | `list_my_work`        | The agent's own work, then its client's open work, most urgent first |
 | `list_open_questions` | Open questions, with who must answer                                 |
 | `answer_question`     | Answers a question and records the decision                          |
+| `launch_vessel`       | Adds a vessel launched from an agent: an `agent-launched` event      |
+| `return_vessel`       | Removes a vessel that has finished: an `agent-returned` event        |
 
 A session connects as described in "Who May Connect", below. A request with an Origin header from another site is refused, so a web page
 cannot call the tools through a browser on the tailnet.
 
 An event about a missing record is refused with a
-404, and a second answer to the same question with a 409. A posted event
+404, and a second answer to the same question with a 409. A launch from a
+missing parent is a 404; a launch onto a taken id, or the return of an
+agent that is not a vessel, is a 409. A posted event
 must be `application/json`: another site cannot send that from a browser
 without a preflight, and the server answers no preflight. Until machine
 tokens exist, any device on the tailnet may post an event.

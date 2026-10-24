@@ -3,7 +3,7 @@
  * navigation console. Clients are star systems, requirements planets,
  * backlog items moons, agents probes with ion trails. Home is Terra.
  */
-import { externalSourceNames } from "@atlas/core";
+import { externalSourceNames, isVessel } from "@atlas/core";
 
 import type { Point } from "../camera";
 import {
@@ -13,12 +13,16 @@ import {
   rings,
 } from "../layout";
 import {
+  agentLabelSize,
+  bodyScale,
   curveBetween,
   label,
   labelScale,
   pixels,
   pulsePhase,
   setWorldTransform,
+  showsAgentName,
+  showsAgentStatus,
   withAlpha,
   workstreamCaption,
   workstreamCaptionRise,
@@ -441,6 +445,7 @@ export const astronomerPainter: WorldPainter = {
     if (!centre) return;
     const probes = paint.scene.dataset.agents.filter(
       (agent) =>
+        !isVessel(agent) &&
         paint.scene.dataset.groups.find((group) => group.id === agent.groupId)
           ?.clientId === client.id,
     ).length;
@@ -817,13 +822,15 @@ export const astronomerPainter: WorldPainter = {
   },
 
   agent(paint, agent, motion, colour) {
-    const size = probeSize(paint, 1);
+    // A launch from a probe is the same craft, smaller, with a finer laser.
+    const scale = bodyScale(agent);
+    const size = probeSize(paint, scale);
     if (agent.status === "running" && motion.work?.arrived)
       drawMiningLaser(
         paint,
         probeNose(motion.position, motion.heading, size),
         motion.work.task,
-        1,
+        scale,
         paint.scene.dataset.agents.indexOf(agent),
       );
     drawProbe(paint, motion, colour, size);
@@ -849,47 +856,52 @@ export const astronomerPainter: WorldPainter = {
       context.stroke();
     }
     if (!isFull(paint)) return;
-    context.strokeStyle = withAlpha(colour, 0.6);
-    context.lineWidth = pixels(paint, 1);
-    const bracket = pixels(paint, 12);
-    for (const [sx, sy] of [
-      [-1, -1],
-      [1, -1],
-      [1, 1],
-      [-1, 1],
-    ] as const) {
-      context.beginPath();
-      context.moveTo(
-        position.x + sx * bracket,
-        position.y + sy * bracket * 0.5,
-      );
-      context.lineTo(position.x + sx * bracket, position.y + sy * bracket);
-      context.lineTo(
-        position.x + sx * bracket * 0.5,
-        position.y + sy * bracket,
-      );
-      context.stroke();
+    // Targeting brackets mark agents only; a launch would only add clutter.
+    if (scale === 1) {
+      context.strokeStyle = withAlpha(colour, 0.6);
+      context.lineWidth = pixels(paint, 1);
+      const bracket = pixels(paint, 12);
+      for (const [sx, sy] of [
+        [-1, -1],
+        [1, -1],
+        [1, 1],
+        [-1, 1],
+      ] as const) {
+        context.beginPath();
+        context.moveTo(
+          position.x + sx * bracket,
+          position.y + sy * bracket * 0.5,
+        );
+        context.lineTo(position.x + sx * bracket, position.y + sy * bracket);
+        context.lineTo(
+          position.x + sx * bracket * 0.5,
+          position.y + sy * bracket,
+        );
+        context.stroke();
+      }
     }
-    label(
-      paint,
-      agent.name.toUpperCase(),
-      position.x + pixels(paint, 16),
-      position.y - pixels(paint, 9),
-      {
-        size: 10,
-        font: type.display,
-        colour,
-        letterSpacing: 1.2,
-      },
-    );
-    if (paint.camera.scale > labelScale.agentStatus) {
+    const textX = position.x + pixels(paint, 16 * scale);
+    if (showsAgentName(paint, agent))
+      label(
+        paint,
+        agent.name.toUpperCase(),
+        textX,
+        position.y - pixels(paint, 9 * scale),
+        {
+          size: agentLabelSize(agent, 10),
+          font: type.display,
+          colour,
+          letterSpacing: 1.2,
+        },
+      );
+    if (showsAgentStatus(paint, agent)) {
       label(
         paint,
         astronomerStatusNames[agent.status].toUpperCase(),
-        position.x + pixels(paint, 16),
+        textX,
         position.y + pixels(paint, 4),
         {
-          size: 8.5,
+          size: agentLabelSize(agent, 8.5),
           font: type.mono,
           colour: palette.mute,
           letterSpacing: 0.8,

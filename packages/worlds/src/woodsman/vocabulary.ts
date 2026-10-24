@@ -12,6 +12,8 @@ export const woodsmanVocabulary: Vocabulary = {
   item: "cairn",
   agent: "scout",
   agents: "scouts",
+  vessel: "apprentice",
+  vessels: "apprentices",
   question: "unmarked fork",
   questions: "unmarked forks",
   decision: "blazed tree",

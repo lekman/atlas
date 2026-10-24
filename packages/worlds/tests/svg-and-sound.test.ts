@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
+import { applyEvent } from "@atlas/core";
 import { sampleDataset } from "@atlas/fixtures";
 
 import {
@@ -26,6 +27,24 @@ describe("still map", () => {
       lighting: "night",
     });
     expect(night).toContain('r="7" fill="#d9dde0"');
+  });
+
+  it("draws a launch vessel smaller, named as one, and counts it apart", () => {
+    const launched = applyEvent(sampleDataset, {
+      type: "agent-launched",
+      agentId: "drill-notes",
+      parentId: "schema",
+      name: "Drill notes",
+      workingOn: ["weekend-drill"],
+      text: "Writing up the drill steps",
+    });
+    const svg = renderSnapshot(worlds.mariner, launched, {
+      width: 400,
+      height: 300,
+    });
+    expect(svg).toContain('r="8.8"');
+    expect(svg).toContain("Drill notes: tender, under sail");
+    expect(svg).toContain(`${sampleDataset.agents.length} vessels, 1 tender, `);
   });
 
   for (const world of Object.values(worlds)) {
