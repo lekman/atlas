@@ -26,6 +26,12 @@ export interface Configuration {
    * `ATLAS_FAKE_DEVELOPMENT=true`; the stored records never change.
    */
   fakeDevelopment: boolean;
+  /**
+   * The folder where gh-events writes `registry.json` and `events.jsonl`,
+   * or `undefined` to leave GitHub state off. Set by
+   * `ATLAS_GITHUB_STATE_DIR`; see `github-reader.ts`.
+   */
+  githubStateDirectory?: string;
 }
 
 /**
@@ -110,5 +116,8 @@ export function readConfiguration(
     requireTokens: environment.ATLAS_REQUIRE_TOKENS === "true",
     tasks: readTasks(environment),
     fakeDevelopment: environment.ATLAS_FAKE_DEVELOPMENT === "true",
+    ...(environment.ATLAS_GITHUB_STATE_DIR?.trim()
+      ? { githubStateDirectory: environment.ATLAS_GITHUB_STATE_DIR.trim() }
+      : {}),
   };
 }

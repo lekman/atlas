@@ -9,6 +9,7 @@ import rootPackage from "../../../package.json" with { type: "json" };
 import { createApi } from "./api";
 import { readConfiguration } from "./configuration";
 import { openDatabase } from "./database";
+import { createGithubReader } from "./github-reader";
 import { isEmpty, readSeedFile, seedDataset } from "./store";
 import { createTaskCache } from "./task-cache";
 import { passwordFromCommand, postgresTaskSource } from "./task-database";
@@ -61,6 +62,14 @@ if (tasks) {
   tasks.start();
 }
 
+// Pull request and issue state from gh-events' files, when configured.
+const github = configuration.githubStateDirectory
+  ? createGithubReader({
+      directory: configuration.githubStateDirectory,
+      database,
+    })
+  : undefined;
+
 // Every start is a new build as far as open pages are concerned: a deploy
 // restarts the server, and the pages reload when they reconnect.
 const build = `${rootPackage.version}-${Date.now().toString(36)}`;
@@ -71,7 +80,12 @@ const api = createApi({
   requireTokens: configuration.requireTokens,
   fakeDevelopment: configuration.fakeDevelopment,
   ...(tasks ? { tasks } : {}),
+  ...(github ? { github } : {}),
 });
+if (github) {
+  github.poll();
+  github.start();
+}
 
 const server = Bun.serve({
   hostname: configuration.hostname,
@@ -93,11 +107,12 @@ const server = Bun.serve({
 });
 
 console.log(
-  `atlas ${rootPackage.version} listening on ${server.url}, tokens ${configuration.requireTokens ? "required" : "optional"}, tasks from ${tasks ? "the task database" : "SQLite"}${configuration.fakeDevelopment ? ", development tracking fake" : ""}`,
+  `atlas ${rootPackage.version} listening on ${server.url}, tokens ${configuration.requireTokens ? "required" : "optional"}, tasks from ${tasks ? "the task database" : "SQLite"}${github ? ", GitHub state from gh-events" : ""}${configuration.fakeDevelopment ? ", development tracking fake" : ""}`,
 );
 
 function shutdown() {
   tasks?.stop();
+  github?.stop();
   api.close();
   server.stop();
   database.$client.close();

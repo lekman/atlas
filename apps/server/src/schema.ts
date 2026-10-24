@@ -12,7 +12,13 @@ import type {
   Reach,
   Runtime,
 } from "@atlas/core";
-import { integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import {
+  integer,
+  primaryKey,
+  real,
+  sqliteTable,
+  text,
+} from "drizzle-orm/sqlite-core";
 
 const governed = {
   id: text().primaryKey(),
@@ -150,3 +156,51 @@ export const machines = sqliteTable("machines", {
   issuedAt: text("issued_at").notNull(),
   revokedAt: text("revoked_at"),
 });
+
+/**
+ * Where the GitHub reader stopped in gh-events' `events.jsonl`: the file's
+ * inode and the byte offset after the last whole line read. One row.
+ */
+export const githubCursor = sqliteTable("github_cursor", {
+  id: integer().primaryKey(),
+  inode: text().notNull(),
+  offset: integer().notNull(),
+  lastKey: text("last_key"),
+});
+
+/**
+ * The `events.jsonl` lines already read, by their key, so a restart
+ * neither replays a line nor skips one. `applied` is whether the line
+ * matched a backlog item and became an Atlas event. Only the newest lines
+ * are kept (see `github-reader.ts`).
+ */
+export const githubEvents = sqliteTable("github_events", {
+  sequence: integer().primaryKey({ autoIncrement: true }),
+  key: text().notNull().unique(),
+  event: text().notNull(),
+  kind: text().notNull(),
+  /** `owner/name`, in lower case. */
+  repository: text().notNull(),
+  number: integer().notNull(),
+  client: text(),
+  at: text().notNull(),
+  applied: integer({ mode: "boolean" }).notNull(),
+});
+
+/**
+ * Pull requests as `registry.json` last showed them: the issues each one
+ * closes and its checks. A merged pull request leaves the registry, so
+ * this is how it still finds its backlog item.
+ */
+export const githubPullRequests = sqliteTable(
+  "github_pull_requests",
+  {
+    /** `owner/name`, in lower case. */
+    repository: text().notNull(),
+    number: integer().notNull(),
+    closes: text({ mode: "json" }).$type<number[]>().notNull(),
+    ci: text(),
+    seenAt: text("seen_at").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.repository, table.number] })],
+);

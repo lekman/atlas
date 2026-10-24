@@ -74,10 +74,11 @@ pull request.
 | `branch`      | The branch name, and the git worktree's path when the work is on one          |
 | `pullRequest` | Number, address, `draft`, `open`, `merged` or `closed`, and its checks        |
 
-Checks are `passing`, `failing`, `pending` or `none`. Nothing fills
-development tracking from GitHub yet. The SQLite store does not keep it and
-the task database does not have it, so today it comes only from the
-invented fixtures and from the fake values described under "The Server".
+Checks are `passing`, `failing`, `pending` or `none`. The SQLite store
+does not keep development tracking and the task database does not have it.
+It comes from gh-events, as described under "GitHub State", and otherwise
+from the invented fixtures and the fake values described under "The
+Server".
 
 The map draws a backlog item only when it is in progress or in review, or
 planned for a day and not done. Each workstream draws at most five of
@@ -120,15 +121,15 @@ left the client's boundary even if no file moved.
 MCP endpoint, and serves the web app from `apps/web` at `/` on the same
 origin. Machine tokens, Litestream and the import are still to come.
 
-| Route                    | What it does                                                |
-| ------------------------ | ----------------------------------------------------------- |
-| `GET /api/health`        | Whether the server is up, its version and task counts       |
-| `GET /api/dataset`       | Every record, and the last event they include               |
-| `GET /api/events`        | The event log after `?after=<sequence>`, oldest first       |
-| `POST /api/events`       | Adds one event, writes its effect and streams it            |
-| `GET /api/stream`        | Server-sent events after `?after=`, then each new one       |
-| `GET /api/items/:id/log` | One backlog item's log from the task database, newest first |
-| `POST /mcp`              | The MCP tools, over Streamable HTTP                         |
+| Route                    | What it does                                                  |
+| ------------------------ | ------------------------------------------------------------- |
+| `GET /api/health`        | Whether the server is up, its version, task and GitHub counts |
+| `GET /api/dataset`       | Every record, and the last event they include                 |
+| `GET /api/events`        | The event log after `?after=<sequence>`, oldest first         |
+| `POST /api/events`       | Adds one event, writes its effect and streams it              |
+| `GET /api/stream`        | Server-sent events after `?after=`, then each new one         |
+| `GET /api/items/:id/log` | One backlog item's log from the task database, newest first   |
+| `POST /mcp`              | The MCP tools, over Streamable HTTP                           |
 
 The dataset response names the last event it includes in the
 `x-atlas-sequence` header, and the web app opens the stream from there, so
@@ -167,8 +168,9 @@ empty database. `ATLAS_SEED=<path>.json` seeds a whole dataset from a file
 instead, checked against the core schema. A file with real clients is built
 on the Mac mini from the vault and kept outside this repository.
 
-`ATLAS_FAKE_DEVELOPMENT=true` shows invented development tracking until
-the GitHub integration exists. It is off unless set to exactly `true`.
+`ATLAS_FAKE_DEVELOPMENT=true` shows invented development tracking on
+items that GitHub state does not cover. It is off unless set to exactly
+`true`.
 When on, every backlog item whose tracker is GitHub and that has no
 development tracking gets values worked out from its id, tracker key,
 title and state, so the same item shows the same values on every read:
@@ -283,6 +285,63 @@ Atlas only reads the task database. Task writes (add, update, claim,
 complete) belong to the task database's own tasks MCP server. Atlas's MCP
 tools stay for what agents tell the map: agents, status, messages,
 questions and vessels.
+
+### GitHub State
+
+Atlas never calls GitHub. A separate process, gh-events, polls GitHub and
+writes two files into one folder. Atlas reads them when
+`ATLAS_GITHUB_STATE_DIR` names that folder, usually
+`~/.local/state/gh-events`. Without the variable, the server behaves as
+before.
+
+| File            | What Atlas does with it                                                    |
+| --------------- | -------------------------------------------------------------------------- |
+| `registry.json` | Every open pull request and issue gh-events watches. Read every 30 seconds |
+| `events.jsonl`  | One line per change: approved, checks failed, conflict, merged, assigned   |
+
+The folder is also watched, so a change is usually read within a second.
+gh-events' contract never carries titles, bodies, branch names or logins,
+and Atlas checks every item and line against its own schema as well. A
+value or an event Atlas does not know is skipped and counted. A
+`registry.json` version or a line version other than 1 is refused, and
+health says so.
+
+An item matches a GitHub issue when its tracker is GitHub and its tracker
+address names the same repository and number, compared without regard to
+case. A pull request belongs to an item when it closes the item's issue in
+the same repository, or when the item's tracker address is that pull
+request. The row's client must be the item's client. A row whose client is
+unset or is not an Atlas client is counted as unknown and never shown.
+
+For every item it matches, the reader's values replace any other
+development tracking in `GET /api/dataset`:
+
+- `issue` is open while the issue is in `registry.json`, and closed after an
+  `issue_closed` event.
+- `pullRequest` is `draft` or `open` from the registry, and `merged` after a
+  `merged` event. Checks map `SUCCESS` to passing, `FAILURE` and `ERROR` to
+  failing, `PENDING` and `EXPECTED` to pending, and no checks to none.
+- `branch` stays empty, because the contract has no branch names.
+
+The fake values fill only the items the reader did not match. Like them,
+the real values are never written to the records and never reach MCP
+tools. When they change, the event stream sends `event: refresh`.
+
+Each new line in `events.jsonl` that matches an item becomes an `external`
+event from GitHub about that item, such as "Pull request #148: checks
+failed" or "Issue #391 closed". The text holds only the event and the
+number. The event goes through the same path as `POST /api/events`, so it
+reaches the log, the item's log column, the animation and the sound. The
+reader follows the file by inode and byte offset, reads only whole lines,
+and reads a new file from the start. It keeps the cursor and the keys of
+the last 5,000 lines in SQLite, so a restart neither replays a line nor
+skips one.
+
+`GET /api/health` reports `github` as counts only: `source` (`gh-events` or
+`none`), `ok`, `stale` (the registry is older than three poll intervals),
+`error`, `items`, `matched`, `unmatched`, `unknownClients`, `skipped`,
+`eventsApplied`, `eventsUnmatched`, `eventsSkipped`, `eventsRefused` and
+`lastEventAt`. It never names a repository or a number.
 
 ### Design
 

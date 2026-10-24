@@ -20,6 +20,7 @@ import {
   EventRejected,
   isEmpty,
   listEvents,
+  noGithubSource,
   openDatabase,
   readConfiguration,
   readDataset,
@@ -192,6 +193,7 @@ describe("the API", () => {
     expect(await response.json()).toEqual({
       status: "ok",
       version: "0.0.0-test",
+      github: noGithubSource,
       tasks: {
         source: "none",
         clients: 0,
