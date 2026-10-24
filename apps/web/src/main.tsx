@@ -37,6 +37,7 @@ loadSnapshot()
             dataset={current}
             // One world while Astronomer is refined; the others come back later.
             worlds={["astronomer"]}
+            controls={["sound"]}
             initialMode="full"
             remember
             subscribe={link.subscribe}
