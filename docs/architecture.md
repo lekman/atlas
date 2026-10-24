@@ -120,14 +120,15 @@ left the client's boundary even if no file moved.
 MCP endpoint, and serves the web app from `apps/web` at `/` on the same
 origin. Machine tokens, Litestream and the import are still to come.
 
-| Route              | What it does                                          |
-| ------------------ | ----------------------------------------------------- |
-| `GET /api/health`  | Whether the server is up, its version and task counts |
-| `GET /api/dataset` | Every record, and the last event they include         |
-| `GET /api/events`  | The event log after `?after=<sequence>`, oldest first |
-| `POST /api/events` | Adds one event, writes its effect and streams it      |
-| `GET /api/stream`  | Server-sent events after `?after=`, then each new one |
-| `POST /mcp`        | The MCP tools, over Streamable HTTP                   |
+| Route                    | What it does                                                |
+| ------------------------ | ----------------------------------------------------------- |
+| `GET /api/health`        | Whether the server is up, its version and task counts       |
+| `GET /api/dataset`       | Every record, and the last event they include               |
+| `GET /api/events`        | The event log after `?after=<sequence>`, oldest first       |
+| `POST /api/events`       | Adds one event, writes its effect and streams it            |
+| `GET /api/stream`        | Server-sent events after `?after=`, then each new one       |
+| `GET /api/items/:id/log` | One backlog item's log from the task database, newest first |
+| `POST /mcp`              | The MCP tools, over Streamable HTTP                         |
 
 The dataset response names the last event it includes in the
 `x-atlas-sequence` header, and the web app opens the stream from there, so
@@ -247,6 +248,36 @@ poll. After a good read, a failed one keeps the last good records.
 (`postgres` or `none`), `clients`, `items`, `skipped`, `lastRefresh`, `ok`,
 `dangling`, `ambiguousClaims` and `unknownClaimers`. Health is open
 without a token, so it never names a client, a task or a claimer.
+
+### The Item Log
+
+The task database keeps a log for each item in `item_log`: `item_id`, `at`
+(a timestamp with time zone), `status` (`todo`, `doing`, `review`, `done`,
+`dropped` or `blocked`), `note` and `by`. Agents write to it as they work an
+item, so it holds their responses: what they did, what blocks them, and
+when they handed the item on.
+
+The log never joins the dataset. An item's log can be long, and a view
+shows only the selected item's, so the server reads it on demand, one item
+at a time, in its own read-only transaction:
+
+```text
+GET /api/items/<id>/log  →  { "entries": [ { "at", "status", "note", "by"? } ] }
+```
+
+- The entries are newest first, at most 200. `at` is ISO 8601, a missing
+  note is empty text, and `by` is left out when the row names nobody.
+- The id must be an identifier (lower-case words joined by hyphens), or
+  the answer is `400` before the task database is asked.
+- An item the last good read did not hold answers an empty list: an item
+  of a client the task source does not cover, including one left out by
+  `ATLAS_TASKS_CLIENTS`. Without a task source the answer is also empty.
+- When the task database does not answer, the response is `503`, and the
+  server logs one line with the error code and nothing from the row.
+- The route follows the same sign-in rule as the rest of `/api`.
+
+A row whose status or time does not match the model is left out of the
+answer rather than failing it.
 
 Atlas only reads the task database. Task writes (add, update, claim,
 complete) belong to the task database's own tasks MCP server. Atlas's MCP
@@ -398,6 +429,29 @@ list, and any other record shows in a Selected section above the list. The
 record keeps its buttons (Answer, Dispatch, Ask status and the rest) and
 adds Details. The map flies to the record, and to the work a question
 blocks, in the space left clear by the log and the HUD.
+
+The log is a column down the left, from under the top bar to the bottom
+margin, opposite the HUD and as wide. It is always open and scrolls
+inside. On load the web app reads the latest 200 events up to the
+dataset's sequence from `GET /api/events`, so the log starts full; the
+stream adds each new one. With nothing selected it shows every event,
+newest first. With a record selected it narrows to that record and names
+it at the top, and All events widens it again without losing the
+selection. For a backlog item it merges, newest first:
+
+- the item log from `GET /api/items/<id>/log`, read when the item is
+  selected and again when a `refresh` reloads the dataset, and
+- the map events about the item: an outside event that names it, a launch
+  that works it, a status change or a message from an agent working it at
+  the time, a vessel working it coming back, and a question answered that
+  blocked it.
+
+Every line shows its time, who it came from and the text, and map events
+keep the world's wording. For an agent or a question the log shows the
+events about that record the same way. Events read on load are described
+against the dataset as loaded, so a status change among them names the
+agent's status now, not the one before the change. On a phone the log
+stays a short box along the bottom with the latest line.
 
 Details opens a blue glass pane over the map, between the log and the HUD,
 with every field of the record, its development tracking, its history, the
