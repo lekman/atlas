@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/lekman/atlas/compare/v0.4.0...v0.4.1) (2026-10-24)
+
+
+### Bug Fixes
+
+* **deps:** move to Zod 4 and patch body-parser and fast-uri ([#26](https://github.com/lekman/atlas/issues/26)) ([ed50c0e](https://github.com/lekman/atlas/commit/ed50c0e20fcd08561050899b668d0193fc4a4e93))
+
 ## [0.4.0](https://github.com/lekman/atlas/compare/v0.3.0...v0.4.0) (2026-10-19)
 
 
