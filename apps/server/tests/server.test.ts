@@ -192,6 +192,17 @@ describe("the API", () => {
     expect(await response.json()).toEqual({
       status: "ok",
       version: "0.0.0-test",
+      tasks: {
+        source: "none",
+        clients: 0,
+        items: 0,
+        skipped: 0,
+        lastRefresh: null,
+        ok: true,
+        dangling: 0,
+        ambiguousClaims: 0,
+        unknownClaimers: { count: 0, names: [] },
+      },
     });
   });
 

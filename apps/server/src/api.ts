@@ -4,12 +4,16 @@
  *
  * | Route              | What it does                                            |
  * | ------------------ | ------------------------------------------------------- |
- * | GET  /api/health   | Whether the server is up, and its version               |
+ * | GET  /api/health   | Whether the server is up, its version and task counts   |
  * | GET  /api/dataset  | Every record, and the last event they include           |
  * | GET  /api/events   | The event log after `?after=<sequence>`, oldest first   |
  * | POST /api/events   | Adds one event, writes its effect and streams it        |
  * | GET  /api/stream   | Server-sent events after `?after=`, then each new one   |
  * | POST /mcp          | The MCP tools agents call (see `mcp.ts`)                |
+ *
+ * With a task source, every read lays the task database's clients,
+ * workstreams and tasks over SQLite (see `task-source.ts`), and the stream
+ * sends a `refresh` event whenever they change.
  */
 import { ZodError } from "zod/v4";
 
@@ -29,9 +33,17 @@ import {
   appendEvent,
   EventRejected,
   listEvents,
+  readDataset,
   readSnapshot,
+  type Overlay,
   type StoredEvent,
 } from "./store";
+import { noTaskSource, type TaskCache } from "./task-cache";
+import {
+  mergeTasks,
+  noUnknownClaimers,
+  type MergedDataset,
+} from "./task-source";
 
 /** The most a posted event may weigh. Events are a sentence, not a document. */
 const maximumBodyBytes = 64 * 1024;
@@ -59,6 +71,15 @@ function streamFrame(stored: StoredEvent): string {
   return `id: ${stored.sequence}\nevent: atlas\ndata: ${JSON.stringify(stored)}\n\n`;
 }
 
+/**
+ * Tells every open page that the task database changed, so it reloads the
+ * dataset. It carries no id, so a page's place in the event log stays
+ * where it was.
+ */
+function refreshFrame(lastRefresh: string | null): string {
+  return `event: refresh\ndata: ${JSON.stringify({ lastRefresh })}\n\n`;
+}
+
 export interface ApiOptions {
   database: AtlasDatabase;
   version: string;
@@ -69,6 +90,8 @@ export interface ApiOptions {
   requireTokens?: boolean;
   /** How a caller's address becomes a Tailscale node. `tailscale whois` by default. */
   lookupNode?: NodeLookup;
+  /** The task database's clients, workstreams and tasks. Leave out to serve SQLite alone. */
+  tasks?: TaskCache;
 }
 
 export interface Api {
@@ -99,15 +122,65 @@ export function createApi({
   version,
   requireTokens = false,
   lookupNode = tailscaleNodeLookup(),
+  tasks,
 }: ApiOptions): Api {
-  const streams = new Set<(stored: StoredEvent) => void>();
+  const streams = new Set<(text: string) => void>();
   const closers = new Set<() => void>();
+
+  /** The task database's records laid over SQLite, once there has been a good read. */
+  const overlay: Overlay | undefined = tasks
+    ? (dataset) => {
+        const current = tasks.current();
+        return current ? mergeTasks(dataset, current).dataset : dataset;
+      }
+    : undefined;
+
+  const stopRefreshes = tasks?.subscribe(() => {
+    const frame = refreshFrame(tasks.health().lastRefresh);
+    for (const write of streams) write(frame);
+  });
 
   /** Stores an event and streams it to every open view. */
   function record(event: AtlasEvent): StoredEvent {
-    const stored = appendEvent(database, event);
-    for (const send of streams) send(stored);
+    const stored = appendEvent(database, event, new Date(), overlay);
+    const frame = streamFrame(stored);
+    for (const write of streams) write(frame);
     return stored;
+  }
+
+  /** The merge as of now, for its counts, or `undefined` before a good read. */
+  function merged(): MergedDataset | undefined {
+    const current = tasks?.current();
+    return current ? mergeTasks(readDataset(database), current) : undefined;
+  }
+
+  /**
+   * Health: counts, and the names claims used that match no agent. Never a
+   * client's name or a task's title.
+   */
+  function health() {
+    if (!tasks)
+      return {
+        status: "ok",
+        version,
+        tasks: {
+          ...noTaskSource,
+          dangling: 0,
+          ambiguousClaims: 0,
+          unknownClaimers: noUnknownClaimers,
+        },
+      };
+    const merge = merged();
+    return {
+      status: "ok",
+      version,
+      tasks: {
+        ...tasks.health(),
+        dangling: merge?.dangling ?? 0,
+        ambiguousClaims: merge?.ambiguousClaims ?? 0,
+        unknownClaimers: merge?.unknownClaimers ?? noUnknownClaimers,
+      },
+    };
   }
 
   function stream(request: Request): Response {
@@ -128,11 +201,11 @@ export function createApi({
             finish();
           }
         };
-        const send = (stored: StoredEvent) => write(streamFrame(stored));
         // A browser that reconnects names the last event it saw; send what
         // it missed before anything new.
         if (after !== undefined)
-          for (const missed of listEvents(database, after)) send(missed);
+          for (const missed of listEvents(database, after))
+            write(streamFrame(missed));
         write(": connected\n\n");
         const timer = setInterval(
           () => write(": keep-alive\n\n"),
@@ -140,7 +213,7 @@ export function createApi({
         );
         finish = () => {
           clearInterval(timer);
-          streams.delete(send);
+          streams.delete(write);
           closers.delete(finish);
           try {
             controller.close();
@@ -148,7 +221,7 @@ export function createApi({
             // Already closed by the client.
           }
         };
-        streams.add(send);
+        streams.add(write);
         closers.add(finish);
         request.signal.addEventListener("abort", () => finish());
       },
@@ -201,7 +274,7 @@ export function createApi({
       const isMcp = url.pathname === "/mcp";
       if (!isMcp && !url.pathname.startsWith("/api/")) return undefined;
       if (url.pathname === "/api/health" && request.method === "GET")
-        return json({ status: "ok", version });
+        return json(health());
 
       let caller: Caller;
       try {
@@ -217,6 +290,12 @@ export function createApi({
           database,
           version,
           record,
+          ...(overlay
+            ? {
+                overlay,
+                unknownClaims: () => merged()?.unknownClaims ?? [],
+              }
+            : {}),
           ...(caller.kind === "machine" ? { machine: caller.machine } : {}),
         });
       }
@@ -237,7 +316,7 @@ export function createApi({
       switch (route) {
         case "GET /api/dataset": {
           // Read together, so the page knows which events the dataset holds.
-          const { dataset, sequence } = readSnapshot(database);
+          const { dataset, sequence } = readSnapshot(database, overlay);
           const response = json(dataset);
           response.headers.set(sequenceHeader, String(sequence));
           return response;
@@ -258,6 +337,7 @@ export function createApi({
     },
     listeners: () => streams.size,
     close() {
+      stopRefreshes?.();
       for (const finish of [...closers]) finish();
     },
   };

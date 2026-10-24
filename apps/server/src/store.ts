@@ -16,9 +16,18 @@ function present<Row extends Record<string, unknown>>(row: Row) {
   );
 }
 
-/** The whole dataset, checked against the core schema. */
-export function readDataset(database: AtlasDatabase): Dataset {
-  return Dataset.parse({
+/**
+ * A change laid over the dataset as SQLite holds it before anyone reads it,
+ * such as the task database's clients and tasks (see `task-source.ts`).
+ */
+export type Overlay = (dataset: Dataset) => Dataset;
+
+/** The whole dataset, checked against the core schema, with `overlay` laid over it. */
+export function readDataset(
+  database: AtlasDatabase,
+  overlay?: Overlay,
+): Dataset {
+  const dataset = Dataset.parse({
     clients: database.select().from(schema.clients).all().map(present),
     accounts: database.select().from(schema.accounts).all().map(present),
     groups: database.select().from(schema.agentGroups).all().map(present),
@@ -33,10 +42,14 @@ export function readDataset(database: AtlasDatabase): Dataset {
     questions: database.select().from(schema.questions).all().map(present),
     decisions: database.select().from(schema.decisions).all().map(present),
   });
+  return overlay ? overlay(dataset) : dataset;
 }
 
 /** The dataset and the last event it includes, read in one transaction. */
-export function readSnapshot(database: AtlasDatabase): {
+export function readSnapshot(
+  database: AtlasDatabase,
+  overlay?: Overlay,
+): {
   dataset: Dataset;
   sequence: number;
 } {
@@ -48,7 +61,7 @@ export function readSnapshot(database: AtlasDatabase): {
       .limit(1)
       .get();
     return {
-      dataset: readDataset(transaction as unknown as AtlasDatabase),
+      dataset: readDataset(transaction as unknown as AtlasDatabase, overlay),
       sequence: last?.sequence ?? 0,
     };
   });
@@ -116,12 +129,15 @@ export class EventRejected extends Error {
 
 /**
  * Checks an event, writes its effect and adds it to the log. Returns the
- * event as stored, with its place in the log.
+ * event as stored, with its place in the log. A launch is checked against
+ * the dataset with `overlay` laid over it, so a vessel may work on a task
+ * that only the task database holds.
  */
 export function appendEvent(
   database: AtlasDatabase,
   input: unknown,
   now: Date = new Date(),
+  overlay?: Overlay,
 ): StoredEvent {
   const event = AtlasEvent.parse(input);
   return database.transaction((transaction) => {
@@ -173,7 +189,10 @@ export function appendEvent(
         break;
       }
       case "agent-launched": {
-        const dataset = readDataset(transaction as unknown as AtlasDatabase);
+        const dataset = readDataset(
+          transaction as unknown as AtlasDatabase,
+          overlay,
+        );
         const launch = planLaunch(dataset, event);
         if ("refusal" in launch)
           throw new EventRejected(

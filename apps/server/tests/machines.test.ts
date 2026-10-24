@@ -262,9 +262,9 @@ describe("the API with tokens required", () => {
     const listed = (await client.callTool({ name: "list_agents" })) as {
       content: { text: string }[];
     };
-    const agents = JSON.parse(listed.content[0]!.text) as {
-      clientId: string;
-    }[];
+    const { agents } = JSON.parse(listed.content[0]!.text) as {
+      agents: { clientId: string }[];
+    };
     expect(agents.length).toBeGreaterThan(0);
     expect(new Set(agents.map((agent) => agent.clientId))).toEqual(
       new Set(["halcyon"]),

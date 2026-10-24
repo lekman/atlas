@@ -18,6 +18,24 @@ export interface Configuration {
   seed: Seed;
   /** Refuse callers without a machine token or a Tailscale Serve identity. */
   requireTokens: boolean;
+  /** Where tasks come from, or `undefined` to serve SQLite alone. */
+  tasks?: TaskDatabaseConfiguration;
+}
+
+/**
+ * The task database. Set `ATLAS_TASKS_HOST` to turn it on. The password
+ * is never set directly: `ATLAS_TASKS_PASSWORD_COMMAND` names a command
+ * that prints it, such as a Keychain lookup.
+ */
+export interface TaskDatabaseConfiguration {
+  hostname: string;
+  port: number;
+  database: string;
+  username: string;
+  /** A command that prints the password. Absent when the database needs none. */
+  passwordCommand?: string;
+  /** Seconds between reads. */
+  pollSeconds: number;
 }
 
 export type Seed =
@@ -28,6 +46,34 @@ function readSeed(value: string | undefined): Seed {
   if (value === "fixtures") return { kind: "fixtures" };
   if (value.endsWith(".json")) return { kind: "file", path: value };
   throw new Error("ATLAS_SEED must be fixtures or the path of a .json file");
+}
+
+function readTasks(
+  environment: Record<string, string | undefined>,
+): TaskDatabaseConfiguration | undefined {
+  const hostname = environment.ATLAS_TASKS_HOST;
+  if (!hostname) return undefined;
+  const database = environment.ATLAS_TASKS_DATABASE;
+  const username = environment.ATLAS_TASKS_USER;
+  if (!database || !username)
+    throw new Error(
+      "ATLAS_TASKS_HOST needs ATLAS_TASKS_DATABASE and ATLAS_TASKS_USER",
+    );
+  const port = Number(environment.ATLAS_TASKS_PORT ?? 5432);
+  if (!Number.isInteger(port) || port < 1 || port > 65_535)
+    throw new Error("ATLAS_TASKS_PORT must be a port number");
+  const pollSeconds = Number(environment.ATLAS_TASKS_POLL_SECONDS ?? 30);
+  if (!Number.isFinite(pollSeconds) || pollSeconds < 1)
+    throw new Error("ATLAS_TASKS_POLL_SECONDS must be 1 or more");
+  const passwordCommand = environment.ATLAS_TASKS_PASSWORD_COMMAND?.trim();
+  return {
+    hostname,
+    port,
+    database,
+    username,
+    ...(passwordCommand ? { passwordCommand } : {}),
+    pollSeconds,
+  };
 }
 
 export function readConfiguration(
@@ -44,5 +90,6 @@ export function readConfiguration(
     port,
     seed: readSeed(environment.ATLAS_SEED),
     requireTokens: environment.ATLAS_REQUIRE_TOKENS === "true",
+    tasks: readTasks(environment),
   };
 }
