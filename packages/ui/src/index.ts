@@ -27,7 +27,11 @@ export {
   type ImportReportProps,
 } from "./components/ImportReport";
 export { KeyPanel, type KeyPanelProps } from "./components/KeyPanel";
-export { LogPanel, type LogPanelProps } from "./components/LogPanel";
+export {
+  LogPanel,
+  type LogPanelProps,
+  type LogSubject,
+} from "./components/LogPanel";
 export {
   NeedsYouList,
   type NeedsYouListProps,
@@ -36,6 +40,15 @@ export { SoundPanel, type SoundPanelProps } from "./components/SoundPanel";
 export { WorldCanvas, type WorldCanvasProps } from "./components/WorldCanvas";
 export { WorldPicker, type WorldPickerProps } from "./components/WorldPicker";
 export { describeEvent } from "./describe";
+export {
+  isAbout,
+  recordedEntries,
+  recordLogLines,
+  whoOf,
+  type LogLine,
+  type RecordedEvent,
+  type RecordLogInput,
+} from "./recordLog";
 export { worldStyle } from "./theme";
 export {
   cueFor,

@@ -1,10 +1,16 @@
 import type { AtlasEvent } from "@atlas/core";
-import { sampleDataset } from "@atlas/fixtures";
+import {
+  sampleDataset,
+  sampleItemLogs,
+  sampleRecordedEvents,
+} from "@atlas/fixtures";
 import { describe, expect, test } from "bun:test";
 
 import {
   canonical,
   createLiveLink,
+  loadItemLog,
+  loadRecentEvents,
   loadSnapshot,
   sequenceHeader,
   type LiveEnvironment,
@@ -244,5 +250,59 @@ describe("a stream the browser gives up on", () => {
     streams[0]?.dispatchEvent(new Event("error"));
     expect(streams[0]?.closed).toBe(false);
     expect(streams).toHaveLength(1);
+  });
+});
+
+describe("loadRecentEvents", () => {
+  test("asks for the latest events up to the snapshot, and leaves out later ones", async () => {
+    const asked: string[] = [];
+    const events = await loadRecentEvents(20, async (url) => {
+      asked.push(url);
+      return new Response(
+        JSON.stringify([
+          ...sampleRecordedEvents,
+          { sequence: 99, receivedAt: "2026-10-24T11:00:00Z", event: {} },
+        ]),
+      );
+    });
+    expect(asked).toEqual(["/api/events?after=0"]);
+    expect(events.map((stored) => stored.sequence)).toEqual(
+      sampleRecordedEvents
+        .map((stored) => stored.sequence)
+        .filter((sequence) => sequence <= 20),
+    );
+  });
+
+  test("reads only the last two hundred before the snapshot", async () => {
+    const asked: string[] = [];
+    await loadRecentEvents(450, async (url) => {
+      asked.push(url);
+      return new Response("[]");
+    });
+    expect(asked).toEqual(["/api/events?after=250"]);
+  });
+
+  test("fails when the server does", async () => {
+    expect(
+      loadRecentEvents(3, async () => new Response(null, { status: 401 })),
+    ).rejects.toThrow("401");
+  });
+});
+
+describe("loadItemLog", () => {
+  test("reads one item's log", async () => {
+    const asked: string[] = [];
+    const entries = await loadItemLog("webhooks", async (url) => {
+      asked.push(url);
+      return new Response(JSON.stringify({ entries: sampleItemLogs.webhooks }));
+    });
+    expect(asked).toEqual(["/api/items/webhooks/log"]);
+    expect(entries).toEqual([...(sampleItemLogs.webhooks ?? [])]);
+  });
+
+  test("fails when the server does", async () => {
+    expect(
+      loadItemLog("webhooks", async () => new Response(null, { status: 503 })),
+    ).rejects.toThrow("503");
   });
 });

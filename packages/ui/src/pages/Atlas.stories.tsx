@@ -2,6 +2,8 @@ import {
   busyClientId,
   busyDataset,
   sampleDataset,
+  sampleItemLogLoader,
+  sampleRecordedEvents,
   sampleScript,
 } from "@atlas/fixtures";
 import type { Meta, StoryObj } from "@storybook/react-vite";
@@ -79,6 +81,95 @@ export const AstronomerFullPage: Story = {
 export const MarinerFullPage: Story = {
   name: "Mariner, Full Page",
   args: { initialWorld: "mariner", initialMode: "full" },
+};
+
+/**
+ * The log as a column down the left, as tall as the window, with every
+ * event the server logged before the page opened. Nothing is selected, so
+ * it shows every event, newest first.
+ */
+export const AstronomerCommsLogAllEvents: Story = {
+  name: "Astronomer, Comms Log, All Events",
+  args: {
+    initialWorld: "astronomer",
+    initialMode: "full",
+    script: [],
+    pastEvents: sampleRecordedEvents,
+    loadItemLog: sampleItemLogLoader,
+  },
+  play: async ({ canvasElement }) => {
+    const log = within(
+      await within(canvasElement).findByRole("region", { name: /comms log/i }),
+    );
+    await expect(log.getByText(/24 entries/i)).toBeInTheDocument();
+    await expect(
+      log.getByText(/the export is still missing two days/i),
+    ).toBeInTheDocument();
+    await expect(
+      log.queryByRole("button", { name: "All events" }),
+    ).not.toBeInTheDocument();
+  },
+};
+
+/** The same log in Mariner, where it is the ship's log. */
+export const MarinerCommsLogAllEvents: Story = {
+  name: "Mariner, Comms Log, All Events",
+  args: { ...AstronomerCommsLogAllEvents.args, initialWorld: "mariner" },
+  play: async ({ canvasElement }) => {
+    const log = within(
+      await within(canvasElement).findByRole("region", { name: /ship's log/i }),
+    );
+    await expect(log.getByText(/24 entries/i)).toBeInTheDocument();
+  },
+};
+
+/** The log narrows to the selected item, and All events widens it again. */
+const narrowsToTheItem: Story["play"] = async ({ canvasElement }) => {
+  const log = within(
+    await within(canvasElement).findByRole("region", {
+      name: /comms log|ship's log/i,
+    }),
+  );
+  await expect(log.getByText("Partner webhooks")).toBeInTheDocument();
+  await expect(
+    await log.findByText(/contract test 7 rejects the retry header/i),
+  ).toBeInTheDocument();
+  await expect(log.getAllByText("CI").length).toBeGreaterThan(0);
+  await expect(log.queryByText(/drill window booked/i)).toBeNull();
+  const allEvents = log.getByRole("button", { name: "All events" });
+  await expect(allEvents).toHaveAttribute("aria-pressed", "false");
+  await userEvent.click(allEvents);
+  await expect(allEvents).toHaveAttribute("aria-pressed", "true");
+  await expect(log.getByText(/drill window booked/i)).toBeInTheDocument();
+  await userEvent.click(allEvents);
+  await expect(log.queryByText(/drill window booked/i)).toBeNull();
+};
+
+/**
+ * A backlog item selected: the log narrows to it, with its name at the
+ * top. The map events about it, such as the CI result and what the agent
+ * working it said, sit with what that agent wrote in the task database's
+ * item log, newest first, each line with who it came from. All events
+ * widens the log again and keeps the item selected.
+ */
+export const AstronomerCommsLogSelectedItem: Story = {
+  name: "Astronomer, Comms Log, Selected Item",
+  args: {
+    ...AstronomerCommsLogAllEvents.args,
+    initialSelection: "webhooks",
+  },
+  play: narrowsToTheItem,
+};
+
+/** The same selected item in Mariner. */
+export const MarinerCommsLogSelectedItem: Story = {
+  name: "Mariner, Comms Log, Selected Item",
+  args: {
+    ...AstronomerCommsLogAllEvents.args,
+    initialWorld: "mariner",
+    initialSelection: "webhooks",
+  },
+  play: narrowsToTheItem,
 };
 
 /**

@@ -10,7 +10,13 @@
  * page loads the dataset again, and `catchUp` lays over it the events the
  * page applied after the server read it, so nothing already shown is lost.
  */
-import { applyEvent, AtlasEvent, Dataset } from "@atlas/core";
+import {
+  applyEvent,
+  AtlasEvent,
+  Dataset,
+  ItemLog,
+  type ItemLogEntry,
+} from "@atlas/core";
 
 /** The header the server sets on the dataset: the last event it includes. */
 export const sequenceHeader = "x-atlas-sequence";
@@ -37,6 +43,68 @@ export async function loadSnapshot(
     dataset: Dataset.parse(await response.json()),
     sequence: Number.isSafeInteger(sequence) ? sequence : 0,
   };
+}
+
+/** How many events before the snapshot the page reads, so the log starts full. */
+export const recentEventCount = 200;
+
+/** An event as `GET /api/events` returns it. */
+export interface RecordedEvent {
+  sequence: number;
+  receivedAt: string;
+  event: AtlasEvent;
+}
+
+/** One stored event from the server, checked, or nothing when it does not match. */
+function recordedEvent(value: unknown): RecordedEvent[] {
+  if (typeof value !== "object" || value === null) return [];
+  const { sequence, receivedAt, event } = value as Record<string, unknown>;
+  const parsed = AtlasEvent.safeParse(event);
+  if (
+    !Number.isSafeInteger(sequence) ||
+    typeof receivedAt !== "string" ||
+    Number.isNaN(Date.parse(receivedAt)) ||
+    !parsed.success
+  )
+    return [];
+  return [{ sequence: sequence as number, receivedAt, event: parsed.data }];
+}
+
+/**
+ * The events the server logged up to the snapshot, the latest
+ * `recentEventCount` of them. Events after the snapshot come on the stream,
+ * so they are left out here and never shown twice. An event the model does
+ * not recognise is left out.
+ */
+export async function loadRecentEvents(
+  sequence: number,
+  fetcher: Fetcher = (url, init) => fetch(url, init),
+): Promise<RecordedEvent[]> {
+  const after = Math.max(0, sequence - recentEventCount);
+  const response = await fetcher(`/api/events?after=${after}`, {
+    headers: { accept: "application/json" },
+  });
+  if (!response.ok)
+    throw new Error(`the server answered ${response.status} for the events`);
+  const body: unknown = await response.json();
+  if (!Array.isArray(body)) throw new Error("the events are not a list");
+  return body
+    .flatMap(recordedEvent)
+    .filter((stored) => stored.sequence <= sequence);
+}
+
+/** One backlog item's log from the task database, newest first. */
+export async function loadItemLog(
+  itemId: string,
+  fetcher: Fetcher = (url, init) => fetch(url, init),
+): Promise<ItemLogEntry[]> {
+  const response = await fetcher(
+    `/api/items/${encodeURIComponent(itemId)}/log`,
+    { headers: { accept: "application/json" } },
+  );
+  if (!response.ok)
+    throw new Error(`the server answered ${response.status} for the item log`);
+  return ItemLog.parse(await response.json()).entries;
 }
 
 /** JSON with every object's keys sorted, so two equal events compare equal. */

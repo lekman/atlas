@@ -11,6 +11,7 @@ import {
   isNotWorthIt,
   isOnMap,
   isSized,
+  ItemLogEntry,
   needsYou,
 } from "@atlas/core";
 
@@ -20,6 +21,8 @@ import {
   sampleDataset,
   sampleDayPlan,
   sampleImportReport,
+  sampleItemLogs,
+  sampleRecordedEvents,
   sampleScript,
   sampleToday,
 } from "../src";
@@ -195,5 +198,32 @@ describe("sample day plan", () => {
       if (item.tracker)
         expect(new URL(item.tracker.url).hostname).toMatch(/\.example$/);
     }
+  });
+});
+
+describe("sample item logs", () => {
+  it("name items in the sample dataset, and match the model, newest first", () => {
+    for (const [itemId, entries] of Object.entries(sampleItemLogs)) {
+      expect(findRecord(sampleDataset, itemId)?.kind).toBe("item");
+      for (const entry of entries) ItemLogEntry.parse(entry);
+      const times = entries.map((entry) => entry.at);
+      expect(times).toEqual([...times].sort().reverse());
+    }
+  });
+
+  it("stay out of the dataset", () => {
+    expect(JSON.stringify(sampleDataset)).not.toContain(
+      "Contract test 7 rejects",
+    );
+  });
+
+  it("record every scripted event once, in order", () => {
+    const events = sampleScript.filter((step) => step.type !== "reset");
+    expect(sampleRecordedEvents.map((stored) => stored.event)).toEqual(
+      events.map((event) => AtlasEvent.parse(event)),
+    );
+    expect(sampleRecordedEvents.map((stored) => stored.sequence)).toEqual(
+      events.map((_, index) => index + 1),
+    );
   });
 });

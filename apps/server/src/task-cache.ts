@@ -8,7 +8,12 @@
  * server serves SQLite alone. The log holds counts and error codes only,
  * never a task's text or a password.
  */
+import type { ItemLogEntry } from "@atlas/core";
+
 import type { TaskRecords, TaskSource } from "./task-source";
+
+/** The most item log entries one request returns. */
+export const itemLogLimit = 200;
 
 /** What `GET /api/health` reports about the task source. Counts only. */
 export interface TaskHealth {
@@ -28,6 +33,12 @@ export interface TaskCache {
   current(): TaskRecords | undefined;
   /** Reads the source now. Resolves to whether the records changed. Never throws. */
   refresh(): Promise<boolean>;
+  /**
+   * One item's log, newest first. Empty when the last good read did not
+   * hold the item, as for a client the source does not cover, or when the
+   * source keeps no log. Rejects when the source cannot be read.
+   */
+  readItemLog(itemId: string): Promise<ItemLogEntry[]>;
   /** Calls `listener` after each read that changed the records. Returns a way to stop. */
   subscribe(listener: () => void): () => void;
   health(): TaskHealth;
@@ -115,9 +126,21 @@ export function createTaskCache({
     return reading;
   }
 
+  async function readItemLog(itemId: string): Promise<ItemLogEntry[]> {
+    if (!source.readItemLog) return [];
+    if (!records?.items.some((item) => item.id === itemId)) return [];
+    try {
+      return await source.readItemLog(itemId, itemLogLimit);
+    } catch (error) {
+      log(`item log unreadable (${failureName(error)})`);
+      throw error;
+    }
+  }
+
   return {
     current: () => records,
     refresh,
+    readItemLog,
     subscribe(listener) {
       listeners.add(listener);
       return () => listeners.delete(listener);

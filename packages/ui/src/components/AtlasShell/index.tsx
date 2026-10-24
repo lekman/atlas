@@ -1,15 +1,23 @@
 /**
  * The whole Atlas view. Compact by default: a sidebar-width pane with a small
  * live map, the needs-you list and the latest log lines. Expand fills the
- * screen with the full map, the log and the HUD. One record is selected at
- * a time: the HUD holds it with its buttons, the map flies to it, and
- * Details opens a pane with everything known about it. On a phone, where
- * the HUD has no room, the selected record is a sheet along the bottom.
+ * screen with the full map, the log in a column down the left and the HUD
+ * down the right. One record is selected at a time: the HUD holds it with
+ * its buttons, the map flies to it, the log narrows to it, and Details
+ * opens a pane with everything known about it. On a phone, where the HUD
+ * has no room, the selected record is a sheet along the bottom and the log
+ * a short box.
  *
  * The same component serves Storybook, the web app and the Claude Artifact;
  * only where its data comes from differs.
  */
-import type { AtlasEvent, Dataset, DetailsDocument } from "@atlas/core";
+import {
+  findRecord,
+  type AtlasEvent,
+  type Dataset,
+  type DetailsDocument,
+  type ItemLogEntry,
+} from "@atlas/core";
 import {
   createAmbiencePlayer,
   defaultSoundSettings,
@@ -24,17 +32,23 @@ import {
   type Camera,
   type LightingPreference,
   type SoundSettings,
+  type World,
   type WorldId,
 } from "@atlas/worlds";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
+import {
+  recordedEntries,
+  recordLogLines,
+  type RecordedEvent,
+} from "../../recordLog";
 import { worldStyle } from "../../theme";
 import { useAtlasMap, type ScriptStep } from "../../useAtlasMap";
 import { DetailsPane } from "../DetailsPane";
 import { HudReadout } from "../HudReadout";
 import { Inspector, type InspectorAction } from "../Inspector";
 import { KeyPanel } from "../KeyPanel";
-import { LogPanel } from "../LogPanel";
+import { LogPanel, type LogSubject } from "../LogPanel";
 import { NeedsYouList } from "../NeedsYouList";
 import { SoundPanel } from "../SoundPanel";
 import { WorldCanvas } from "../WorldCanvas";
@@ -111,6 +125,17 @@ export interface AtlasShellProps {
    * function that disconnects.
    */
   subscribe?(fire: (event: AtlasEvent) => void): () => void;
+  /**
+   * Events the server logged before this view opened, so the log is full
+   * from the start. Newest or oldest first; the log sorts them.
+   */
+  pastEvents?: readonly RecordedEvent[];
+  /**
+   * Reads a backlog item's log from the task database, newest first. Called
+   * when an item is selected, and again when the dataset is replaced, as
+   * after the task database changed. Stories pass invented entries.
+   */
+  loadItemLog?(itemId: string): Promise<readonly ItemLogEntry[]>;
   /**
    * The buttons in the bar, for an app that offers only some. Every button
    * when left out. Without "expand", Escape no longer collapses the view.
@@ -243,6 +268,20 @@ function writePreferences(preferences: Preferences) {
   } catch {
     // Private windows and blocked storage: the view works without it.
   }
+}
+
+/** The world's term for a kind of record, with the real one beside it. */
+function kindLabel(world: World, kind: string): string {
+  const terms: Record<string, [string, string]> = {
+    agent: [world.vocabulary.agent, "agent"],
+    item: [world.vocabulary.item, "backlog item"],
+    question: [world.vocabulary.question, "open question"],
+    decision: [world.vocabulary.decision, "decision"],
+    requirement: [world.vocabulary.requirement, "requirement"],
+    workstream: [world.vocabulary.workstream, "workstream"],
+  };
+  const [themed, real] = terms[kind] ?? [kind, kind];
+  return themed.toLowerCase() === real ? real : `${themed} · ${real}`;
 }
 
 const actionToast: Record<Exclude<InspectorAction, "details">, string> = {
@@ -434,8 +473,9 @@ export function AtlasShell(props: AtlasShellProps) {
     return question ? [question.blocks] : [];
   })();
   /**
-   * The map left clear between the top bar, the log and the HUD, or above
-   * the sheet on a phone. A record flown to lands in its middle.
+   * The map left clear between the top bar, the log column and the HUD, or
+   * above the sheet and the short log on a phone. A record flown to lands
+   * in its middle.
    */
   const focusArea = (): Bounds | null => {
     const shell = shellRef.current;
@@ -446,10 +486,14 @@ export function AtlasShell(props: AtlasShellProps) {
       shell.querySelector(selector)?.getBoundingClientRect() ?? null;
     const bar = box(".atlas-bar");
     const hud = box(".atlas-hud");
-    const below = box(".atlas-sheet") ?? box(".atlas-log-panel");
+    const log = box(".atlas-log-panel");
     const gap = 12;
+    // The log is a column beside the map, except on a phone, where it is a
+    // short box below it.
+    const logBeside = !isPhone && log !== null;
+    const below = box(".atlas-sheet") ?? (logBeside ? null : log);
     return {
-      left: 0,
+      left: (logBeside ? log.right + gap : origin.left) - origin.left,
       top: (bar ? bar.bottom : origin.top) - origin.top,
       right: (hud ? hud.left - gap : origin.right) - origin.left,
       bottom: (below ? below.top - gap : origin.bottom) - origin.top,
@@ -523,6 +567,67 @@ export function AtlasShell(props: AtlasShellProps) {
         onOpenInObsidian={(path) => props.onOpenInObsidian?.(path)}
       />
     ) : null;
+  // The log: every event this view has, live and from before it opened,
+  // and with a record selected on the full map, that record's log.
+  const { dataset: givenDataset, pastEvents, loadItemLog } = props;
+  const recorded = useMemo(
+    () => recordedEntries(givenDataset, pastEvents ?? []),
+    [givenDataset, pastEvents],
+  );
+  const logEntries = useMemo(
+    () => [...map.log, ...recorded],
+    [map.log, recorded],
+  );
+  const selectedRecord = selected ? findRecord(map.dataset, selected) : null;
+  const selectedItemId =
+    selectedRecord?.kind === "item" ? selectedRecord.record.id : null;
+  const [itemLog, setItemLog] = useState<{
+    id: string;
+    entries: readonly ItemLogEntry[];
+  } | null>(null);
+  // Read when an item is selected, and again when the dataset is replaced.
+  // A failed read keeps what was shown for the same item.
+  useEffect(() => {
+    if (!selectedItemId || !loadItemLog) return;
+    let current = true;
+    loadItemLog(selectedItemId)
+      .then((entries) => {
+        if (current) setItemLog({ id: selectedItemId, entries });
+      })
+      .catch(() => {
+        if (current)
+          setItemLog((shown) =>
+            shown?.id === selectedItemId
+              ? shown
+              : { id: selectedItemId, entries: [] },
+          );
+      });
+    return () => {
+      current = false;
+    };
+  }, [selectedItemId, loadItemLog, givenDataset]);
+  const [showingAllEvents, setShowingAllEvents] = useState(false);
+  useEffect(() => setShowingAllEvents(false), [selected]);
+  const logSubject: LogSubject | null =
+    selectedRecord && !isPhone
+      ? {
+          name:
+            "title" in selectedRecord.record
+              ? selectedRecord.record.title
+              : selectedRecord.record.name,
+          kind: kindLabel(world, selectedRecord.kind),
+          lines: recordLogLines({
+            world,
+            dataset: map.dataset,
+            recordId: selectedRecord.record.id,
+            entries: logEntries,
+            ...(itemLog && itemLog.id === selectedItemId
+              ? { itemLog: itemLog.entries }
+              : {}),
+          }),
+        }
+      : null;
+
   const label = `${world.name} map: ${map.dataset.clients.length - 1} ${world.vocabulary.clients} around ${world.vocabulary.homeName}, ${map.dataset.agents.length} ${world.vocabulary.agents}.`;
 
   return (
@@ -653,7 +758,7 @@ export function AtlasShell(props: AtlasShellProps) {
       {mode === "compact" ? (
         <div className="atlas-compact">
           <NeedsYouList dataset={map.dataset} world={world} onSelect={select} />
-          <LogPanel entries={map.log} world={world} variant="preview" />
+          <LogPanel entries={logEntries} world={world} variant="preview" />
           <button
             type="button"
             className="atlas-button atlas-open-full"
@@ -675,7 +780,14 @@ export function AtlasShell(props: AtlasShellProps) {
               selected={inspector}
             />
           )}
-          <LogPanel entries={map.log} world={world} variant="panel" />
+          <LogPanel
+            entries={logEntries}
+            world={world}
+            variant="panel"
+            subject={logSubject}
+            showingAllEvents={showingAllEvents}
+            onShowAllEventsChange={setShowingAllEvents}
+          />
           {isPhone
             ? selected && (
                 <div className="atlas-phone-column">

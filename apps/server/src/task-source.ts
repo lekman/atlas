@@ -14,6 +14,7 @@ import {
   Client,
   Dataset,
   IsoDate,
+  ItemLogEntry,
   TaskHistoryEntry,
   TrackerReference,
   Workstream,
@@ -45,11 +46,45 @@ export interface TaskRecords {
 /** Where tasks come from. The server reads it on every poll. */
 export interface TaskSource {
   read(): Promise<TaskRecords>;
+  /**
+   * One item's log, newest first, at most `limit` entries. Read when a page
+   * asks for it, never on a poll. Absent when the source keeps no log.
+   */
+  readItemLog?(itemId: string, limit: number): Promise<ItemLogEntry[]>;
+}
+
+/** An `item_log` row, with the columns Atlas reads. */
+export interface ItemLogRow {
+  /** When it was written. Bun reads a timestamp as a `Date`. */
+  at: Date | string;
+  status: string;
+  note: string | null;
+  by: string | null;
+}
+
+/**
+ * Item log rows as entries, in the order given. A row whose time or
+ * status does not match the core model is left out rather than failing
+ * the read.
+ */
+export function mapItemLogRows(rows: readonly ItemLogRow[]): ItemLogEntry[] {
+  return rows.flatMap((row) => {
+    const by = row.by?.trim();
+    const entry = ItemLogEntry.safeParse({
+      at: claimTime(row.at),
+      status: row.status,
+      note: row.note ?? "",
+      ...(by ? { by } : {}),
+    });
+    return entry.success ? [entry.data] : [];
+  });
 }
 
 /**
  * A task source that keeps only some clients, with their workstreams, items
  * and claims. For a view that shows one real client among invented ones.
+ * The item log passes through: the task cache serves it only for an item
+ * this source's last read kept.
  */
 export function onlyClients(
   source: TaskSource,
@@ -71,6 +106,9 @@ export function onlyClients(
         skipped: records.skipped,
       };
     },
+    ...(source.readItemLog
+      ? { readItemLog: source.readItemLog.bind(source) }
+      : {}),
   };
 }
 

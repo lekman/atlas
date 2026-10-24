@@ -12,7 +12,15 @@ import { AtlasShell } from "@atlas/ui";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
-import { createLiveLink, loadSnapshot } from "./live";
+import {
+  createLiveLink,
+  loadItemLog,
+  loadRecentEvents,
+  loadSnapshot,
+} from "./live";
+
+/** The item log loader the view calls, one function for the page's life. */
+const itemLog = (itemId: string) => loadItemLog(itemId);
 
 const root = createRoot(document.getElementById("atlas")!);
 
@@ -25,7 +33,10 @@ function message(text: string) {
 }
 
 loadSnapshot()
-  .then(({ dataset, sequence }) => {
+  .then(async ({ dataset, sequence }) => {
+    // The log starts with what happened before the page opened. Without
+    // them the page still works, with a log that fills as events arrive.
+    const pastEvents = await loadRecentEvents(sequence).catch(() => []);
     if (dataset.clients.length === 0) {
       message("Atlas has no records yet.");
       return;
@@ -42,6 +53,8 @@ loadSnapshot()
             remember
             subscribe={link.subscribe}
             onEvent={link.report}
+            pastEvents={pastEvents}
+            loadItemLog={itemLog}
           />
         </StrictMode>,
       );

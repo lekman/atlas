@@ -247,12 +247,7 @@
   font-style: italic;
   font-size: 14px;
 }
-.atlas-log-panel .atlas-log-rows,
-.atlas-log-panel .atlas-empty {
-  min-height: calc(3 * (1.55em + 4px));
-}
-.atlas-log-preview .atlas-log-rows li span,
-.atlas-log-panel .atlas-log-rows li span {
+.atlas-log-preview .atlas-log-rows li span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -347,20 +342,91 @@
 .atlas-hud-attention {
   color: var(--atlas-waiting);
 }
-/* The latest three lines, one line each, at a height that never changes:
-   the map is fitted around the panel once, so a panel that grew as events
-   arrived would creep over the map. */
+/* The log is a column down the left, from under the top bar to the bottom
+   margin, opposite the HUD and as wide. Its size never follows the events,
+   so the map is never pushed about as lines arrive; they scroll inside. */
 .atlas-log-panel {
   position: absolute;
-  left: max(16px, env(safe-area-inset-left, 0px));
+  top: calc(64px + env(safe-area-inset-top, 0px));
   bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  left: max(16px, env(safe-area-inset-left, 0px));
   z-index: 3;
-  width: min(460px, calc(100% - 32px));
-  overflow: hidden;
-  padding: 10px 12px;
+  width: 340px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 10px 12px 4px;
   background: var(--atlas-panel);
   border: 1px solid var(--atlas-line);
   border-radius: 3px;
+}
+.atlas-log-panel .atlas-section-title {
+  flex: none;
+}
+.atlas-log-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.atlas-log-panel .atlas-log-rows li {
+  padding: 3px 0;
+}
+/* A record's log names who each line came from, above the line itself. */
+.atlas-log-panel .atlas-log-rows li[data-who] {
+  gap: 0 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--atlas-line);
+}
+.atlas-log-panel .atlas-log-rows li[data-who]:last-child {
+  border-bottom: 0;
+}
+.atlas-log-panel li[data-who] .atlas-log-text {
+  grid-column: 1 / -1;
+}
+.atlas-log-who {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  color: var(--atlas-ink);
+}
+.atlas-log-status {
+  font-family: var(--atlas-mono);
+  font-style: normal;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--atlas-mute);
+}
+/* The selected record the log is narrowed to, and the way back to every event. */
+.atlas-log-subject {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 0 6px;
+  padding: 0 0 8px;
+  border-bottom: 1px solid var(--atlas-line);
+}
+.atlas-log-subject p {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  margin: 0;
+}
+.atlas-log-subject strong {
+  font-family: var(--atlas-display);
+  font-weight: 500;
+  font-size: 15px;
+  line-height: 1.3;
+  color: var(--atlas-ink);
+}
+.atlas-log-subject .atlas-button[aria-pressed="true"] {
+  border-color: var(--atlas-accent);
+  color: var(--atlas-accent);
 }
 /* The selected record when it is not on the needs-you list. */
 .atlas-hud-selected {
@@ -497,7 +563,7 @@
   position: absolute;
   top: calc(64px + env(safe-area-inset-top, 0px));
   bottom: calc(16px + env(safe-area-inset-bottom, 0px));
-  left: max(16px, min(488px, calc(100% - 368px - 440px)));
+  left: max(16px, min(368px, calc(100% - 368px - 440px)));
   right: calc(max(16px, env(safe-area-inset-right, 0px)) + 352px);
   z-index: 6;
 }
@@ -874,9 +940,28 @@
     background: none;
     border: 0;
   }
+  /* On a phone the log is a short box along the bottom with the latest
+     line, as the map needs the height. */
+  .atlas-log-panel {
+    top: auto;
+    width: min(460px, calc(100% - 32px));
+    display: block;
+    padding: 10px 12px;
+  }
+  .atlas-log-scroll {
+    overflow: hidden;
+  }
   .atlas-log-panel .atlas-log-rows,
   .atlas-log-panel .atlas-empty {
     min-height: calc(1.55em + 4px);
+  }
+  .atlas-log-panel .atlas-log-rows li {
+    padding: 2px 0;
+  }
+  .atlas-log-panel .atlas-log-rows li span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .atlas-log-panel .atlas-log-rows li:nth-child(n + 2) {
     display: none;
@@ -888,13 +973,6 @@
 
 /* ── Short screens: an unfolded phone held sideways, a small laptop ───── */
 @media (max-height: 720px) {
-  .atlas-log-panel .atlas-log-rows,
-  .atlas-log-panel .atlas-empty {
-    min-height: calc(2 * (1.55em + 4px));
-  }
-  .atlas-log-panel .atlas-log-rows li:nth-child(n + 3) {
-    display: none;
-  }
   .atlas-inspector {
     max-height: calc(100% - 84px);
   }
