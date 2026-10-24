@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/lekman/atlas/compare/v0.6.0...v0.7.0) (2026-10-24)
+
+
+### Features
+
+* **server:** read clients, workstreams and tasks from the task database ([#37](https://github.com/lekman/atlas/issues/37)) ([5387b60](https://github.com/lekman/atlas/commit/5387b6071ed48e432948e1ffa3b4751918ecf600))
+
 ## [0.6.0](https://github.com/lekman/atlas/compare/v0.5.0...v0.6.0) (2026-10-24)
 
 
