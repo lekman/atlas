@@ -12,6 +12,7 @@ import {
   isWorldId,
   lightingPreferences,
   resolveLighting,
+  worldIds,
   worlds,
   type Bounds,
   type Camera,
@@ -62,6 +63,12 @@ export interface AtlasShellProps {
   interval?: number;
   /** The world to open in. Otherwise the remembered one, or Astronomer. */
   initialWorld?: WorldId;
+  /**
+   * The worlds this view offers, for an app that shows only some of them.
+   * Every world when left out. A remembered or initial world outside the
+   * list falls back to the first in it.
+   */
+  worlds?: readonly WorldId[];
   /** Compact, the sidebar pane, unless the page opens straight to full. */
   initialMode?: AtlasMode;
   /**
@@ -165,10 +172,16 @@ const actionToast: Record<InspectorAction, string> = {
 
 export function AtlasShell(props: AtlasShellProps) {
   const remembered = props.remember ? readPreferences() : {};
-  const [worldId, setWorldId] = useState<WorldId>(
-    props.initialWorld ??
-      (isWorldId(remembered.world) ? remembered.world : "astronomer"),
-  );
+  const offered = props.worlds ?? worldIds;
+  const isOffered = (id: unknown): id is WorldId =>
+    isWorldId(id) && offered.includes(id);
+  const [worldId, setWorldId] = useState<WorldId>(() => {
+    if (isOffered(props.initialWorld)) return props.initialWorld;
+    if (isOffered(remembered.world)) return remembered.world;
+    return isOffered("astronomer")
+      ? "astronomer"
+      : (offered[0] ?? "astronomer");
+  });
   const [mode, setMode] = useState<AtlasMode>(props.initialMode ?? "compact");
   const [lightingPreference, setLightingPreference] =
     useState<LightingPreference>(
@@ -467,6 +480,7 @@ export function AtlasShell(props: AtlasShellProps) {
           {popover === "world" && (
             <WorldPicker
               current={worldId}
+              {...(props.worlds ? { worlds: props.worlds } : {})}
               lighting={lightingPreference}
               onLightingChange={setLightingPreference}
               onChange={(id) => {

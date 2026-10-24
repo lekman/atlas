@@ -33,6 +33,8 @@ loadSnapshot()
       <StrictMode>
         <AtlasShell
           dataset={dataset}
+          // One world while Astronomer is refined; the others come back later.
+          worlds={["astronomer"]}
           initialMode="full"
           remember
           subscribe={link.subscribe}

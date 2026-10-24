@@ -17,6 +17,11 @@ export interface WorldPickerProps {
   lighting?: LightingPreference;
   /** A lighting was picked. */
   onLightingChange?(lighting: LightingPreference): void;
+  /**
+   * The worlds to offer. Every built world, then the planned ones, unless a
+   * list is given; then only those, and no planned worlds.
+   */
+  worlds?: readonly WorldId[];
 }
 
 const lightingNames: Record<LightingPreference, string> = {
@@ -35,6 +40,7 @@ export function WorldPicker({
   onChange,
   lighting,
   onLightingChange,
+  worlds: offered,
 }: WorldPickerProps) {
   return (
     <div className="atlas-panel" role="dialog" aria-label="Choose a world">
@@ -57,7 +63,7 @@ export function WorldPicker({
       )}
       <h2 className="atlas-panel-title">World</h2>
       <ul className="atlas-worlds">
-        {worldIds.map((id) => {
+        {(offered ?? worldIds).map((id) => {
           const world = worlds[id];
           return (
             <li key={id}>
@@ -77,17 +83,18 @@ export function WorldPicker({
             </li>
           );
         })}
-        {plannedWorlds.map((planned) => (
-          <li key={planned.id}>
-            <button type="button" className="atlas-world" disabled>
-              <strong>{planned.name}</strong>
-              <em>planned</em>
-              <span>
-                {planned.description} Home is {planned.homeName}.
-              </span>
-            </button>
-          </li>
-        ))}
+        {!offered &&
+          plannedWorlds.map((planned) => (
+            <li key={planned.id}>
+              <button type="button" className="atlas-world" disabled>
+                <strong>{planned.name}</strong>
+                <em>planned</em>
+                <span>
+                  {planned.description} Home is {planned.homeName}.
+                </span>
+              </button>
+            </li>
+          ))}
       </ul>
     </div>
   );

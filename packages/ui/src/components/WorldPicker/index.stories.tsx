@@ -64,3 +64,20 @@ export const ChooseNight: Story = {
     await expect(args.onLightingChange).toHaveBeenCalledWith("night");
   },
 };
+
+/**
+ * The web app offers Astronomer alone while that world is refined: one
+ * world, and no planned worlds.
+ */
+export const AstronomerOnly: Story = {
+  name: "Astronomer Only",
+  args: { worlds: ["astronomer"] },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const offered = canvas
+      .getAllByRole("button")
+      .filter((button) => button.classList.contains("atlas-world"));
+    await expect(offered).toHaveLength(1);
+    await expect(offered[0]).toHaveTextContent(worlds.astronomer.name);
+  },
+};
