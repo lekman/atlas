@@ -1,7 +1,39 @@
 # Plan
 
-What comes after the worlds: the dashboard moves into the database, then the
-list becomes something you act in and score. Every step starts in Storybook
+What comes after the worlds: the dashboard moves into a database, then the
+list becomes something you act in and score.
+
+## Direction, 24 October 2026
+
+The owner decided that tasks are kept in a separate task database, not in
+Atlas. That database is Postgres on the Mac mini, with its schema and its
+APIs built in `lekman/ai-toolkit` (`packages/dashboard-schema`, being built
+when this was written). Atlas becomes the graphical, game-like interface
+for that database and its APIs: the worlds, the actions, the score.
+
+What this changes in the plan below:
+
+- The task database is the master copy of tasks, day notes and calendar
+  entries. Atlas reads them through that database's API and sends changes
+  back through it. Atlas never writes tasks into its own SQLite file as the
+  master copy.
+- Atlas's SQLite keeps what only the interface needs: agents and their
+  status, the event log that drives animation and sound, workstream
+  grouping until the task database holds it, the score ledger, and machine
+  tokens.
+- The dashboard parser, the import and the regenerated dashboard belong to
+  the task database's work. Step 1 below describes the mapping that work
+  needs; read "Atlas" there as "the task database" wherever it means where
+  tasks are kept.
+- The skills that write the dashboard move to the task database's tools.
+  Atlas's MCP tools stay for what agents tell the map: status, messages,
+  questions and decisions.
+- Field names stay aligned, so moving data between the two is a straight
+  copy: `clientId`, `scheduledFor`, `doneOn`, `tracker.key`, and the same
+  `state` and `priority` values as `BacklogItem` in `packages/core`.
+
+Until the task database runs, the live Atlas server shows a one-time
+snapshot of the dashboard, seeded on the Mac mini. Every step starts in Storybook
 on the invented dataset; the real dashboard is read only on the Mac mini and
 never enters this repository.
 
@@ -45,8 +77,8 @@ reworded title updates the same task. The importer never invents a key.
    looks like a credential, which is held back and named only by its line.
 3. The import after you approve the report. Running it again is safe: a
    changed line updates its record, and nothing is deleted silently.
-4. Cutover, one way. The database is the master copy, and the dashboard is
-   regenerated from it as a read-only view headed "edit in Atlas".
+4. Cutover, one way. The task database is the master copy, and the
+   dashboard is regenerated from it as a read-only view.
 
 Tickets in each client's tracker (Jira, Monday.com or GitHub Issues) move
 the same way, one session group at a time. The group's own session maps
@@ -66,9 +98,11 @@ with one tap and never applied silently.
 
 ### The Skills Move With It
 
-An `atlas` plugin in `lekman/ai-toolkit` takes over everything that writes
-the dashboard today, and the old skills retire in the same release so
-nothing clashes.
+Since 24 October the task database's tools take over everything that writes
+tasks. The table below still shows which skills are affected; where it says
+Atlas for tasks, read the task database. Agent state (`report_status`) and
+the needs-you list stay with Atlas. The old skills retire in the same
+release as their replacements, so nothing writes the dashboard twice.
 
 | Today                                                                                  | Becomes                                                                                      |
 | -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
@@ -168,11 +202,13 @@ stay checked.
 
 1. Storybook: the details reader, the day list, the effort and value
    picker, and the import report.
-2. Core: the model additions and the dashboard parser.
-3. Server: SQLite on the Mac mini with Litestream, the MCP tools, the dry
-   run, the import and the regenerated dashboard.
-4. Skills: the `atlas` plugin replaces the planner and Obsidian dashboard
-   skills.
+2. Core: the model additions. The dashboard parser moves to the task
+   database's work.
+3. Server: an adapter that reads tasks from the task database's API and
+   sends Atlas's actions back through it; SQLite with Litestream for
+   Atlas's own records.
+4. Skills: the task database's tools replace the planner and Obsidian
+   dashboard skills; Atlas keeps the agent tools.
 5. Storybook: the list's actions, the day score, the week chart and the
    archive.
 6. Core: the scoring rules, the ledger and retrospective scoring.

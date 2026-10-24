@@ -8,9 +8,9 @@ automatically.
 
 Atlas is a live map of agents, clients and the work between them: groups of
 AI agents and scripts, which client each serves, and the requirements,
-backlog, open questions and decisions they connect to. It replaces a
-Markdown dashboard with a database and draws the result as a world you
-choose. Six worlds are built; Astronomer and Mariner are the first release.
+backlog, open questions and decisions they connect to. It is the
+graphical, game-like interface for a task database and its APIs, and draws
+the work as a world you choose. Six worlds are built; Astronomer and Mariner are the first release.
 
 **This repository is public under the MIT licence.** Nothing that
 identifies a client, an employer, a person at either, or an engagement may
