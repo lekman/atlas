@@ -10,6 +10,8 @@ import { createApi } from "./api";
 import { readConfiguration } from "./configuration";
 import { openDatabase } from "./database";
 import { isEmpty, readSeedFile, seedDataset } from "./store";
+import { createTaskCache } from "./task-cache";
+import { passwordFromCommand, postgresTaskSource } from "./task-database";
 
 const configuration = readConfiguration();
 const database = openDatabase(configuration.databasePath);
@@ -30,10 +32,36 @@ if (isEmpty(database)) {
   }
 }
 
+// The task database, when configured. The first read finishes (or fails)
+// before the server listens, so the first page already has the tasks.
+const tasks = configuration.tasks
+  ? createTaskCache({
+      source: postgresTaskSource({
+        hostname: configuration.tasks.hostname,
+        port: configuration.tasks.port,
+        database: configuration.tasks.database,
+        username: configuration.tasks.username,
+        ...(configuration.tasks.passwordCommand
+          ? {
+              password: passwordFromCommand(
+                configuration.tasks.passwordCommand,
+              ),
+            }
+          : {}),
+      }),
+      pollSeconds: configuration.tasks.pollSeconds,
+    })
+  : undefined;
+if (tasks) {
+  await tasks.refresh();
+  tasks.start();
+}
+
 const api = createApi({
   database,
   version: rootPackage.version,
   requireTokens: configuration.requireTokens,
+  ...(tasks ? { tasks } : {}),
 });
 
 const server = Bun.serve({
@@ -56,10 +84,11 @@ const server = Bun.serve({
 });
 
 console.log(
-  `atlas ${rootPackage.version} listening on ${server.url}, tokens ${configuration.requireTokens ? "required" : "optional"}`,
+  `atlas ${rootPackage.version} listening on ${server.url}, tokens ${configuration.requireTokens ? "required" : "optional"}, tasks from ${tasks ? "the task database" : "SQLite"}`,
 );
 
 function shutdown() {
+  tasks?.stop();
   api.close();
   server.stop();
   database.$client.close();

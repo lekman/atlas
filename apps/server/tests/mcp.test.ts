@@ -69,8 +69,12 @@ describe("the MCP tools", () => {
 
   test("list_agents names every agent with its client", async () => {
     const { value } = await call("list_agents");
-    const agents = value as { id: string; clientId: string }[];
+    const { agents, unknownClaimers } = value as {
+      agents: { id: string; clientId: string }[];
+      unknownClaimers: { count: number; names: string[] };
+    };
     expect(agents).toHaveLength(sampleDataset.agents.length);
+    expect(unknownClaimers).toEqual({ count: 0, names: [] });
     expect(agents.find((agent) => agent.id === "test-runner")?.clientId).toBe(
       "halcyon",
     );
@@ -193,10 +197,9 @@ describe("the MCP tools", () => {
       note: "Writing up the drill steps",
     });
     expect(launched.isError).toBe(false);
-    const agents = (await call("list_agents")).value as {
-      id: string;
-      parentId?: string;
-    }[];
+    const { agents } = (await call("list_agents")).value as {
+      agents: { id: string; parentId?: string }[];
+    };
     expect(agents.find((agent) => agent.id === "drill-notes")?.parentId).toBe(
       "schema",
     );

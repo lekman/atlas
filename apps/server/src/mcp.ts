@@ -22,7 +22,13 @@ import { z } from "zod/v4";
 
 import type { AtlasDatabase } from "./database";
 import { canSee, type Machine } from "./machines";
-import { EventRejected, readDataset, type StoredEvent } from "./store";
+import { summariseUnknownClaims, type UnknownClaim } from "./task-source";
+import {
+  EventRejected,
+  readDataset,
+  type Overlay,
+  type StoredEvent,
+} from "./store";
 
 export interface McpOptions {
   database: AtlasDatabase;
@@ -31,6 +37,10 @@ export interface McpOptions {
   record(event: AtlasEvent): StoredEvent;
   /** The calling machine. Its scope limits what the tools show and change. */
   machine?: Machine;
+  /** Laid over the SQLite dataset before a tool reads it: the task database's tasks. */
+  overlay?: Overlay;
+  /** Claims in the task database that name no agent Atlas knows. */
+  unknownClaims?: () => UnknownClaim[];
 }
 
 /** The most items `list_my_work` returns, so a reply stays readable. */
@@ -85,6 +95,8 @@ export function createMcpServer({
   version,
   record,
   machine,
+  overlay,
+  unknownClaims = () => [],
 }: McpOptions): McpServer {
   const server = new McpServer(
     { name: "atlas", version },
@@ -93,7 +105,7 @@ export function createMcpServer({
         "Atlas is the shared map of agents, clients and work. Call report_status when you start, change what you are doing, wait on someone, or finish. Call launch_vessel when you start a background agent or subagent, and return_vessel when it finishes. Use your agent id from list_agents.",
     },
   );
-  const read = (): Dataset => readDataset(database);
+  const read = (): Dataset => readDataset(database, overlay);
   const clientOfAgent = (dataset: Dataset, agentId: string) => {
     const agent = dataset.agents.find((candidate) => candidate.id === agentId);
     return dataset.groups.find((group) => group.id === agent?.groupId)
@@ -111,7 +123,7 @@ export function createMcpServer({
     {
       title: "List agents",
       description:
-        "Every agent Atlas knows, with its id, client, host and status. Find your own id here.",
+        "Every agent Atlas knows, with its id, client, host and status. Find your own id here. unknownClaimers lists the names task claims used that match no agent: claim with your agent id or name.",
       annotations: { readOnlyHint: true },
     },
     () => {
@@ -119,8 +131,8 @@ export function createMcpServer({
       const clientOf = new Map(
         dataset.groups.map((group) => [group.id, group.clientId]),
       );
-      return reply(
-        dataset.agents
+      return reply({
+        agents: dataset.agents
           .filter((agent) => canSee(machine, clientOf.get(agent.groupId) ?? ""))
           .map((agent) => ({
             id: agent.id,
@@ -131,7 +143,10 @@ export function createMcpServer({
             note: agent.note,
             ...(agent.parentId ? { parentId: agent.parentId } : {}),
           })),
-      );
+        unknownClaimers: summariseUnknownClaims(
+          unknownClaims().filter((claim) => canSee(machine, claim.clientId)),
+        ),
+      });
     },
   );
 

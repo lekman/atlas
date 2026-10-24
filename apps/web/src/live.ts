@@ -5,8 +5,12 @@
  * An event this page sends is applied on the page straight away, and then
  * comes back on the stream like every other event. The echo is recognised
  * and skipped, so the log shows it once.
+ *
+ * A `refresh` message on the stream means the task database changed. The
+ * page loads the dataset again, and `catchUp` lays over it the events the
+ * page applied after the server read it, so nothing already shown is lost.
  */
-import { AtlasEvent, Dataset } from "@atlas/core";
+import { applyEvent, AtlasEvent, Dataset } from "@atlas/core";
 
 /** The header the server sets on the dataset: the last event it includes. */
 export const sequenceHeader = "x-atlas-sequence";
@@ -59,7 +63,15 @@ export interface LiveLink {
   subscribe(fire: (event: AtlasEvent) => void): () => void;
   /** For `AtlasShell`'s `onEvent`: sends an event made on this page to the server. */
   report(event: AtlasEvent): void;
+  /**
+   * A snapshot loaded again, with the events this page received after the
+   * server read it applied on top.
+   */
+  catchUp(snapshot: Snapshot): Dataset;
 }
+
+/** How many received events the link keeps for `catchUp`. */
+const keptEvents = 200;
 
 export function createLiveLink(
   after: number,
@@ -68,9 +80,12 @@ export function createLiveLink(
     fetch: (url, init) => fetch(url, init),
   },
   onProblem: (message: string) => void = (message) => console.warn(message),
+  /** Called when the server says the task database changed. */
+  onRefresh: () => void = () => {},
 ): LiveLink {
   const fromServer = new WeakSet<AtlasEvent>();
   const sentFromHere: string[] = [];
+  const received: { sequence: number; event: AtlasEvent }[] = [];
 
   return {
     subscribe(fire) {
@@ -83,7 +98,11 @@ export function createLiveLink(
           onProblem("skipped an event the model does not recognise");
           return;
         }
-        if (message.lastEventId) after = Number(message.lastEventId);
+        if (message.lastEventId) {
+          after = Number(message.lastEventId);
+          received.push({ sequence: after, event });
+          if (received.length > keptEvents) received.shift();
+        }
         const echo = sentFromHere.indexOf(canonical(event));
         if (echo !== -1) {
           sentFromHere.splice(echo, 1);
@@ -92,11 +111,23 @@ export function createLiveLink(
         fromServer.add(event);
         fire(event);
       };
+      const refresh = () => onRefresh();
       stream.addEventListener("atlas", receive as EventListener);
+      stream.addEventListener("refresh", refresh);
       return () => {
         stream.removeEventListener("atlas", receive as EventListener);
+        stream.removeEventListener("refresh", refresh);
         stream.close();
       };
+    },
+
+    catchUp(snapshot) {
+      while (received[0] && received[0].sequence <= snapshot.sequence)
+        received.shift();
+      return received.reduce(
+        (dataset, { event }) => applyEvent(dataset, event),
+        snapshot.dataset,
+      );
     },
 
     report(event) {

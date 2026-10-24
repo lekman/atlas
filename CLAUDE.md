@@ -41,7 +41,7 @@ name: `bun test -t 'substring'`.
 | `packages/fixtures` | The invented dataset and a scripted day of events             |
 | `packages/worlds`   | Layout, scene, canvas and SVG renderers and sounds, per world |
 | `packages/ui`       | React components and their stories                            |
-| `apps/server`       | Bun, SQLite, the HTTP API and the MCP tools                   |
+| `apps/server`       | Bun, SQLite, the task database reader, the API and MCP tools  |
 | `apps/web`          | The web app the server serves: the full view on live data     |
 | `apps/storybook`    | Storybook configuration, story tests, the Pages build         |
 | `docs/`             | Architecture, worlds, contributing, repository settings       |

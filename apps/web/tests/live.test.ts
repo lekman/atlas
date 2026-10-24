@@ -145,4 +145,36 @@ describe("the live link", () => {
     streams[0]?.send(1, statusChange);
     expect(fired).toEqual([statusChange]);
   });
+
+  test("asks for a reload when the server says the tasks changed", () => {
+    const { environment, streams } = harness();
+    let reloads = 0;
+    const link = createLiveLink(0, environment, undefined, () => reloads++);
+    const disconnect = link.subscribe(() => {});
+    streams[0]?.dispatchEvent(
+      new MessageEvent("refresh", { data: '{"lastRefresh":null}' }),
+    );
+    expect(reloads).toBe(1);
+    disconnect();
+    streams[0]?.dispatchEvent(new MessageEvent("refresh", { data: "{}" }));
+    expect(reloads).toBe(1);
+  });
+
+  test("lays the events received after a reloaded snapshot over it", () => {
+    const { environment, streams } = harness();
+    const link = createLiveLink(0, environment);
+    link.subscribe(() => {});
+    const waiting = { ...statusChange, to: "waiting", text: "Waits" } as const;
+    streams[0]?.send(1, waiting);
+    streams[0]?.send(2, statusChange);
+    // The reloaded snapshot holds event 1, not event 2.
+    const dataset = link.catchUp({ dataset: sampleDataset, sequence: 1 });
+    expect(
+      dataset.agents.find((agent) => agent.id === "test-runner")?.status,
+    ).toBe("running");
+    // A snapshot that holds both needs nothing laid over it.
+    expect(link.catchUp({ dataset: sampleDataset, sequence: 2 })).toBe(
+      sampleDataset,
+    );
+  });
 });

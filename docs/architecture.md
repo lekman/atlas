@@ -3,19 +3,21 @@
 Atlas is the graphical, game-like interface for your work: it draws
 agents, clients and tasks as a world you choose. Since 24 October 2026,
 tasks are kept in a separate task database (Postgres on the Mac mini, see
-[the plan](plan.md#direction-24-october-2026)), and Atlas reads them
-through its API. Atlas's own SQLite file keeps agents, the event log,
-workstream grouping, the score and machine tokens. The diagram below shows
-the server as built; the adapter to the task database is not built yet.
+[the plan](plan.md#direction-24-october-2026)). Atlas reads clients,
+workstreams and tasks from it, as described in "The Task Source" below.
+Atlas's own SQLite file keeps agents, the event log, the score and machine
+tokens, and the records of clients the task database does not hold yet.
 
 ```mermaid
 flowchart LR
   subgraph host["Mac mini, tailnet only"]
     DB[(atlas.db, SQLite)]
+    TASKS[(Task database, Postgres)]
     MCP[Atlas MCP server]
     API[HTTP API and event stream]
     MCP --- DB
     API --- DB
+    TASKS -- read, every 30 s --> API
   end
   C1[Claude sessions, account 1] -- MCP --> MCP
   C2[Claude sessions over SSH, account 2] -- MCP --> MCP
@@ -37,7 +39,7 @@ flowchart LR
 | `@atlas/worlds`   | Built. Six worlds: layout, canvas, SVG, sounds         |
 | `@atlas/ui`       | Built. Shell, live map, panels, stories                |
 | `apps/storybook`  | Built. Story tests with axe; published to GitHub Pages |
-| `apps/server`     | Started. SQLite, HTTP API, event stream and MCP        |
+| `apps/server`     | Started. SQLite, task source, API, stream and MCP      |
 | `apps/web`        | Started. The full view, kept live by the event stream  |
 | `apps/artifact`   | Next                                                   |
 | `apps/plugin`     | Later                                                  |
@@ -104,7 +106,7 @@ origin. Machine tokens, Litestream and the import are still to come.
 
 | Route              | What it does                                          |
 | ------------------ | ----------------------------------------------------- |
-| `GET /api/health`  | Whether the server is up, and its version             |
+| `GET /api/health`  | Whether the server is up, its version and task counts |
 | `GET /api/dataset` | Every record, and the last event they include         |
 | `GET /api/events`  | The event log after `?after=<sequence>`, oldest first |
 | `POST /api/events` | Adds one event, writes its effect and streams it      |
@@ -118,16 +120,16 @@ records never disagree. The MCP endpoint is stateless and answers in JSON. Its t
 the same events as `POST /api/events`, so a tool call reaches the log and
 every open view.
 
-| Tool                  | What it does                                                         |
-| --------------------- | -------------------------------------------------------------------- |
-| `list_agents`         | Every agent with its id, client, host and status                     |
-| `report_status`       | Sets the agent's status and note: a `status-change` event            |
-| `send_message`        | A message between two known agents: an `agent-message` event         |
-| `list_my_work`        | The agent's own work, then its client's open work, most urgent first |
-| `list_open_questions` | Open questions, with who must answer                                 |
-| `answer_question`     | Answers a question and records the decision                          |
-| `launch_vessel`       | Adds a vessel launched from an agent: an `agent-launched` event      |
-| `return_vessel`       | Removes a vessel that has finished: an `agent-returned` event        |
+| Tool                  | What it does                                                           |
+| --------------------- | ---------------------------------------------------------------------- |
+| `list_agents`         | Every agent with its id, client, host and status, and unknown claimers |
+| `report_status`       | Sets the agent's status and note: a `status-change` event              |
+| `send_message`        | A message between two known agents: an `agent-message` event           |
+| `list_my_work`        | The agent's own work, then its client's open work, most urgent first   |
+| `list_open_questions` | Open questions, with who must answer                                   |
+| `answer_question`     | Answers a question and records the decision                            |
+| `launch_vessel`       | Adds a vessel launched from an agent: an `agent-launched` event        |
+| `return_vessel`       | Removes a vessel that has finished: an `agent-returned` event          |
 
 A session connects as described in "Who May Connect", below. A request with an Origin header from another site is refused, so a web page
 cannot call the tools through a browser on the tailnet.
@@ -148,12 +150,81 @@ empty database. `ATLAS_SEED=<path>.json` seeds a whole dataset from a file
 instead, checked against the core schema. A file with real clients is built
 on the Mac mini from the vault and kept outside this repository.
 
+### The Task Source
+
+With the task database configured, the server reads its clients,
+workstreams and tasks (the `client`, `workstream`, `dashboard_item` and
+`item_history` tables) and lays them over SQLite. Every setting is
+optional; without `ATLAS_TASKS_HOST` the server serves SQLite alone, as
+before.
+
+| Variable                       | What it sets                                                 |
+| ------------------------------ | ------------------------------------------------------------ |
+| `ATLAS_TASKS_HOST`             | The Postgres host. Setting it turns the task source on       |
+| `ATLAS_TASKS_PORT`             | The port, 5432 unless set                                    |
+| `ATLAS_TASKS_DATABASE`         | The database. Needed with the host                           |
+| `ATLAS_TASKS_USER`             | A read-only role. Needed with the host                       |
+| `ATLAS_TASKS_PASSWORD_COMMAND` | A command that prints the password, such as a Keychain query |
+| `ATLAS_TASKS_POLL_SECONDS`     | Seconds between reads, 30 unless set                         |
+
+The password command runs without a shell: the value is split on spaces,
+with quotes holding an argument together, and nothing in it is expanded.
+Its output is trimmed and never logged. If it fails, as it can while the
+Keychain is locked after a restart, it runs again on the next read.
+
+The merge works one client at a time:
+
+- For every client the task database holds, its client row, workstreams
+  and tasks come from the task database and replace SQLite's records for
+  that client. A client only the task database holds is added.
+- Every other client keeps its SQLite records. Agents, groups, accounts,
+  requirements, questions and decisions always come from SQLite.
+- The home client in SQLite stays home.
+- An agent's `workingOn` follows the task database's claims: the items whose
+  `claim_by` names it and that are not done, earliest `claim_at` first. A
+  claim names an agent by its id or its name, whatever the case; an id match
+  wins over a name match. Items of clients the task database does not hold
+  keep their place from SQLite, after the claims.
+- A claim that names no agent is never turned into one. Health counts them
+  under `tasks.unknownClaimers`; the names they used are only in the
+  `list_agents` reply, which needs a token, so the claimer can be told its
+  Atlas id.
+- Dropped tasks are left out. A row that does not match the core model is
+  skipped and counted. A reference that the swap breaks (an agent working on
+  a task that is gone, a question that blocks one, a task that names a
+  missing requirement or workstream) is removed from the served dataset and
+  counted, and a question with nothing left to block is left out.
+
+`GET /api/dataset`, the MCP tools and the checks on a launch all read the
+merged dataset, so `list_my_work` shows the same claims and open tasks as
+the map.
+
+The server reads the task database once before it listens, then every
+`ATLAS_TASKS_POLL_SECONDS`, all in one read-only transaction. When a read
+changes the records, the event stream sends `event: refresh` with no id,
+so a page's place in the event log stays where it was, and the web app
+loads the dataset again. The `atlas` events are unchanged. If the task
+database cannot be reached, the server still starts and serves SQLite
+alone, logs one line with the error code, and tries again on the next
+poll. After a good read, a failed one keeps the last good records.
+
+`GET /api/health` reports the task source as counts only: `source`
+(`postgres` or `none`), `clients`, `items`, `skipped`, `lastRefresh`, `ok`,
+`dangling`, `ambiguousClaims` and `unknownClaimers`. Health is open
+without a token, so it never names a client, a task or a claimer.
+
+Atlas only reads the task database. Task writes (add, update, claim,
+complete) belong to the task database's own tasks MCP server. Atlas's MCP
+tools stay for what agents tell the map: agents, status, messages,
+questions and vessels.
+
 ### Design
 
 - **Database:** SQLite in WAL mode with Drizzle for schema and migrations.
   Only the server process opens the file; agents go through MCP.
-- **MCP tools still to come:** `claim_item`, `ask_question`, `link`, and the
-  task tools from the plan (`task_add`, `task_update`, `task_complete`).
+- **MCP tools still to come:** `ask_question` and `link`. Claiming and the
+  task tools (`task_add`, `task_update`, `task_complete`) belong to the task
+  database's tasks server, not to Atlas.
 - **Network:** Tailscale Serve on the tailnet only, with Funnel off. Nothing
   reaches the server from outside the tailnet. People are identified by
   Tailscale's identity headers; agents as below.
