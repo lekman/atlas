@@ -4,7 +4,7 @@
  *
  * | Route                   | What it does                                          |
  * | ----------------------- | ----------------------------------------------------- |
- * | GET  /api/health        | Whether the server is up, its version and task counts |
+ * | GET  /api/health        | Whether the server is up, its version and counts      |
  * | GET  /api/dataset       | Every record, and the last event they include         |
  * | GET  /api/events        | The event log after `?after=<sequence>`, oldest first |
  * | POST /api/events        | Adds one event, writes its effect and streams it      |
@@ -18,7 +18,8 @@
  * the dataset sent to views carries invented development tracking (see
  * `fake-development.ts`), and health says so. With a GitHub reader, real
  * development tracking from gh-events replaces it on every item the reader
- * matches (see `github-reader.ts`).
+ * matches (see `github-reader.ts`). With a session reader, agents' statuses
+ * follow the Claude Code sessions on this machine (see `session-source.ts`).
  */
 import { ZodError } from "zod/v4";
 
@@ -41,6 +42,7 @@ import { withFakeDevelopment } from "./fake-development";
 import { noGithubSource, type GithubReader } from "./github-reader";
 import { everyClient } from "./machines";
 import { handleMcp } from "./mcp";
+import { noSessionSource, type SessionReader } from "./session-source";
 import {
   appendEvent,
   EventRejected,
@@ -115,6 +117,8 @@ export interface ApiOptions {
   fakeDevelopment?: boolean;
   /** Pull request and issue state from gh-events. Leave out to keep GitHub state off. */
   github?: GithubReader;
+  /** Live agent status from Claude Code's session files. Leave out to keep it off. */
+  sessions?: SessionReader;
 }
 
 export interface Api {
@@ -149,6 +153,7 @@ export function createApi({
   build,
   fakeDevelopment = false,
   github,
+  sessions,
 }: ApiOptions): Api {
   const streams = new Set<(text: string) => void>();
   const closers = new Set<() => void>();
@@ -185,6 +190,17 @@ export function createApi({
     for (const write of streams) write(frame);
   });
 
+  // Session status changes go through the same record path; a docked agent
+  // added or removed reloads open pages.
+  sessions?.connect({
+    dataset: () => readDataset(database, overlay),
+    record,
+  });
+  const stopSessions = sessions?.subscribe(() => {
+    const frame = refreshFrame(tasks?.health().lastRefresh ?? null);
+    for (const write of streams) write(frame);
+  });
+
   /** The dataset views read: real GitHub state first, then any fake tracking. */
   function served(dataset: Dataset): Dataset {
     const real = github ? github.overlay(dataset) : dataset;
@@ -207,6 +223,7 @@ export function createApi({
     const githubHealth = github
       ? github.health(readDataset(database, overlay))
       : noGithubSource;
+    const sessionHealth = sessions ? sessions.health() : noSessionSource;
     if (!tasks)
       return {
         status: "ok",
@@ -214,6 +231,7 @@ export function createApi({
         ...(build ? { build } : {}),
         ...development,
         github: githubHealth,
+        sessions: sessionHealth,
         tasks: {
           ...noTaskSource,
           dangling: 0,
@@ -228,6 +246,7 @@ export function createApi({
       ...(build ? { build } : {}),
       ...development,
       github: githubHealth,
+      sessions: sessionHealth,
       tasks: {
         ...tasks.health(),
         dangling: merge?.dangling ?? 0,
@@ -419,6 +438,7 @@ export function createApi({
     close() {
       stopRefreshes?.();
       stopGithub?.();
+      stopSessions?.();
       for (const finish of [...closers]) finish();
     },
   };

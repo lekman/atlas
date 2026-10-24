@@ -10,6 +10,7 @@ import { createApi } from "./api";
 import { readConfiguration } from "./configuration";
 import { openDatabase } from "./database";
 import { createGithubReader } from "./github-reader";
+import { createSessionReader } from "./session-source";
 import { isEmpty, readSeedFile, seedDataset } from "./store";
 import { createTaskCache } from "./task-cache";
 import { passwordFromCommand, postgresTaskSource } from "./task-database";
@@ -70,6 +71,16 @@ const github = configuration.githubStateDirectory
     })
   : undefined;
 
+// Live agent status from Claude Code's session files, when configured.
+const sessions = configuration.sessions
+  ? createSessionReader({
+      directory: configuration.sessions.directory,
+      database,
+      pollSeconds: configuration.sessions.pollSeconds,
+      forgetHours: configuration.sessions.forgetHours,
+    })
+  : undefined;
+
 // Every start is a new build as far as open pages are concerned: a deploy
 // restarts the server, and the pages reload when they reconnect.
 const build = `${rootPackage.version}-${Date.now().toString(36)}`;
@@ -81,10 +92,15 @@ const api = createApi({
   fakeDevelopment: configuration.fakeDevelopment,
   ...(tasks ? { tasks } : {}),
   ...(github ? { github } : {}),
+  ...(sessions ? { sessions } : {}),
 });
 if (github) {
   github.poll();
   github.start();
+}
+if (sessions) {
+  sessions.poll();
+  sessions.start();
 }
 
 const server = Bun.serve({
@@ -107,12 +123,13 @@ const server = Bun.serve({
 });
 
 console.log(
-  `atlas ${rootPackage.version} listening on ${server.url}, tokens ${configuration.requireTokens ? "required" : "optional"}, tasks from ${tasks ? "the task database" : "SQLite"}${github ? ", GitHub state from gh-events" : ""}${configuration.fakeDevelopment ? ", development tracking fake" : ""}`,
+  `atlas ${rootPackage.version} listening on ${server.url}, tokens ${configuration.requireTokens ? "required" : "optional"}, tasks from ${tasks ? "the task database" : "SQLite"}${github ? ", GitHub state from gh-events" : ""}${sessions ? ", agent status from Claude Code sessions" : ""}${configuration.fakeDevelopment ? ", development tracking fake" : ""}`,
 );
 
 function shutdown() {
   tasks?.stop();
   github?.stop();
+  sessions?.stop();
   api.close();
   server.stop();
   database.$client.close();

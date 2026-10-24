@@ -21,6 +21,7 @@ import {
   isEmpty,
   listEvents,
   noGithubSource,
+  noSessionSource,
   openDatabase,
   readConfiguration,
   readDataset,
@@ -194,6 +195,7 @@ describe("the API", () => {
       status: "ok",
       version: "0.0.0-test",
       github: noGithubSource,
+      sessions: noSessionSource,
       tasks: {
         source: "none",
         clients: 0,

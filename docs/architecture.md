@@ -121,15 +121,15 @@ left the client's boundary even if no file moved.
 MCP endpoint, and serves the web app from `apps/web` at `/` on the same
 origin. Machine tokens, Litestream and the import are still to come.
 
-| Route                    | What it does                                                  |
-| ------------------------ | ------------------------------------------------------------- |
-| `GET /api/health`        | Whether the server is up, its version, task and GitHub counts |
-| `GET /api/dataset`       | Every record, and the last event they include                 |
-| `GET /api/events`        | The event log after `?after=<sequence>`, oldest first         |
-| `POST /api/events`       | Adds one event, writes its effect and streams it              |
-| `GET /api/stream`        | Server-sent events after `?after=`, then each new one         |
-| `GET /api/items/:id/log` | One backlog item's log from the task database, newest first   |
-| `POST /mcp`              | The MCP tools, over Streamable HTTP                           |
+| Route                    | What it does                                                 |
+| ------------------------ | ------------------------------------------------------------ |
+| `GET /api/health`        | Whether the server is up, its version, and its source counts |
+| `GET /api/dataset`       | Every record, and the last event they include                |
+| `GET /api/events`        | The event log after `?after=<sequence>`, oldest first        |
+| `POST /api/events`       | Adds one event, writes its effect and streams it             |
+| `GET /api/stream`        | Server-sent events after `?after=`, then each new one        |
+| `GET /api/items/:id/log` | One backlog item's log from the task database, newest first  |
+| `POST /mcp`              | The MCP tools, over Streamable HTTP                          |
 
 The dataset response names the last event it includes in the
 `x-atlas-sequence` header, and the web app opens the stream from there, so
@@ -345,6 +345,75 @@ skips one.
 `error`, `items`, `matched`, `unmatched`, `unknownClients`, `skipped`,
 `eventsApplied`, `eventsUnmatched`, `eventsSkipped`, `eventsRefused` and
 `lastEventAt`. It never names a repository or a number.
+
+### Live Agent Status
+
+Atlas can set agents' statuses from the Claude Code sessions running on
+the Mac mini. `ATLAS_SESSIONS_DIR` names the folder where Claude Code keeps
+one `<pid>.json` file per live session, usually `~/.claude/sessions`.
+Without the variable, the server behaves as before.
+
+| Variable                      | What it sets                                      | Default |
+| ----------------------------- | ------------------------------------------------- | ------- |
+| `ATLAS_SESSIONS_DIR`          | The folder of session files; turns the reader on  | Off     |
+| `ATLAS_SESSIONS_POLL_SECONDS` | Seconds between reads                             | 5       |
+| `ATLAS_SESSIONS_FORGET_HOURS` | Hours a docked agent stays after its session ends | 24      |
+
+The session files are Claude Code's internal state, not a documented
+interface, and their shape can change in any release. Atlas keeps only
+`pid`, `name`, `status`, `sessionId`, `statusUpdatedAt` and `entrypoint`,
+and drops every other field (the working folder included) when it parses
+a file. A file that is half written or has another shape is skipped for
+that poll. A file can outlive its process, so a session counts only while
+its process answers signal 0. Key and socket files beside them are ignored.
+
+A session matches an agent when its name equals the agent's id or name,
+without regard to case, or starts with the id or name followed by `-`: roster
+agent "Example" is session `example-69`. An exact match beats a prefix, and
+a longer prefix beats a shorter one. A session that matches two agents
+equally well is ambiguous: it is counted and changes nothing. When several
+live sessions match one agent, the most active speaks for it (busy, then
+waiting, then idle), then the one whose status changed last.
+
+| Session                  | Agent status | Note                     |
+| ------------------------ | ------------ | ------------------------ |
+| `busy`                   | running      | "Session busy"           |
+| `waiting`                | waiting      | "Session waiting on you" |
+| `idle`                   | idle         | "Session idle"           |
+| None, after one was seen | idle         | "Session offline"        |
+
+A status changes only when the session's state changes, and then only
+when the agent's status differs (or, going offline, its note). It goes
+through the same path as `POST /api/events`, as a `status-change` event,
+so the log, the animation, the sound and the stream follow. A status an
+agent reports through `report_status` stays until its session's state next
+changes. An agent no session has ever matched keeps its stored status.
+Claims still decide what an agent works on.
+
+A live session that matches no agent is docked at home: Atlas adds an agent
+for it to the home client's first group, with the id `session-<name>`
+(made unique with `-2`, `-3`), the session's name, this machine's host
+name, reach `local`, the first account, and the note "Not in the roster".
+When its session ends it goes offline, and after `ATLAS_SESSIONS_FORGET_HOURS`
+offline it is removed. Once its name matches a roster agent, the docked
+agent is removed and the roster agent follows the session. Adding or
+removing a docked agent sends `event: refresh` on the stream. Without a home
+group or an account, nothing is docked and health says why.
+
+Which agents follow a session, and each session's last state, are kept in
+the `session_agents` table, so a restart still knows to set an agent
+offline whose session ended while the server was down.
+
+`GET /api/health` reports `sessions` as counts only: `source` (`files` or
+`none`), `ok`, `files`, `live`, `matched`, `unknownDocked`, `ambiguous`,
+`skipped`, `lastReadAt` and `error`. It never names a session. `ok` is false
+when the folder cannot be read, or when it holds session files and none of
+them has the expected shape, which is how a change in Claude Code's format
+shows. While `ok` is false, no agent is changed.
+
+The reader sees only the machine Atlas runs on. Sessions on other machines
+need a reporter of their own there, still to come; until then they report
+through MCP.
 
 ### Design
 

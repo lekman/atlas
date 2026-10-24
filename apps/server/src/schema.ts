@@ -20,6 +20,9 @@ import {
   text,
 } from "drizzle-orm/sqlite-core";
 
+/** A session's state as the session reader keeps it: its status, or gone. */
+export type SessionState = "busy" | "waiting" | "idle" | "offline";
+
 const governed = {
   id: text().primaryKey(),
   classification: text().$type<Classification>().notNull(),
@@ -204,3 +207,24 @@ export const githubPullRequests = sqliteTable(
   },
   (table) => [primaryKey({ columns: [table.repository, table.number] })],
 );
+
+/**
+ * Agents whose status follows a Claude Code session on this machine (see
+ * `session-source.ts`). A roster agent gets a row the first time a live
+ * session matches it, so a restart still knows to set it offline. A docked
+ * agent is one the reader made for a session that matched no agent, in the
+ * home client's group; the reader removes it again. Only the session's
+ * name, in lower case, and its last state are kept.
+ */
+export const sessionAgents = sqliteTable("session_agents", {
+  agentId: text("agent_id")
+    .primaryKey()
+    .references(() => agents.id, { onDelete: "cascade" }),
+  docked: integer({ mode: "boolean" }).notNull(),
+  /** The session name the agent was matched or docked by, trimmed and in lower case. */
+  sessionName: text("session_name").notNull(),
+  /** The session's state at the last poll: `busy`, `waiting`, `idle` or `offline`. */
+  lastState: text("last_state").$type<SessionState>().notNull(),
+  /** When the session was first seen gone, ISO 8601; empty while it is live. */
+  offlineSince: text("offline_since"),
+});

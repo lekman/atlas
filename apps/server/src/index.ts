@@ -3,6 +3,7 @@ export {
   readConfiguration,
   type Configuration,
   type Seed,
+  type SessionsConfiguration,
   type TaskDatabaseConfiguration,
 } from "./configuration";
 export { openDatabase, type AtlasDatabase } from "./database";
@@ -46,6 +47,27 @@ export {
   type GithubReader,
   type GithubReaderOptions,
 } from "./github-reader";
+export {
+  createSessionReader,
+  dockedAgentId,
+  dockedNote,
+  matchSession,
+  moreActive,
+  noSessionSource,
+  parseSessionFile,
+  processIsAlive,
+  readSessionDirectory,
+  sessionSlug,
+  sessionStatuses,
+  type Session,
+  type SessionConnection,
+  type SessionHealth,
+  type SessionMatch,
+  type SessionRead,
+  type SessionReader,
+  type SessionReaderOptions,
+  type SessionStatus,
+} from "./session-source";
 export {
   appendEvent,
   EventRejected,
