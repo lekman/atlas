@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.9.0](https://github.com/lekman/atlas/compare/v0.8.0...v0.9.0) (2026-10-24)
+
+
+### Features
+
+* **server:** limit the task source to some clients ([#42](https://github.com/lekman/atlas/issues/42)) ([9fa80a8](https://github.com/lekman/atlas/commit/9fa80a8a7365e21619788faf4bb4caf816313f8f))
+* **ui:** details in columns, with development tracking ([#48](https://github.com/lekman/atlas/issues/48)) ([fd5fddb](https://github.com/lekman/atlas/commit/fd5fddbc173bc06c83bd942b6348964f978d4d77))
+* **ui:** keep the view through a reload ([#46](https://github.com/lekman/atlas/issues/46)) ([993f0ce](https://github.com/lekman/atlas/commit/993f0ce4367f3082cbe14f190b9151050dbfa43c))
+* **ui:** the Comms Log as a full-height column, with the selected item's log ([#49](https://github.com/lekman/atlas/issues/49)) ([2b2570a](https://github.com/lekman/atlas/commit/2b2570a6afb0130b2e699fdb98e2f3c4e75817fd))
+* **web:** reload open pages after a deploy ([#44](https://github.com/lekman/atlas/issues/44)) ([6e13e8c](https://github.com/lekman/atlas/commit/6e13e8caec5dea5690e3aef865e00ac3d54cb6e6))
+
+
+### Bug Fixes
+
+* **ui:** do not refit over a restored view on the first render ([#47](https://github.com/lekman/atlas/issues/47)) ([21a2eed](https://github.com/lekman/atlas/commit/21a2eede1f5f6946e7d8a78d20a99d6d96c743d6))
+* **web:** reopen the event stream when the browser gives up on it ([#45](https://github.com/lekman/atlas/issues/45)) ([192ebaa](https://github.com/lekman/atlas/commit/192ebaa726f5a88fb84ac3ff4d5a5c9990ecdb5e))
+
 ## [0.8.0](https://github.com/lekman/atlas/compare/v0.7.0...v0.8.0) (2026-10-24)
 
 
