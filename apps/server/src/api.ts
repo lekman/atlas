@@ -39,11 +39,7 @@ import {
   type StoredEvent,
 } from "./store";
 import { noTaskSource, type TaskCache } from "./task-cache";
-import {
-  mergeTasks,
-  noUnknownClaimers,
-  type MergedDataset,
-} from "./task-source";
+import { mergeTasks, type MergedDataset } from "./task-source";
 
 /** The most a posted event may weigh. Events are a sentence, not a document. */
 const maximumBodyBytes = 64 * 1024;
@@ -155,8 +151,9 @@ export function createApi({
   }
 
   /**
-   * Health: counts, and the names claims used that match no agent. Never a
-   * client's name or a task's title.
+   * Health: counts only. It is open without a token, so it never names a
+   * client, a task or a claimer; the unknown claimers' names are in the
+   * list_agents reply, which needs a token.
    */
   function health() {
     if (!tasks)
@@ -167,7 +164,7 @@ export function createApi({
           ...noTaskSource,
           dangling: 0,
           ambiguousClaims: 0,
-          unknownClaimers: noUnknownClaimers,
+          unknownClaimers: 0,
         },
       };
     const merge = merged();
@@ -178,7 +175,7 @@ export function createApi({
         ...tasks.health(),
         dangling: merge?.dangling ?? 0,
         ambiguousClaims: merge?.ambiguousClaims ?? 0,
-        unknownClaimers: merge?.unknownClaimers ?? noUnknownClaimers,
+        unknownClaimers: merge?.unknownClaimers.count ?? 0,
       },
     };
   }

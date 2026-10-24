@@ -201,7 +201,7 @@ describe("the API", () => {
         ok: true,
         dangling: 0,
         ambiguousClaims: 0,
-        unknownClaimers: { count: 0, names: [] },
+        unknownClaimers: 0,
       },
     });
   });

@@ -185,9 +185,10 @@ The merge works one client at a time:
   claim names an agent by its id or its name, whatever the case; an id match
   wins over a name match. Items of clients the task database does not hold
   keep their place from SQLite, after the claims.
-- A claim that names no agent is never turned into one. Its count and the
-  names it used are in health, under `tasks.unknownClaimers`, and in the
-  `list_agents` reply, so the claimer can be told its Atlas id.
+- A claim that names no agent is never turned into one. Health counts them
+  under `tasks.unknownClaimers`; the names they used are only in the
+  `list_agents` reply, which needs a token, so the claimer can be told its
+  Atlas id.
 - Dropped tasks are left out. A row that does not match the core model is
   skipped and counted. A reference that the swap breaks (an agent working on
   a task that is gone, a question that blocks one, a task that names a
@@ -209,7 +210,8 @@ poll. After a good read, a failed one keeps the last good records.
 
 `GET /api/health` reports the task source as counts only: `source`
 (`postgres` or `none`), `clients`, `items`, `skipped`, `lastRefresh`, `ok`,
-`dangling`, `ambiguousClaims` and `unknownClaimers`.
+`dangling`, `ambiguousClaims` and `unknownClaimers`. Health is open
+without a token, so it never names a client, a task or a claimer.
 
 Atlas only reads the task database. Task writes (add, update, claim,
 complete) belong to the task database's own tasks MCP server. Atlas's MCP

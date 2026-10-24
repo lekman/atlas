@@ -722,7 +722,7 @@ describe("the API with a task source", () => {
       // The scan-retention question, whose retention-draft is gone.
       dangling: 1,
       ambiguousClaims: 0,
-      unknownClaimers: { count: 1, names: ["harbour-pilot"] },
+      unknownClaimers: 1,
     });
   });
 
