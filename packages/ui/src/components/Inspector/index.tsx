@@ -14,7 +14,8 @@ export type InspectorAction =
   | "pause"
   | "answer"
   | "dispatch"
-  | "open-record";
+  | "open-record"
+  | "details";
 
 export interface InspectorProps {
   /** Where the record and everything it links to are looked up. */
@@ -29,9 +30,15 @@ export interface InspectorProps {
   onSelect(id: string): void;
   /** A button was pressed. The parent carries it out; the inspector only reports it. */
   onAction(action: InspectorAction, id: string): void;
+  /**
+   * A card on its own, or embedded in the HUD: tighter, with its title one
+   * heading level down, under the HUD's own sections.
+   */
+  variant?: "card" | "embedded";
 }
 
-const realTerm = {
+/** The real name of each kind of record, shown under the world's word. */
+export const realTerm = {
   agent: "Agent",
   group: "Agent group",
   requirement: "Requirement",
@@ -43,7 +50,9 @@ const realTerm = {
 
 /**
  * One record, in the world's words with the real term beneath, its links,
- * and the actions that apply. Buttons keep plain words in every world.
+ * and the actions that apply. Every record has Details, which the parent
+ * opens as a pane with everything known about it. Buttons keep plain words
+ * in every world.
  */
 export function Inspector({
   dataset,
@@ -52,6 +61,7 @@ export function Inspector({
   onClose,
   onSelect,
   onAction,
+  variant = "card",
 }: InspectorProps) {
   const titleId = useId();
   const found = findRecord(dataset, id);
@@ -215,20 +225,31 @@ export function Inspector({
     }
   }
 
+  actions.push(["details", "Details"]);
+  const embedded = variant === "embedded";
+  const Frame = embedded ? "article" : "aside";
+  const Title = embedded ? "h3" : "h2";
+
   return (
-    <aside className="atlas-inspector" aria-labelledby={titleId}>
+    <Frame
+      className="atlas-inspector"
+      data-variant={variant}
+      aria-labelledby={titleId}
+    >
       <button
         type="button"
         className="atlas-button atlas-close"
         onClick={onClose}
-        aria-label="Close"
+        // Embedded, the name carries the title, so it never matches another
+        // Close on the same screen.
+        aria-label={embedded ? `Close ${title}` : "Close"}
       >
         ×
       </button>
       <p className="atlas-eyebrow">
         {themed} · {client}
       </p>
-      <h2 id={titleId}>{title}</h2>
+      <Title id={titleId}>{title}</Title>
       <p className="atlas-real-term">{subtitle}</p>
       {rows.length > 0 && (
         <dl>
@@ -240,20 +261,18 @@ export function Inspector({
           ))}
         </dl>
       )}
-      {actions.length > 0 && (
-        <div className="atlas-actions">
-          {actions.map(([action, text]) => (
-            <button
-              type="button"
-              className="atlas-button"
-              key={action}
-              onClick={() => onAction(action, id)}
-            >
-              {text}
-            </button>
-          ))}
-        </div>
-      )}
-    </aside>
+      <div className="atlas-actions">
+        {actions.map(([action, text]) => (
+          <button
+            type="button"
+            className="atlas-button"
+            key={action}
+            onClick={() => onAction(action, id)}
+          >
+            {text}
+          </button>
+        ))}
+      </div>
+    </Frame>
   );
 }

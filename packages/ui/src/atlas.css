@@ -268,9 +268,9 @@
 }
 
 /* ── Full view overlays ─────────────────────────────────────────────── */
-/* The readout sits in the bottom corner, opposite the log, so the right
-   column is free for the inspector cards. A handle under the HUD title
-   opens the needs-you list upward. */
+/* The readout sits in the bottom corner, opposite the log. A handle under
+   the HUD title opens the needs-you list upward, and the selected record
+   opens in that list with its buttons. */
 .atlas-hud {
   position: absolute;
   bottom: calc(16px + env(safe-area-inset-bottom, 0px));
@@ -292,7 +292,7 @@
   border: 1px solid var(--atlas-line);
   border-radius: 3px;
 }
-/* Opened on purpose, the list sits above the inspector cards. */
+/* Opened, the list sits above the details pane and the log. */
 .atlas-hud[data-open="true"] {
   z-index: 7;
   backdrop-filter: blur(10px);
@@ -362,19 +362,9 @@
   border: 1px solid var(--atlas-line);
   border-radius: 3px;
 }
-/* The right column: inspector cards, newest on top, scrolling when they
-   outgrow the space above the readout. */
-.atlas-stack {
-  position: absolute;
-  top: calc(64px + env(safe-area-inset-top, 0px));
-  right: max(16px, env(safe-area-inset-right, 0px));
-  z-index: 6;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  width: 340px;
-  max-height: calc(100% - 220px);
-  overflow: auto;
+/* The selected record when it is not on the needs-you list. */
+.atlas-hud-selected {
+  margin-bottom: 10px;
 }
 .atlas-inspector {
   position: relative;
@@ -454,6 +444,166 @@
   position: absolute;
   top: 8px;
   right: 8px;
+}
+/* Embedded in the HUD: the record in place of its one-line entry, tighter
+   than a card, in the body face and the ink colour rather than the HUD's
+   muted mono. */
+.atlas-inspector[data-variant="embedded"] {
+  margin: 6px 0;
+  padding: 10px 12px 12px;
+  font-family: var(--atlas-body);
+  letter-spacing: normal;
+  line-height: 1.4;
+  color: var(--atlas-ink);
+  background: color-mix(in srgb, var(--atlas-accent) 7%, transparent);
+  border-color: var(--atlas-accent);
+  backdrop-filter: none;
+}
+.atlas-inspector[data-variant="embedded"] h3 {
+  margin: 4px 0 2px;
+  padding-right: 32px;
+  font-family: var(--atlas-display);
+  font-weight: 500;
+  font-size: 16px;
+  line-height: 1.25;
+  text-wrap: balance;
+}
+.atlas-inspector[data-variant="embedded"] .atlas-real-term {
+  margin-bottom: 6px;
+}
+.atlas-inspector[data-variant="embedded"] dl {
+  margin: 6px 0;
+  font-size: 12.5px;
+}
+.atlas-inspector[data-variant="embedded"] dl > div {
+  grid-template-columns: 76px minmax(0, 1fr);
+}
+.atlas-inspector[data-variant="embedded"] .atlas-actions {
+  margin-top: 8px;
+}
+.atlas-inspector[data-variant="embedded"] .atlas-close {
+  top: 6px;
+  right: 6px;
+  height: 28px;
+  min-width: 28px;
+}
+
+/* The details pane: blue glass over the chart, between the log and the
+   HUD, from under the top bar to the bottom margin. The blue is the
+   world's watching colour, so it is blue in every world, mixed into the
+   world's own panel so light worlds stay light. Where the window is too
+   narrow for 440 pixels between the two, it moves left over the log. */
+.atlas-details-layer {
+  position: absolute;
+  top: calc(64px + env(safe-area-inset-top, 0px));
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  left: max(16px, min(488px, calc(100% - 368px - 440px)));
+  right: calc(max(16px, env(safe-area-inset-right, 0px)) + 352px);
+  z-index: 6;
+}
+.atlas-details-pane {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  color: var(--atlas-ink);
+  background: color-mix(
+    in srgb,
+    color-mix(in srgb, var(--atlas-watching) 18%, var(--atlas-panel)) 88%,
+    transparent
+  );
+  border: 1px solid color-mix(in srgb, var(--atlas-watching) 60%, transparent);
+  border-radius: 6px;
+  box-shadow: 0 0 0 1px
+    color-mix(in srgb, var(--atlas-watching) 12%, transparent) inset;
+  backdrop-filter: blur(14px) saturate(1.2);
+}
+.atlas-details-pane:focus {
+  outline: none;
+}
+.atlas-details-pane-header {
+  position: relative;
+  flex: none;
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid
+    color-mix(in srgb, var(--atlas-watching) 35%, transparent);
+}
+.atlas-details-pane-header h2 {
+  margin: 6px 0 2px;
+  padding-right: 80px;
+  font-family: var(--atlas-display);
+  font-weight: 500;
+  font-size: 22px;
+  line-height: 1.2;
+  text-wrap: balance;
+}
+.atlas-details-pane-header .atlas-real-term {
+  margin: 0;
+  color: var(--atlas-ink);
+}
+.atlas-details-pane-header .atlas-close {
+  top: 14px;
+  right: 14px;
+}
+.atlas-details-pane-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 12px 18px 18px;
+  user-select: text;
+}
+.atlas-details-pane-body h3 {
+  margin: 16px 0 6px;
+  font-family: var(--atlas-mono);
+  font-weight: 500;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+/* Labels stay in the ink colour: the muted colour on a light world's
+   tinted glass sits too close to 4.5 : 1. */
+.atlas-details-fields {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  font-size: 13.5px;
+}
+.atlas-details-fields > div {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: 12px;
+}
+.atlas-details-fields dt {
+  padding-top: 2px;
+  font-family: var(--atlas-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+}
+.atlas-details-fields dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.atlas-details-fields a {
+  color: inherit;
+  text-underline-offset: 3px;
+}
+.atlas-details-links,
+.atlas-details-history {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.atlas-details-history li {
+  padding: 2px 0;
+  font-size: 13.5px;
+}
+.atlas-details-summary {
+  margin: 14px 0 0;
+  max-width: 68ch;
+}
+.atlas-details-pane-body .atlas-details {
+  margin-top: 18px;
 }
 
 /* ── Popovers ───────────────────────────────────────────────────────── */
@@ -602,18 +752,50 @@
 }
 
 /* ── Phone ──────────────────────────────────────────────────────────── */
+/* The HUD has no room on a phone, so the selected record is a sheet along
+   the bottom, and its details pane fills the width above it. */
 @media (max-width: 760px) {
-  .atlas-stack {
-    inset: auto 0 0;
-    width: auto;
-    max-height: 60%;
-    gap: 6px;
+  .atlas-phone-column {
+    position: absolute;
+    top: calc(52px + env(safe-area-inset-top, 0px));
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 6;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    gap: 8px;
+    pointer-events: none;
   }
-  .atlas-inspector {
+  .atlas-phone-column > * {
+    pointer-events: auto;
+  }
+  .atlas-phone-column .atlas-details-pane {
+    height: auto;
+    flex: 1 1 auto;
+    margin: 0 max(8px, env(safe-area-inset-right, 0px)) 0
+      max(8px, env(safe-area-inset-left, 0px));
+  }
+  .atlas-details-fields > div {
+    grid-template-columns: 96px minmax(0, 1fr);
+  }
+  .atlas-sheet {
+    flex: none;
+    max-height: 50%;
+    overflow: auto;
+    background: var(--atlas-panel);
+    border-top: 1px solid var(--atlas-line);
     border-radius: 14px 14px 0 0;
-    padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
-    padding-left: max(16px, env(safe-area-inset-left, 0px));
-    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    backdrop-filter: blur(10px);
+  }
+  .atlas-sheet .atlas-inspector[data-variant="embedded"] {
+    margin: 0;
+    padding: 14px max(16px, env(safe-area-inset-right, 0px))
+      calc(16px + env(safe-area-inset-bottom, 0px))
+      max(16px, env(safe-area-inset-left, 0px));
+    background: none;
+    border: 0;
   }
   .atlas-log-panel .atlas-log-rows,
   .atlas-log-panel .atlas-empty {

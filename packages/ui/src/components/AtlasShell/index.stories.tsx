@@ -31,5 +31,5 @@ type Story = StoryObj<typeof meta>;
  */
 export const Compact: Story = {};
 
-/** The full view: map, readout, log, and the inspector when you pick. */
+/** The full view: map, HUD and log; the HUD holds the record you pick. */
 export const Full: Story = { args: { initialMode: "full" } };

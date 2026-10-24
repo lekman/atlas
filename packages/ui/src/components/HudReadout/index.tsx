@@ -1,11 +1,13 @@
 import { needsYou, type Dataset } from "@atlas/core";
 import type { Camera, World } from "@atlas/worlds";
 import {
+  useEffect,
   useId,
   useRef,
   useState,
   type KeyboardEvent,
   type PointerEvent,
+  type ReactNode,
 } from "react";
 
 import { NeedsYouList } from "../NeedsYouList";
@@ -23,7 +25,18 @@ export interface HudReadoutProps {
   onSelect?(id: string): void;
   /** The height of the needs-you list at start, in pixels. 0 is closed. */
   initialListHeight?: number;
+  /**
+   * The record selected on the map or in the list. Selecting one opens a
+   * closed list to fit. A needs-you entry expands in place; any other
+   * record shows in a Selected section above the list.
+   */
+  selectedId?: string | null;
+  /** The selected record and its controls, as the parent draws them. */
+  selected?: ReactNode;
 }
+
+/** Fitted to its content, up to the maximum, rather than a dragged height. */
+type ListHeight = number | "fit";
 
 /** The list's height after a click on a closed handle. */
 const openHeight = 240;
@@ -37,7 +50,8 @@ const dragThreshold = 4;
 /**
  * The HUD: the corner readout over the full map, in the world's own words,
  * with a handle under its title. Drag the handle up, or click it, to open the
- * needs-you list above the readout. The readout lines are hidden from
+ * needs-you list above the readout. The selected record opens here too, so
+ * the record and its buttons sit beside the list that led to it. The readout lines are hidden from
  * screen readers: what they count is in that list and in the map's own
  * description, and a line that changes as the map pans would only be noise.
  */
@@ -48,8 +62,12 @@ export function HudReadout({
   viewport,
   onSelect,
   initialListHeight = 0,
+  selectedId = null,
+  selected,
 }: HudReadoutProps) {
-  const [listHeight, setListHeight] = useState(initialListHeight);
+  const [listHeight, setListHeight] = useState<ListHeight>(initialListHeight);
+  const listRef = useRef<HTMLDivElement>(null);
+  const selectedTitleId = useId();
   const drag = useRef<{
     startY: number;
     startHeight: number;
@@ -57,7 +75,32 @@ export function HudReadout({
   } | null>(null);
   const listId = useId();
   const entries = needsYou(dataset);
-  const open = listHeight > 0;
+  const open = listHeight === "fit" || listHeight > 0;
+  const selectedNeedsYou = entries.some((entry) => entry.id === selectedId);
+  /** The list's height now, in pixels, measured when it is fitted. */
+  const currentHeight = () =>
+    listHeight === "fit" ? (listRef.current?.offsetHeight ?? 0) : listHeight;
+
+  // A selection opens a closed list to fit, and scrolls an open one so the
+  // expanded record is in view. A height the reader dragged is kept.
+  useEffect(() => {
+    if (!selectedId) return;
+    setListHeight((height) => (height === 0 ? "fit" : height));
+    const frame = requestAnimationFrame(() => {
+      const list = listRef.current;
+      const entry = list?.querySelector<HTMLElement>("[data-selected]");
+      if (!list || !entry) return;
+      const outer = list.getBoundingClientRect();
+      const inner = entry.getBoundingClientRect();
+      if (inner.top < outer.top) list.scrollTop -= outer.top - inner.top;
+      else if (inner.bottom > outer.bottom)
+        list.scrollTop += Math.min(
+          inner.bottom - outer.bottom,
+          inner.top - outer.top,
+        );
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [selectedId]);
 
   const maximum = () =>
     Math.max(openHeight, Math.round((window.innerHeight || 800) * 0.6));
@@ -68,7 +111,7 @@ export function HudReadout({
     event.currentTarget.setPointerCapture?.(event.pointerId);
     drag.current = {
       startY: event.clientY,
-      startHeight: listHeight,
+      startHeight: currentHeight(),
       moved: false,
     };
   };
@@ -89,13 +132,13 @@ export function HudReadout({
   const onKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
     if (event.key === "ArrowUp") {
       event.preventDefault();
-      setListHeight((height) => clamp((height || closeBelow) + keyStep));
+      setListHeight(clamp((currentHeight() || closeBelow) + keyStep));
     } else if (event.key === "ArrowDown") {
       event.preventDefault();
-      setListHeight((height) => clamp(height - keyStep));
+      setListHeight(clamp(currentHeight() - keyStep));
     } else if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
-      setListHeight((height) => (height > 0 ? 0 : openHeight));
+      setListHeight(open ? 0 : openHeight);
     }
   };
 
@@ -141,15 +184,36 @@ export function HudReadout({
       <div
         className="atlas-hud-list"
         id={listId}
+        ref={listRef}
         hidden={!open}
-        style={{ height: listHeight }}
+        style={
+          listHeight === "fit"
+            ? { maxHeight: maximum() }
+            : { height: listHeight }
+        }
       >
         {open && (
-          <NeedsYouList
-            dataset={dataset}
-            world={world}
-            onSelect={(id) => onSelect?.(id)}
-          />
+          <>
+            {selectedId && selected && !selectedNeedsYou && (
+              <section
+                className="atlas-section atlas-hud-selected"
+                aria-labelledby={selectedTitleId}
+                data-selected="true"
+              >
+                <h2 className="atlas-section-title" id={selectedTitleId}>
+                  <span>Selected</span>
+                </h2>
+                {selected}
+              </section>
+            )}
+            <NeedsYouList
+              dataset={dataset}
+              world={world}
+              onSelect={(id) => onSelect?.(id)}
+              selectedId={selectedNeedsYou ? selectedId : null}
+              selected={selectedNeedsYou ? selected : undefined}
+            />
+          </>
         )}
       </div>
       <div className="atlas-hud-readout" aria-hidden="true">

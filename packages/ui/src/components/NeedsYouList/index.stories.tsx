@@ -56,3 +56,24 @@ export const NothingWaiting: Story = {
     },
   },
 };
+
+/**
+ * One entry open in place, as the HUD shows the selected record: what the
+ * parent passes takes the entry's line, and the others stay one line each.
+ */
+export const WithOneEntryOpen: Story = {
+  name: "With One Entry Open",
+  args: {
+    selectedId: "day-rate",
+    selected: <p>The selected record and its buttons go here.</p>,
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByText(/the selected record and its buttons/i),
+    ).toBeInTheDocument();
+    await expect(
+      canvas.queryByRole("button", { name: /raise the day rate/i }),
+    ).not.toBeInTheDocument();
+  },
+};
