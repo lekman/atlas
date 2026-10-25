@@ -82,6 +82,12 @@ export async function sampleItemLogLoader(
   return sampleItemLogs[itemId] ?? [];
 }
 
+/**
+ * Noon on the sample day, the moment a story's log counts its last 24
+ * hours back from. Every recorded event and item log entry falls inside.
+ */
+export const sampleLogNow = new Date("2026-10-24T12:00:00.000Z");
+
 /** The minutes between the scripted day's events in the recorded log. */
 const minutesApart = 4;
 

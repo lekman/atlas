@@ -27,6 +27,7 @@ import {
   resolveLighting,
   worldIds,
   worlds,
+  workstreamTerm,
   type AmbiencePlayer,
   type Bounds,
   type Camera,
@@ -130,6 +131,11 @@ export interface AtlasShellProps {
    * from the start. Newest or oldest first; the log sorts them.
    */
   pastEvents?: readonly RecordedEvent[];
+  /**
+   * The moment the log counts its last 24 hours back from. The clock when
+   * left out; stories fix it so recorded events stay in the log.
+   */
+  logNow?: Date;
   /**
    * Reads a backlog item's log from the task database, newest first. Called
    * when an item is selected, and again when the dataset is replaced, as
@@ -270,15 +276,18 @@ function writePreferences(preferences: Preferences) {
   }
 }
 
-/** The world's term for a kind of record, with the real one beside it. */
-function kindLabel(world: World, kind: string): string {
+/**
+ * The world's term for a kind of record, with the real one beside it.
+ * `workstream` is the world's word for a workstream in the record's system.
+ */
+function kindLabel(world: World, kind: string, workstream: string): string {
   const terms: Record<string, [string, string]> = {
     agent: [world.vocabulary.agent, "agent"],
     item: [world.vocabulary.item, "backlog item"],
     question: [world.vocabulary.question, "open question"],
     decision: [world.vocabulary.decision, "decision"],
     requirement: [world.vocabulary.requirement, "requirement"],
-    workstream: [world.vocabulary.workstream, "workstream"],
+    workstream: [workstream, "workstream"],
   };
   const [themed, real] = terms[kind] ?? [kind, kind];
   return themed.toLowerCase() === real ? real : `${themed} · ${real}`;
@@ -616,7 +625,17 @@ export function AtlasShell(props: AtlasShellProps) {
             "title" in selectedRecord.record
               ? selectedRecord.record.title
               : selectedRecord.record.name,
-          kind: kindLabel(world, selectedRecord.kind),
+          kind: kindLabel(
+            world,
+            selectedRecord.kind,
+            workstreamTerm(
+              world.vocabulary,
+              map.dataset,
+              "clientId" in selectedRecord.record
+                ? selectedRecord.record.clientId
+                : "",
+            ),
+          ),
           lines: recordLogLines({
             world,
             dataset: map.dataset,
@@ -759,7 +778,12 @@ export function AtlasShell(props: AtlasShellProps) {
       {mode === "compact" ? (
         <div className="atlas-compact">
           <NeedsYouList dataset={map.dataset} world={world} onSelect={select} />
-          <LogPanel entries={logEntries} world={world} variant="preview" />
+          <LogPanel
+            entries={logEntries}
+            world={world}
+            variant="preview"
+            now={props.logNow}
+          />
           <button
             type="button"
             className="atlas-button atlas-open-full"
@@ -792,6 +816,7 @@ export function AtlasShell(props: AtlasShellProps) {
             // the reader left the drawer, shut to begin with.
             drawer={selected && detailsOpen && !isPhone ? "full" : logDrawer}
             onDrawerChange={setLogDrawer}
+            now={props.logNow}
           />
           {isPhone
             ? selected && (

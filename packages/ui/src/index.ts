@@ -41,6 +41,7 @@ export { SoundPanel, type SoundPanelProps } from "./components/SoundPanel";
 export { WorldCanvas, type WorldCanvasProps } from "./components/WorldCanvas";
 export { WorldPicker, type WorldPickerProps } from "./components/WorldPicker";
 export { describeEvent } from "./describe";
+export { logClock, logWindowMilliseconds, withinLogWindow } from "./logWindow";
 export {
   isAbout,
   recordedEntries,

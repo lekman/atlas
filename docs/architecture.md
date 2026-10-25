@@ -578,7 +578,9 @@ selection. For a backlog item it merges, newest first:
   blocked it.
 
 Every line shows its time, who it came from and the text, and map events
-keep the world's wording. For an agent or a question the log shows the
+keep the world's wording. The log keeps the last 24 hours, for every
+event and for a selected record alike, and stamps each line with the time
+of day alone (`15:55:50`), never a date. For an agent or a question the log shows the
 events about that record the same way. Events read on load are described
 against the dataset as loaded, so a status change among them names the
 agent's status now, not the one before the change. On a phone the log

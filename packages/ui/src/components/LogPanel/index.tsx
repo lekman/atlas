@@ -2,6 +2,7 @@ import type { World } from "@atlas/worlds";
 import { useRef, type KeyboardEvent, type PointerEvent } from "react";
 
 import { describeEvent } from "../../describe";
+import { logClock, withinLogWindow } from "../../logWindow";
 import type { LogLine } from "../../recordLog";
 import type { LogEntry } from "../../useAtlasMap";
 
@@ -41,6 +42,11 @@ export interface LogPanelProps {
   drawer?: LogDrawer;
   /** The handle was dragged, clicked or moved with the keyboard. */
   onDrawerChange?(drawer: LogDrawer): void;
+  /**
+   * The moment the last 24 hours are counted back from. The clock when left
+   * out; stories and tests fix it.
+   */
+  now?: Date;
 }
 
 export type LogDrawer = "shut" | "full" | number;
@@ -52,18 +58,6 @@ const dragThreshold = 4;
 /** How far a key press on the handle moves it. */
 const keyStep = 60;
 
-/** The time of a line, with the day in front when it is not today. */
-const clock = (time: Date, seconds: boolean) => {
-  const hours = time.toLocaleTimeString("en-GB", {
-    hour: "2-digit",
-    minute: "2-digit",
-    ...(seconds ? { second: "2-digit" } : {}),
-  });
-  return time.toDateString() === new Date().toDateString()
-    ? hours
-    : `${time.toLocaleDateString("en-GB", { day: "numeric", month: "short" })} ${hours}`;
-};
-
 /**
  * The running log of events, written in the world's voice. On the full map
  * it is a column from the top bar to the bottom margin, scrolled inside,
@@ -71,7 +65,8 @@ const clock = (time: Date, seconds: boolean) => {
  * selected it narrows to that record's log: the map events about it and,
  * for a backlog item, what agents wrote in the task database's item log.
  * Those lines also name who each came from. All events widens the log
- * again and keeps the selection.
+ * again and keeps the selection. Either way it shows the last 24 hours,
+ * each line stamped with its time of day and no date.
  */
 export function LogPanel({
   entries,
@@ -83,6 +78,7 @@ export function LogPanel({
   onShowAllEventsChange,
   drawer,
   onDrawerChange,
+  now = new Date(),
 }: LogPanelProps) {
   const sectionRef = useRef<HTMLElement>(null);
   const drag = useRef<{
@@ -140,14 +136,17 @@ export function LogPanel({
     }
   };
   const narrowed = subject !== null && !showingAllEvents;
-  const lines: readonly LogLine[] = narrowed
-    ? subject.lines
-    : entries.map((entry) => ({
-        key: `event-${entry.id}`,
-        time: entry.time,
-        who: "",
-        text: describeEvent(world, entry.before, entry.event),
-      }));
+  const lines: readonly LogLine[] = withinLogWindow(
+    narrowed
+      ? subject.lines
+      : entries.map((entry) => ({
+          key: `event-${entry.id}`,
+          time: entry.time,
+          who: "",
+          text: describeEvent(world, entry.before, entry.event),
+        })),
+    now,
+  );
   const shown = lines.slice(0, limit);
   const titleId = `atlas-log-${variant}`;
   return (
@@ -218,7 +217,7 @@ export function LogPanel({
             {shown.map((line) => (
               <li key={line.key} data-who={line.who ? "" : undefined}>
                 <time dateTime={line.time.toISOString()}>
-                  {clock(line.time, variant === "panel")}
+                  {logClock(line.time, variant === "panel")}
                 </time>
                 {line.who && (
                   <span className="atlas-log-who">
