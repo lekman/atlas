@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.12.0](https://github.com/lekman/atlas/compare/v0.11.0...v0.12.0) (2026-10-25)
+
+
+### Features
+
+* **worlds:** workstreams as planets, and the log keeps the last day ([#64](https://github.com/lekman/atlas/issues/64)) ([edb76c4](https://github.com/lekman/atlas/commit/edb76c499e001ced316a45dc9c71b4b373007353))
+
+
+### Bug Fixes
+
+* **dependabot:** Bump the all-actions group with 4 updates ([#62](https://github.com/lekman/atlas/issues/62)) ([e31cb55](https://github.com/lekman/atlas/commit/e31cb5517db7a533d7f280a380a21810628efb60))
+* **dependabot:** Bump the storybook group with 5 updates ([#59](https://github.com/lekman/atlas/issues/59)) ([95a2c48](https://github.com/lekman/atlas/commit/95a2c48bacc2be39ca4abba18d0c0a3f45be916d))
+* **dependabot:** Bump turbo from 2.11.9 to 2.11.10 ([#61](https://github.com/lekman/atlas/issues/61)) ([8733c4c](https://github.com/lekman/atlas/commit/8733c4ce7fa482ab96515558e2c69a0ea54e8a04))
+* **dependabot:** Bump vite from 8.3.4 to 8.3.5 ([#60](https://github.com/lekman/atlas/issues/60)) ([eb20786](https://github.com/lekman/atlas/commit/eb20786dcbb128e7782de10d0922552024b96ba2))
+
 ## [0.11.0](https://github.com/lekman/atlas/compare/v0.10.0...v0.11.0) (2026-10-24)
 
 
