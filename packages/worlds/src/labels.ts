@@ -8,7 +8,10 @@
  * title stays in the inspector, the HUD, the Details pane and every
  * accessible name.
  */
+import type { Dataset } from "@atlas/core";
+
 import type { WorkstreamMarker } from "./layout";
+import type { Vocabulary } from "./types";
 
 /** The most characters an item's label on the map shows, "…" included. */
 export const itemLabelLength = 42;
@@ -83,4 +86,20 @@ export function labelAlign(side: 1 | -1): "left" | "right" {
 /** The SVG text anchor for a label that runs towards `side`. */
 export function labelAnchor(side: 1 | -1): "start" | "end" {
   return side > 0 ? "start" : "end";
+}
+
+/**
+ * What a world calls a workstream of the client `clientId`: its home word
+ * when the client is home and the world has one, its usual word otherwise.
+ */
+export function workstreamTerm(
+  vocabulary: Vocabulary,
+  dataset: Pick<Dataset, "clients">,
+  clientId: string,
+): string {
+  const atHome =
+    dataset.clients.find((client) => client.id === clientId)?.home === true;
+  return atHome && vocabulary.homeWorkstream
+    ? vocabulary.homeWorkstream
+    : vocabulary.workstream;
 }

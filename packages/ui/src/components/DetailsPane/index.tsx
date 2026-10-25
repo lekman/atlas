@@ -10,7 +10,7 @@ import {
   type TrackedIssue,
   type TrackedPullRequest,
 } from "@atlas/core";
-import type { World } from "@atlas/worlds";
+import { workstreamTerm, type World } from "@atlas/worlds";
 import { useEffect, useId, useRef, type ReactNode } from "react";
 
 import { longDay } from "../../dates";
@@ -172,7 +172,7 @@ export function DetailsPane({
       const work = dataset.items.filter(
         (item) => item.workstreamId === workstream.id,
       );
-      themed = vocabulary.workstream;
+      themed = workstreamTerm(vocabulary, dataset, workstream.clientId);
       real = realTerm.workstream;
       title = workstream.title;
       client = clientName(workstream.clientId);
@@ -225,7 +225,10 @@ export function DetailsPane({
       development = item.development;
       if (item.requirementId) linked.push(["For", links([item.requirementId])]);
       if (item.workstreamId)
-        linked.push([vocabulary.workstream, links([item.workstreamId])]);
+        linked.push([
+          workstreamTerm(vocabulary, dataset, item.clientId),
+          links([item.workstreamId]),
+        ]);
       linked.push([
         "Blocked by",
         links(blockers.map((question) => question.id)),
