@@ -27,7 +27,7 @@ choices: [Mariner](worlds/mariner.md), [Woodsman](worlds/woodsman.md),
 | -------------- | -------------------- | ------------ | ------------------------- |
 | Client         | Star system          | Island       | Clearing                  |
 | Requirement    | Planet               | Anchorage    | Waymark                   |
-| Workstream     | Space station        | Buoy         | Signpost                  |
+| Workstream     | Outer planet         | Buoy         | Signpost                  |
 | Backlog item   | Moon                 | Cargo        | Cairn                     |
 | Agent          | Probe                | Vessel       | Scout                     |
 | Agent at work  | Mining laser         | Fishing line | Beside the cairn          |
@@ -82,8 +82,15 @@ going clockwise in workstream order, with a marker called Unsorted last
 for work with no workstream. The orbit grows with the number of markers,
 so no group's labels touch another's even when every label is at its
 longest. Clients are spread apart to fit their systems, with home in the
-middle. Astronomer draws the orbit as a thin line through the stations,
+middle. Astronomer draws the orbit as a thin line through the markers,
 and Mariner as a dashed sea lane through the buoys.
+
+In Astronomer each workstream round a client's star is a planet in its
+own colour, lit from the star's side, some with a ring. The colour comes
+from a hash of the workstream's id, from eleven colours kept clear of
+the status colours, so it stays the same on every load and every
+machine, and planets in one system take different colours while there
+are eleven or fewer. Round Terra the workstreams stay space stations.
 
 Beside each marker sit at most five items, the most urgent first: high
 priority before normal before low, then the earliest planned day, with

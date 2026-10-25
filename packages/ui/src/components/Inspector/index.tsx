@@ -5,7 +5,7 @@ import {
   orderByUrgency,
   type Dataset,
 } from "@atlas/core";
-import type { World } from "@atlas/worlds";
+import { workstreamTerm, type World } from "@atlas/worlds";
 import { useId, type ReactNode } from "react";
 
 export type InspectorAction =
@@ -150,7 +150,7 @@ export function Inspector({
       );
       const onMap = orderByUrgency(work.filter(isOnMap));
       const offMap = work.filter((item) => !isOnMap(item));
-      themed = vocabulary.workstream;
+      themed = workstreamTerm(vocabulary, dataset, workstream.clientId);
       title = workstream.title;
       client = clientName(workstream.clientId);
       subtitle = `${realTerm.workstream} · ${onMap.length} on the map`;
@@ -172,7 +172,10 @@ export function Inspector({
       subtitle = `${realTerm.item} · ${item.state}${item.priority === "high" ? " · high priority" : ""}`;
       if (item.requirementId) rows.push(["For", link(item.requirementId)]);
       if (item.workstreamId)
-        rows.push([vocabulary.workstream, link(item.workstreamId)]);
+        rows.push([
+          workstreamTerm(vocabulary, dataset, item.clientId),
+          link(item.workstreamId),
+        ]);
       const blockers = dataset.questions.filter(
         (question) => question.blocks === item.id && question.state === "open",
       );

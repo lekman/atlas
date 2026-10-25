@@ -2,6 +2,8 @@
  * The Astronomer's star chart: a tactical display in the spirit of a ship's
  * navigation console. Clients are star systems, requirements planets,
  * backlog items moons, agents probes with ion trails. Home is Terra.
+ * Round a client's star each workstream is an outer planet in its own
+ * colour; round Terra each is a space station.
  */
 import { externalSourceNames, isVessel } from "@atlas/core";
 
@@ -9,6 +11,8 @@ import type { Point } from "../camera";
 import {
   decisionPosition,
   itemPosition,
+  type Layout,
+  type WorkstreamMarker,
   questionPosition,
   questionSide,
   rings,
@@ -43,6 +47,7 @@ import {
   astronomerPalette as palette,
   astronomerTypefaces as type,
 } from "./palette";
+import { mixColour, planetLooks, type PlanetLook } from "./planets";
 import { astronomerStatusNames, astronomerVocabulary } from "./vocabulary";
 
 interface Star {
@@ -76,6 +81,112 @@ const continents = (() => {
 })();
 
 const isFull = (paint: PaintContext) => paint.detail === "full";
+
+/** A space station's ring radius, in world units. */
+const stationRadius = 11;
+
+/**
+ * A workstream planet's radius at size 1, in world units: a little smaller
+ * than a requirement's planet (15). At its largest (size 1.15) the planet
+ * and its ring stay inside the 26 by 18 units the layout keeps clear for a
+ * marker.
+ */
+const planetRadius = 13;
+
+/** Each layout's planet looks, worked out once per layout, system by system. */
+const looksOfLayout = new WeakMap<Layout, Map<string, PlanetLook>>();
+
+function looksOf(layout: Layout): Map<string, PlanetLook> {
+  const known = looksOfLayout.get(layout);
+  if (known) return known;
+  const bySystem = new Map<string, string[]>();
+  for (const marker of layout.markers) {
+    if (!marker.workstreamId) continue;
+    const ids = bySystem.get(marker.clientId) ?? [];
+    ids.push(marker.workstreamId);
+    bySystem.set(marker.clientId, ids);
+  }
+  const looks = new Map<string, PlanetLook>();
+  for (const ids of bySystem.values())
+    for (const [id, look] of planetLooks(ids)) looks.set(id, look);
+  looksOfLayout.set(layout, looks);
+  return looks;
+}
+
+/**
+ * A workstream's planet: a sphere in its own colour, lit from the side
+ * that faces its star, with a dark terminator on the far side and a thin
+ * rim. Some wear a ring, drawn behind the sphere and across its front.
+ */
+function drawPlanet(
+  paint: PaintContext,
+  marker: WorkstreamMarker,
+  look: PlanetLook,
+) {
+  const { context } = paint;
+  const { x, y } = marker.position;
+  const star = paint.scene.layout.clients.get(marker.clientId) ?? { x, y };
+  const light = Math.atan2(star.y - y, star.x - x);
+  const radius = planetRadius * look.size;
+  const ringColour = withAlpha(mixColour(look.colour, "#ffffff", 0.35), 0.75);
+  const ring = (start: number, end: number) => {
+    if (look.ring === null) return;
+    context.strokeStyle = ringColour;
+    context.lineWidth = Math.max(pixels(paint, 1.2), radius * 0.16);
+    context.beginPath();
+    context.ellipse(x, y, radius * 1.7, radius * 0.45, look.ring, start, end);
+    context.stroke();
+  };
+
+  const haze = context.createRadialGradient(
+    x,
+    y,
+    radius * 0.9,
+    x,
+    y,
+    radius * 1.7,
+  );
+  haze.addColorStop(0, withAlpha(look.colour, 0.28));
+  haze.addColorStop(1, withAlpha(look.colour, 0));
+  context.fillStyle = haze;
+  context.beginPath();
+  context.arc(x, y, radius * 1.7, 0, Math.PI * 2);
+  context.fill();
+
+  // The far half of the ring passes behind the sphere.
+  ring(Math.PI, Math.PI * 2);
+
+  const body = context.createRadialGradient(
+    x + Math.cos(light) * radius * 0.4,
+    y + Math.sin(light) * radius * 0.4,
+    radius * 0.1,
+    x,
+    y,
+    radius,
+  );
+  body.addColorStop(0, mixColour(look.colour, "#ffffff", 0.35));
+  body.addColorStop(0.55, look.colour);
+  body.addColorStop(1, mixColour(look.colour, palette.ground, 0.5));
+  context.fillStyle = body;
+  context.beginPath();
+  context.arc(x, y, radius, 0, Math.PI * 2);
+  context.fill();
+  const terminator = context.createLinearGradient(
+    x + Math.cos(light) * radius,
+    y + Math.sin(light) * radius,
+    x - Math.cos(light) * radius,
+    y - Math.sin(light) * radius,
+  );
+  terminator.addColorStop(0.5, "rgba(2,6,14,0)");
+  terminator.addColorStop(1, "rgba(2,6,14,0.72)");
+  context.fillStyle = terminator;
+  context.fill();
+  context.strokeStyle = withAlpha(mixColour(look.colour, "#ffffff", 0.5), 0.8);
+  context.lineWidth = pixels(paint, 1);
+  context.stroke();
+
+  ring(0, Math.PI);
+}
 
 /**
  * A probe's half-width in world units. `scale` shrinks it for a smaller
@@ -481,8 +592,8 @@ export const astronomerPainter: WorldPainter = {
     context.arc(centre.x, centre.y, 9, 0, Math.PI * 2);
     context.fill();
 
-    // The station orbit is a thin line through the client's workstream
-    // stations; the watch ring, dashed and ticked, sits inside it.
+    // The orbit is a thin line through the client's workstream planets;
+    // the watch ring, dashed and ticked, sits inside it.
     const orbit = paint.scene.layout.orbits.get(client.id) ?? smallestOrbit;
     const watch = watchRadius(paint.scene.layout, client.id);
     for (const [ring, alpha, dashed] of [
@@ -594,38 +705,52 @@ export const astronomerPainter: WorldPainter = {
     const { context } = paint;
     const { x, y } = marker.position;
     const unsorted = marker.workstreamId === null;
-    // A space station: a ring on four spokes, with a panel either side.
-    // Work with no workstream gathers at a bare, dashed ring instead.
+    const atHome =
+      paint.scene.dataset.clients.find(
+        (client) => client.id === marker.clientId,
+      )?.home === true;
+    const look =
+      unsorted || atHome
+        ? undefined
+        : looksOf(paint.scene.layout).get(marker.workstreamId ?? "");
     context.save();
-    context.translate(x, y);
-    context.strokeStyle = unsorted ? "rgba(159,214,239,0.6)" : "#9fd6ef";
-    context.lineWidth = pixels(paint, 1.4);
-    if (unsorted) context.setLineDash([pixels(paint, 3), pixels(paint, 3)]);
-    context.beginPath();
-    context.arc(0, 0, 11, 0, Math.PI * 2);
-    context.stroke();
-    context.setLineDash([]);
-    if (!unsorted) {
+    if (look) {
+      // Round a client's star, a workstream is a planet in its own colour.
+      drawPlanet(paint, marker, look);
+    } else {
+      // Round Terra, a space station: a ring on four spokes, with a panel
+      // either side. Work with no workstream gathers at a bare, dashed
+      // ring instead, in every system.
+      context.translate(x, y);
+      context.strokeStyle = unsorted ? "rgba(159,214,239,0.6)" : "#9fd6ef";
+      context.lineWidth = pixels(paint, 1.4);
+      if (unsorted) context.setLineDash([pixels(paint, 3), pixels(paint, 3)]);
       context.beginPath();
-      for (let spoke = 0; spoke < 4; spoke++) {
-        const angle = Math.PI / 4 + (spoke * Math.PI) / 2;
-        context.moveTo(Math.cos(angle) * 3, Math.sin(angle) * 3);
-        context.lineTo(Math.cos(angle) * 11, Math.sin(angle) * 11);
-      }
-      context.moveTo(-11, 0);
-      context.lineTo(-16, 0);
-      context.moveTo(11, 0);
-      context.lineTo(16, 0);
+      context.arc(0, 0, stationRadius, 0, Math.PI * 2);
       context.stroke();
-      context.fillStyle = "rgba(94,220,255,0.35)";
-      context.fillRect(-25, -5, 9, 10);
-      context.fillRect(16, -5, 9, 10);
-      context.strokeRect(-25, -5, 9, 10);
-      context.strokeRect(16, -5, 9, 10);
-      context.fillStyle = "#e5fbff";
-      context.beginPath();
-      context.arc(0, 0, 2.6, 0, Math.PI * 2);
-      context.fill();
+      context.setLineDash([]);
+      if (!unsorted) {
+        context.beginPath();
+        for (let spoke = 0; spoke < 4; spoke++) {
+          const angle = Math.PI / 4 + (spoke * Math.PI) / 2;
+          context.moveTo(Math.cos(angle) * 3, Math.sin(angle) * 3);
+          context.lineTo(Math.cos(angle) * 11, Math.sin(angle) * 11);
+        }
+        context.moveTo(-11, 0);
+        context.lineTo(-16, 0);
+        context.moveTo(11, 0);
+        context.lineTo(16, 0);
+        context.stroke();
+        context.fillStyle = "rgba(94,220,255,0.35)";
+        context.fillRect(-25, -5, 9, 10);
+        context.fillRect(16, -5, 9, 10);
+        context.strokeRect(-25, -5, 9, 10);
+        context.strokeRect(16, -5, 9, 10);
+        context.fillStyle = "#e5fbff";
+        context.beginPath();
+        context.arc(0, 0, 2.6, 0, Math.PI * 2);
+        context.fill();
+      }
     }
     context.restore();
     if (isFull(paint) && paint.camera.scale > labelScale.requirement) {

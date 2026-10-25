@@ -5,6 +5,7 @@ import {
   crowdedDataset,
   sampleDataset,
   sampleItemLogLoader,
+  sampleLogNow,
   sampleRecordedEvents,
   sampleScript,
 } from "@atlas/fixtures";
@@ -102,6 +103,7 @@ export const AstronomerCommsLogAllEvents: Story = {
     initialMode: "full",
     script: [],
     pastEvents: sampleRecordedEvents,
+    logNow: sampleLogNow,
     loadItemLog: sampleItemLogLoader,
   },
   play: async ({ canvasElement }) => {
@@ -181,7 +183,7 @@ export const MarinerCommsLogSelectedItem: Story = {
 
 /**
  * A client with about a hundred items, zoomed in. Work is grouped by
- * workstream: a space station each, evenly spaced on one orbit round the
+ * workstream: a planet each in its own colour, evenly spaced on one orbit round the
  * star, with at most five of its most urgent items drawn beside it and a
  * count of the rest. Labels run outward, away from the star. Done and
  * unscheduled work stay off the map.

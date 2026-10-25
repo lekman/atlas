@@ -21,8 +21,14 @@ export interface Vocabulary {
   client: string;
   clients: string;
   requirement: string;
-  /** The marker a client's work is grouped around: buoy, space station. */
+  /** The marker a client's work is grouped around: buoy, outer planet. */
   workstream: string;
+  /**
+   * What a workstream is at home, when home draws it differently from the
+   * clients' systems: "space station" round Terra. Left out, home uses
+   * `workstream` too.
+   */
+  homeWorkstream?: string;
   item: string;
   agent: string;
   agents: string;

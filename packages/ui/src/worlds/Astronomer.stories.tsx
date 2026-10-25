@@ -33,6 +33,26 @@ export const AgentsAtWork: Story = {
   args: { zoomClientId: "halcyon" },
 };
 
+/**
+ * Kestrel Freight up close: each workstream round the star is a planet in
+ * its own colour, lit from the star's side, and Partner integration wears a
+ * ring. The colour comes from the workstream's id, so it is the same on
+ * every load, and the two planets in the system never share one.
+ */
+export const WorkstreamPlanets: Story = {
+  name: "Workstream Planets",
+  args: { zoomClientId: "kestrel" },
+};
+
+/**
+ * Terra up close, where the workstreams are space stations: a ring on four
+ * spokes with a panel either side. Only home keeps stations.
+ */
+export const TerraStations: Story = {
+  name: "Terra's Space Stations",
+  args: { zoomClientId: "ashgrove" },
+};
+
 /** The map as the sidebar shows it: client and home names only. */
 export const CompactMap: Story = {
   name: "Compact Map",

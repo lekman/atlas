@@ -1,7 +1,13 @@
 import type { AtlasEvent } from "@atlas/core";
-import { sampleDataset, sampleItemLogs, sampleScript } from "@atlas/fixtures";
+import {
+  sampleDataset,
+  sampleItemLogs,
+  sampleLogNow,
+  sampleScript,
+} from "@atlas/fixtures";
 import { worlds, type World } from "@atlas/worlds";
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import { expect, within } from "storybook/test";
 
 import { LogPanel } from ".";
 import { recordLogLines } from "../../recordLog";
@@ -24,6 +30,33 @@ const entries: LogEntry[] = events
   }))
   .reverse();
 
+const minute = 60 * 1000;
+const [firstEvent, secondEvent] = events;
+
+/**
+ * The same lines with two more at the edge of the window: one 23 hours 59
+ * minutes before the story's moment, which stays, and one 24 hours 1
+ * minute before it, which drops out.
+ */
+const atTheEdge: LogEntry[] =
+  firstEvent && secondEvent
+    ? [
+        ...entries,
+        {
+          id: 100,
+          time: new Date(sampleLogNow.getTime() - (24 * 60 - 1) * minute),
+          event: firstEvent,
+          before: sampleDataset,
+        },
+        {
+          id: 101,
+          time: new Date(sampleLogNow.getTime() - (24 * 60 + 1) * minute),
+          event: secondEvent,
+          before: sampleDataset,
+        },
+      ]
+    : entries;
+
 /** The sample item's log in a world's voice. */
 const webhookLines = (world: World) =>
   recordLogLines({
@@ -38,7 +71,12 @@ const meta = {
   title: "Components/Log Panel",
   tags: ["autodocs"],
   component: LogPanel,
-  args: { entries, world: worlds.astronomer, variant: "preview" },
+  args: {
+    entries,
+    world: worlds.astronomer,
+    variant: "preview",
+    now: sampleLogNow,
+  },
   render: (args, { globals }) => {
     const id = storyWorld(globals);
     const world = worlds[id];
@@ -90,6 +128,25 @@ export const ForASelectedItem: Story = {
       kind: "backlog item",
       lines: webhookLines(worlds.astronomer),
     },
+  },
+};
+
+/**
+ * The log keeps the last 24 hours. Of two lines at the edge, the one 23
+ * hours 59 minutes old stays and the one 24 hours 1 minute old is gone, so
+ * the count reads 15 of the 16 given. Every line shows its time of day and
+ * no date.
+ */
+export const LastTwentyFourHours: Story = {
+  name: "Last Twenty-Four Hours",
+  args: { variant: "panel", entries: atTheEdge },
+  play: async ({ canvasElement }) => {
+    const log = within(canvasElement);
+    await expect(log.getByText("15 entries")).toBeInTheDocument();
+    const stamps = canvasElement.querySelectorAll("time");
+    await expect(stamps).toHaveLength(15);
+    for (const stamp of stamps)
+      await expect(stamp.textContent).toMatch(/^\d{2}:\d{2}:\d{2}$/);
   },
 };
 

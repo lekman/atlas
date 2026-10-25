@@ -6,5 +6,6 @@ export { sampleScript, type ScriptStep } from "./script";
 export {
   sampleItemLogLoader,
   sampleItemLogs,
+  sampleLogNow,
   sampleRecordedEvents,
 } from "./item-log";
