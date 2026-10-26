@@ -5,6 +5,7 @@ import {
   type SoundCue,
   type SoundSettings,
 } from "@atlas/worlds";
+import type { ReactNode } from "react";
 
 export interface SoundPanelProps {
   /** Sound is off until the reader turns it on. */
@@ -13,6 +14,8 @@ export interface SoundPanelProps {
   onChange(settings: SoundSettings): void;
   /** Play one cue now, so the reader hears what they are switching on. */
   onPreview(cue: SoundCue): void;
+  /** Settings shown above the sound ones, such as the choice of world. */
+  children?: ReactNode;
 }
 
 const categoryNames: Array<[SoundCategory, string]> = [
@@ -26,10 +29,17 @@ const categoryNames: Array<[SoundCategory, string]> = [
  * The settings panel: the master switch, the volume, a switch per kind of
  * sound, and the background ambience with its own volume. Nothing plays
  * until the reader asks; a world only chooses what each cue sounds like.
+ * Other settings, such as the world, go above the sound ones as children.
  */
-export function SoundPanel({ settings, onChange, onPreview }: SoundPanelProps) {
+export function SoundPanel({
+  settings,
+  onChange,
+  onPreview,
+  children,
+}: SoundPanelProps) {
   return (
     <div className="atlas-panel" role="dialog" aria-label="Settings">
+      {children}
       <h2 className="atlas-panel-title">Sound</h2>
       <label className="atlas-row" htmlFor="atlas-sound-on">
         <span>Sound on</span>

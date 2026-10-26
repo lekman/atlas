@@ -1770,12 +1770,18 @@ button.atlas-wiki-link {
   }
 }
 
-/* Background sound choices in the settings panel. */
+/* The world and background sound choices in the settings panel. */
 .atlas-background {
   margin: 14px 0 0;
   padding: 0;
   border: 0;
 }
+.atlas-world-choice {
+  margin: 0 0 14px;
+  padding: 0;
+  border: 0;
+}
+.atlas-world-option,
 .atlas-background-option {
   display: flex;
   align-items: flex-start;
@@ -1783,19 +1789,23 @@ button.atlas-wiki-link {
   margin: 0 0 8px;
   cursor: pointer;
 }
+.atlas-world-option input,
 .atlas-background-option input {
   accent-color: var(--atlas-accent);
   margin: 3px 0 0;
 }
+.atlas-world-option span,
 .atlas-background-option span {
   display: flex;
   flex-direction: column;
 }
+.atlas-world-option strong,
 .atlas-background-option strong {
   font-weight: 500;
   color: var(--atlas-ink);
   font-size: 13px;
 }
+.atlas-world-option em,
 .atlas-background-option em {
   font-style: normal;
   color: var(--atlas-mute);

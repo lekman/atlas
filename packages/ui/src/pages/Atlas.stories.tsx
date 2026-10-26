@@ -13,7 +13,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import type { ReactNode } from "react";
 import { expect, userEvent, waitFor, within } from "storybook/test";
 
-import { AtlasShell } from "../components/AtlasShell";
+import { AtlasShell, type AtlasShellProps } from "../components/AtlasShell";
 
 /**
  * The whole view, on the invented dataset with its scripted day replaying.
@@ -229,6 +229,15 @@ export const AstronomerEightWorkstreams: Story = {
     initialMode: "full",
     initialClient: crowdedClientId,
   },
+};
+
+/**
+ * The same crowded client in Mariner: nine buoys on the sea lane, and the
+ * long titles and workstream names shortened on the chart in the same way.
+ */
+export const MarinerEightWorkstreams: Story = {
+  name: "Mariner, Eight Workstreams",
+  args: { ...AstronomerEightWorkstreams.args, initialWorld: "mariner" },
 };
 
 /**
@@ -589,6 +598,101 @@ export const SoundAndSettingsControls: Story = {
     ).toBeChecked();
     // Choosing a background turns sound on.
     await expect(sound).toHaveAttribute("aria-pressed", "true");
+  },
+};
+
+/**
+ * Clears what earlier stories left in this browser's storage before a
+ * story that remembers, and puts it back afterwards.
+ */
+function freshStorage(preferences?: object) {
+  const keys = { local: "atlas.preferences", session: "atlas.view" };
+  const before = {
+    local: window.localStorage.getItem(keys.local),
+    session: window.sessionStorage.getItem(keys.session),
+  };
+  window.sessionStorage.removeItem(keys.session);
+  if (preferences)
+    window.localStorage.setItem(keys.local, JSON.stringify(preferences));
+  else window.localStorage.removeItem(keys.local);
+  return () => {
+    for (const [storage, key, value] of [
+      [window.localStorage, keys.local, before.local],
+      [window.sessionStorage, keys.session, before.session],
+    ] as const) {
+      if (value === null) storage.removeItem(key);
+      else storage.setItem(key, value);
+    }
+  };
+}
+
+/** The web app's view: two worlds, chosen in the settings behind the cog. */
+const webAppWorlds = {
+  initialMode: "full",
+  script: [],
+  worlds: ["astronomer", "mariner"],
+  controls: ["sound", "settings"],
+  remember: true,
+} satisfies Partial<AtlasShellProps>;
+
+/**
+ * Picking Mariner in the settings switches the map at once, says so in a
+ * toast, and keeps the settings open with Mariner's lighting choice. The
+ * pick is written to this browser's preferences.
+ */
+export const ChooseAWorldInTheSettings: Story = {
+  name: "Choose a World in the Settings",
+  args: webAppWorlds,
+  beforeEach: () => freshStorage(),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole("img", { name: /^astronomer map/i }),
+    ).toBeInTheDocument();
+    await userEvent.click(canvas.getByRole("button", { name: "Settings" }));
+    const settings = await canvas.findByRole("dialog", { name: "Settings" });
+    await expect(
+      within(settings).queryByRole("group", { name: "Lighting" }),
+    ).toBeNull();
+    await userEvent.click(
+      within(settings).getByRole("radio", { name: /^Mariner/ }),
+    );
+    await expect(
+      canvas.getByRole("img", { name: /^mariner map/i }),
+    ).toBeInTheDocument();
+    await expect(canvas.getByRole("status")).toHaveTextContent("Mariner world");
+    await expect(
+      within(settings).getByRole("radio", { name: /^Mariner/ }),
+    ).toBeChecked();
+    await expect(
+      within(settings).getByRole("group", { name: "Lighting" }),
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        JSON.parse(window.localStorage.getItem("atlas.preferences") ?? "{}"),
+      ).toMatchObject({ world: "mariner" }),
+    );
+  },
+};
+
+/**
+ * A reader who picked Mariner comes back to it: the page opens in Mariner
+ * from this browser's preferences, as after a reload, with no world given.
+ */
+export const WorldRememberedAfterAReload: Story = {
+  name: "World Remembered after a Reload",
+  args: webAppWorlds,
+  beforeEach: () => freshStorage({ world: "mariner" }),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole("img", { name: /^mariner map/i }),
+    ).toBeInTheDocument();
+    await userEvent.click(canvas.getByRole("button", { name: "Settings" }));
+    const settings = await canvas.findByRole("dialog", { name: "Settings" });
+    await expect(
+      within(settings).getByRole("radio", { name: /^Mariner/ }),
+    ).toBeChecked();
   },
 };
 
