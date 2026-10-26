@@ -66,8 +66,8 @@ export const ChooseNight: Story = {
 };
 
 /**
- * The web app offers Astronomer alone while that world is refined: one
- * world, and no planned worlds.
+ * An app that offers one world lists only that one, and no planned
+ * worlds.
  */
 export const AstronomerOnly: Story = {
   name: "Astronomer Only",
@@ -79,5 +79,34 @@ export const AstronomerOnly: Story = {
       .filter((button) => button.classList.contains("atlas-world"));
     await expect(offered).toHaveLength(1);
     await expect(offered[0]).toHaveTextContent(worlds.astronomer.name);
+  },
+};
+
+/**
+ * As the top of the settings panel: the offered worlds as radio buttons,
+ * then the lighting. Picking a world reports it, as the dialog does.
+ */
+export const InTheSettingsPanel: Story = {
+  name: "In the Settings Panel",
+  args: { worlds: ["astronomer", "mariner"], variant: "section" },
+  render: (args, { globals }) => (
+    <WorldFrame world={storyWorld(globals)} lighting={storyLighting(globals)}>
+      <div className="atlas-panel" role="dialog" aria-label="Settings">
+        <WorldPicker {...args} current="astronomer" />
+      </div>
+    </WorldFrame>
+  ),
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    const choice = within(canvas.getByRole("group", { name: "World" }));
+    await expect(choice.getAllByRole("radio")).toHaveLength(2);
+    await expect(
+      choice.getByRole("radio", { name: /^Astronomer/ }),
+    ).toBeChecked();
+    await userEvent.click(choice.getByRole("radio", { name: /^Mariner/ }));
+    await expect(args.onChange).toHaveBeenCalledWith("mariner");
+    await expect(
+      canvas.getByRole("group", { name: "Lighting" }),
+    ).toBeInTheDocument();
   },
 };

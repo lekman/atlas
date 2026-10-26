@@ -46,8 +46,9 @@ loadSnapshot()
         <StrictMode>
           <AtlasShell
             dataset={current}
-            // One world while Astronomer is refined; the others come back later.
-            worlds={["astronomer"]}
+            // The first release's two worlds, chosen in the settings. Astronomer
+            // opens first; a world the reader picked comes back after a reload.
+            worlds={["astronomer", "mariner"]}
             controls={["sound", "settings"]}
             initialMode="full"
             remember

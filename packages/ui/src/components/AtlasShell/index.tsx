@@ -91,7 +91,8 @@ export interface AtlasShellProps {
   /**
    * The worlds this view offers, for an app that shows only some of them.
    * Every world when left out. A remembered or initial world outside the
-   * list falls back to the first in it.
+   * list falls back to the first in it. With more than one and no world
+   * button in the bar, the settings panel offers the choice.
    */
   worlds?: readonly WorldId[];
   /** Compact, the sidebar pane, unless the page opens straight to full. */
@@ -541,6 +542,14 @@ export function AtlasShell(props: AtlasShellProps) {
   };
   const toggle = (which: Exclude<Popover, null>) =>
     setPopover((current) => (current === which ? null : which));
+  /**
+   * Switch world in place. Every world draws the same layout, so the camera
+   * and the saved view stay on the same part of the map.
+   */
+  const chooseWorld = (id: WorldId) => {
+    setWorldId(id);
+    setToast(`${worlds[id].name} world`);
+  };
   const viewport = {
     width: shellRef.current?.clientWidth ?? 0,
     height: shellRef.current?.clientHeight ?? 0,
@@ -840,9 +849,8 @@ export function AtlasShell(props: AtlasShellProps) {
               lighting={lightingPreference}
               onLightingChange={setLightingPreference}
               onChange={(id) => {
-                setWorldId(id);
+                chooseWorld(id);
                 setPopover(null);
-                setToast(`${worlds[id].name} world`);
               }}
             />
           )}
@@ -857,7 +865,26 @@ export function AtlasShell(props: AtlasShellProps) {
                 setSound({ ...sound, enabled: true });
                 map.preview(cue);
               }}
-            />
+            >
+              {/* The world is chosen here when the bar has no world button.
+                  The panel stays open, so the reader sees the new world and
+                  can set its lighting. Lighting shows only for a world with
+                  a night of its own. */}
+              {offered.length > 1 && !offers("world") && (
+                <WorldPicker
+                  variant="section"
+                  current={worldId}
+                  worlds={offered}
+                  {...(world.night
+                    ? {
+                        lighting: lightingPreference,
+                        onLightingChange: setLightingPreference,
+                      }
+                    : {})}
+                  onChange={chooseWorld}
+                />
+              )}
+            </SoundPanel>
           )}
         </div>
       )}
