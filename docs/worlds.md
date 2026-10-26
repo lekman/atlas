@@ -162,7 +162,8 @@ as a smaller dot at its spot.
 ## Day and Night
 
 Lighting follows the device by default, so Atlas goes dark when the Mac or
-the iPhone does; the world picker can fix Day or Night instead. Each world
+the iPhone does; the world picker, or in the web app the settings behind
+the cog, can fix Day or Night instead. Each world
 draws its night in its own way.
 
 | World      | At night                                                                                      |
@@ -204,6 +205,11 @@ It plays only while sound is on, has its own volume, and is chosen in the
 settings panel behind the cog. The Sound button turns all sound on and
 off. Both are remembered in the browser; a browser still waits for the
 first click or tap after a load before it plays.
+
+In the web app the same panel opens with the world. It offers Astronomer
+and Mariner, opens in Astronomer, and switches at once to the world the
+reader picks, which the browser remembers; for a world with a night, the
+lighting choice sits below the worlds.
 
 ## Planned
 
