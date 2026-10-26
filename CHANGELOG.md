@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.0](https://github.com/lekman/atlas/compare/v0.12.0...v0.13.0) (2026-10-26)
+
+
+### Features
+
+* **web:** offer the Mariner world in settings ([#65](https://github.com/lekman/atlas/issues/65)) ([d22d69b](https://github.com/lekman/atlas/commit/d22d69b832bcf1d0838914bdc9d7a9a786bd408c))
+
 ## [0.12.0](https://github.com/lekman/atlas/compare/v0.11.0...v0.12.0) (2026-10-25)
 
 
