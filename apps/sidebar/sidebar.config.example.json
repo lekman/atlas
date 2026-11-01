@@ -1,0 +1,6 @@
+{
+  "clients": [
+    { "key": "home", "name": "Home Office", "slot": 5 },
+    { "key": "acme", "name": "Acme", "slot": 1 }
+  ]
+}

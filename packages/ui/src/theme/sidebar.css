@@ -1,0 +1,82 @@
+/*
+ * The sidebar theme: the dense, neutral look of the Atlas sidebar, in light
+ * and dark. The page follows the device unless `data-theme` on the root
+ * element names one. Status colours mean the same everywhere: `--ok`
+ * healthy or on its head, `--yellow` a gap or warning, `--bad` failure or
+ * critical, `--warn` (amber) something that needs you.
+ *
+ * Clients get colour slots, not names, so this file holds no client data.
+ * The build maps each client to a slot.
+ */
+:root {
+  --bg: #f1f3f6;
+  --panel: #ffffff;
+  --ink: #18202b;
+  --muted: #5b6676;
+  --line: #dce1e8;
+  --accent: #2c55c9;
+  --warn: #b4531a;
+  --bad: #b42333;
+  --ok: #1f7a4d;
+  --yellow: #c99a06;
+  --now: #e8eefc;
+  --hatch: rgba(120, 128, 140, 0.14);
+  --client-1: #a83266;
+  --client-2: #0d7a83;
+  --client-3: #a86b12;
+  --client-4: #2f5bd3;
+  --client-5: #6a4fcf;
+  --client-other: #7a828e;
+  --f-sans:
+    "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    sans-serif;
+  --f-mono:
+    "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f141a;
+    --panel: #161d26;
+    --ink: #e5e9ef;
+    --muted: #94a0b0;
+    --line: #263141;
+    --accent: #86a6ff;
+    --warn: #f09a5e;
+    --bad: #ff7b88;
+    --ok: #5bd08f;
+    --yellow: #f2c744;
+    --now: #1b2741;
+    --hatch: rgba(160, 170, 185, 0.1);
+    --client-1: #f07aae;
+    --client-2: #43c6cf;
+    --client-3: #e7b054;
+    --client-4: #86a6ff;
+    --client-5: #ae9bff;
+    --client-other: #9aa3af;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #0f141a;
+  --panel: #161d26;
+  --ink: #e5e9ef;
+  --muted: #94a0b0;
+  --line: #263141;
+  --accent: #86a6ff;
+  --warn: #f09a5e;
+  --bad: #ff7b88;
+  --ok: #5bd08f;
+  --yellow: #f2c744;
+  --now: #1b2741;
+  --hatch: rgba(160, 170, 185, 0.1);
+  --client-1: #f07aae;
+  --client-2: #43c6cf;
+  --client-3: #e7b054;
+  --client-4: #86a6ff;
+  --client-5: #ae9bff;
+  --client-other: #9aa3af;
+  color-scheme: dark;
+}

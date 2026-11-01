@@ -1,0 +1,20 @@
+{
+  "name": "@atlas/runtime",
+  "version": "0.0.0",
+  "description": "Typed access to the artifact runtime (window.claude): MCP tools, the data store and stored copies",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "bun test tests/"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4",
+    "typescript": "^6.0"
+  }
+}

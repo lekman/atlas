@@ -1,0 +1,3 @@
+# Client names, board ids and database ids for this machine's build. They
+# never go in this public repository. Start from sidebar.config.example.json.
+sidebar.config.json
