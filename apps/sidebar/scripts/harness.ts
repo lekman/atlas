@@ -23,8 +23,18 @@ const source = readFileSync(join(dist, "index.html"), "utf8");
 if (/<script\b[^>]*\ssrc=/i.test(source)) {
   problems.push("the build loads a script from a URL");
 }
+// Only Google Fonts may be linked, the one remote source the VS Code
+// view allows for styles.
+const FONTS = "https://fonts.googleapis.com";
 for (const link of source.match(/<link\b[^>]*>/gi) ?? []) {
-  if (!link.includes("https://fonts.googleapis.com")) {
+  const href = /\shref="([^"]*)"/i.exec(link)?.[1] ?? "";
+  let origin = "";
+  try {
+    origin = new URL(href).origin;
+  } catch {
+    // A relative or missing href is a local file, which is not allowed.
+  }
+  if (origin !== FONTS) {
     problems.push(`the build links something besides Google Fonts: ${link}`);
   }
 }
