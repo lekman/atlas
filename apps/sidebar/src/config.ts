@@ -12,8 +12,19 @@ export interface SidebarClient {
   slot: number;
 }
 
+/** A client's tracker tab: its name with every client shown is the client's. */
+export interface SidebarTracker {
+  client: string;
+  /** The tab's name with one client chosen: "Jira", "Monday", "GitHub". */
+  source: string;
+  logo: "monday" | "jira" | "github";
+  /** A release-status tab, shown only with this client chosen. */
+  release?: boolean;
+}
+
 export interface SidebarConfig {
   clients: SidebarClient[];
+  trackers: SidebarTracker[];
 }
 
 declare const __SIDEBAR_CONFIG__: SidebarConfig;

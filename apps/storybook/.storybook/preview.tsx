@@ -4,6 +4,7 @@ import type { Preview } from "@storybook/react-vite";
 // Served from this Storybook, not from Google: it is published publicly, and
 // a font request would send every visitor's IP address to a third party.
 import "@atlas/ui/fonts";
+import "@atlas/ui/sidebar/fonts";
 import "@atlas/ui/atlas.css";
 
 const preview: Preview = {
@@ -18,7 +19,8 @@ const preview: Preview = {
       },
     },
     lighting: {
-      description: "Day, or the world's night mode where it has one",
+      description:
+        "Day, or the world's night mode where it has one; light or dark for the sidebar",
       toolbar: {
         title: "Lighting",
         icon: "sun",
@@ -46,7 +48,8 @@ const preview: Preview = {
      * Sidebar order, set rather than left alphabetical.
      *
      * Pages first, because the question anybody opening this asks is what
-     * Atlas looks like on the screen they use. Then the worlds, in release
+     * Atlas looks like on the screen they use. Then the sidebar's design
+     * system: its foundations, then its parts. Then the worlds, in release
      * order: the first release, then the rest in the order they were
      * designed. The building blocks come last: they matter when building a
      * view, not when judging one.
@@ -59,7 +62,14 @@ const preview: Preview = {
         order: [
           "Introduction",
           "Pages",
-          ["Atlas", "Day Plan"],
+          ["Atlas", "Day Plan", "Sidebar"],
+          "Sidebar",
+          [
+            "Foundations",
+            ["Colours", "Icons"],
+            "Frame",
+            ["Header", "Next Up", "Client Pill", "Tabs", "Panel", "Note"],
+          ],
           "Worlds",
           [
             "Astronomer",

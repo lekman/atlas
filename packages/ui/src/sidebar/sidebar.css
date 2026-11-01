@@ -1,0 +1,556 @@
+/*
+ * The sidebar theme and the styles of its frame: the dense, neutral look of
+ * the Atlas sidebar, in light and dark. Everything is scoped to
+ * `.atlas-sidebar`, so it never reaches the world views beside it in
+ * Storybook. The frame follows the device unless `data-theme` names one.
+ *
+ * Status colours mean the same everywhere: `--ok` healthy or on its head,
+ * `--yellow` a gap or warning, `--bad` failure or critical, `--warn`
+ * (amber) something that needs you. Clients get colour slots, not names,
+ * so this file holds no client data; the build maps each client to a slot.
+ *
+ * Every colour that is drawn as text meets 4.5:1 on the panel, the page and
+ * the "now" highlight, in both themes (tests/sidebar-contrast.test.ts).
+ */
+.atlas-sidebar {
+  --bg: #f1f3f6;
+  --panel: #ffffff;
+  --ink: #18202b;
+  --muted: #5b6676;
+  --line: #dce1e8;
+  --accent: #2c55c9;
+  --warn: #af5119;
+  --bad: #b42333;
+  --ok: #1f7a4d;
+  --yellow: #876704;
+  --now: #e8eefc;
+  --hatch: rgba(120, 128, 140, 0.14);
+  --client-1: #a83266;
+  --client-2: #0d767f;
+  --client-3: #976010;
+  --client-4: #2f5bd3;
+  --client-5: #6a4fcf;
+  --client-other: #656c76;
+  --f-sans:
+    "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    sans-serif;
+  --f-mono:
+    "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  .atlas-sidebar:not([data-theme="light"]) {
+    --bg: #0f141a;
+    --panel: #161d26;
+    --ink: #e5e9ef;
+    --muted: #94a0b0;
+    --line: #263141;
+    --accent: #86a6ff;
+    --warn: #f09a5e;
+    --bad: #ff7b88;
+    --ok: #5bd08f;
+    --yellow: #f2c744;
+    --now: #1b2741;
+    --hatch: rgba(160, 170, 185, 0.1);
+    --client-1: #f07aae;
+    --client-2: #43c6cf;
+    --client-3: #e7b054;
+    --client-4: #86a6ff;
+    --client-5: #ae9bff;
+    --client-other: #9aa3af;
+    color-scheme: dark;
+  }
+}
+
+.atlas-sidebar[data-theme="dark"] {
+  --bg: #0f141a;
+  --panel: #161d26;
+  --ink: #e5e9ef;
+  --muted: #94a0b0;
+  --line: #263141;
+  --accent: #86a6ff;
+  --warn: #f09a5e;
+  --bad: #ff7b88;
+  --ok: #5bd08f;
+  --yellow: #f2c744;
+  --now: #1b2741;
+  --hatch: rgba(160, 170, 185, 0.1);
+  --client-1: #f07aae;
+  --client-2: #43c6cf;
+  --client-3: #e7b054;
+  --client-4: #86a6ff;
+  --client-5: #ae9bff;
+  --client-other: #9aa3af;
+  color-scheme: dark;
+}
+
+/* ---------- frame ---------- */
+
+.atlas-sidebar {
+  background: var(--bg);
+  color: var(--ink);
+  font: 14px/1.45 var(--f-sans);
+  padding-inline: 16px;
+  padding-block: 20px 32px;
+  box-sizing: border-box;
+}
+
+.atlas-sidebar.fill {
+  min-height: 100vh;
+}
+
+.atlas-sidebar *,
+.atlas-sidebar *::before,
+.atlas-sidebar *::after {
+  box-sizing: border-box;
+}
+
+.atlas-sidebar a {
+  color: inherit;
+}
+
+.atlas-sidebar button {
+  font: inherit;
+  color: inherit;
+}
+
+.atlas-sidebar :focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.atlas-sidebar .wrap {
+  max-width: 1240px;
+  margin: 0 auto;
+  display: grid;
+  gap: 14px;
+}
+
+.atlas-sidebar .sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.atlas-sidebar .ic {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex: none;
+}
+
+.atlas-sidebar .logo {
+  height: 16px;
+  width: auto;
+  max-width: 26px;
+  flex: none;
+}
+
+.atlas-sidebar .label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+/* ---------- header ---------- */
+
+.atlas-sidebar header.top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+
+.atlas-sidebar h1 {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.atlas-sidebar h1 small {
+  font-weight: 400;
+  color: var(--muted);
+  font-size: 14px;
+  margin-left: 8px;
+}
+
+.atlas-sidebar .top .meta {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  color: var(--muted);
+  font-size: 12px;
+  flex-wrap: wrap;
+  margin-left: auto;
+  justify-content: flex-end;
+}
+
+.atlas-sidebar .sync.err {
+  color: var(--bad);
+}
+
+/* ---------- next-up strip and client pill ---------- */
+
+.atlas-sidebar .strip {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.atlas-sidebar .strip > div {
+  background: var(--panel);
+  min-width: 0;
+}
+
+.atlas-sidebar .nextup {
+  position: relative;
+  padding: 16px 16px 18px;
+}
+
+.atlas-sidebar .nextup .label {
+  padding-right: 150px;
+}
+
+.atlas-sidebar .nextup .title {
+  font-size: 15px;
+  font-weight: 600;
+  margin-top: 8px;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.atlas-sidebar .nextup .when {
+  font-family: var(--f-mono);
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 6px;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.atlas-sidebar .nextup .when b {
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.atlas-sidebar .pill {
+  all: unset;
+  box-sizing: border-box;
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  padding: 2px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--muted);
+}
+
+.atlas-sidebar .pill:hover {
+  border-color: var(--c, var(--accent));
+  color: var(--ink);
+}
+
+.atlas-sidebar .pill.on {
+  border-color: var(--c);
+  color: var(--c);
+}
+
+.atlas-sidebar .pill:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.atlas-sidebar .chev {
+  display: inline-block;
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid currentColor;
+}
+
+/* ---------- menus ---------- */
+
+.atlas-sidebar .menu {
+  position: fixed;
+  z-index: 50;
+  min-width: 190px;
+  max-width: calc(100vw - 16px);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
+  padding: 4px;
+}
+
+.atlas-sidebar .menu button {
+  all: unset;
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  padding: 7px 10px;
+  border-radius: 5px;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--ink);
+}
+
+.atlas-sidebar .menu button:hover,
+.atlas-sidebar .menu button:focus-visible {
+  background: var(--hatch);
+}
+
+.atlas-sidebar .menu button[aria-checked="true"] {
+  font-weight: 600;
+}
+
+.atlas-sidebar .menu hr {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: 4px 2px;
+}
+
+.atlas-sidebar .menu .dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--c);
+  margin-right: 8px;
+}
+
+/* ---------- tabs ---------- */
+
+.atlas-sidebar .tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--line);
+  overflow-x: auto;
+}
+
+.atlas-sidebar .tab {
+  all: unset;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  font-weight: 600;
+  color: var(--muted);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  white-space: nowrap;
+}
+
+.atlas-sidebar .tab:hover {
+  color: var(--ink);
+}
+
+.atlas-sidebar .tab[aria-selected="true"] {
+  color: var(--ink);
+  border-bottom-color: var(--accent);
+}
+
+.atlas-sidebar .tab:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  border-radius: 4px;
+}
+
+.atlas-sidebar .tab .ic {
+  width: 17px;
+  height: 17px;
+}
+
+.atlas-sidebar .tab .n {
+  font-family: var(--f-mono);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.atlas-sidebar .tab.end {
+  margin-left: auto;
+}
+
+.atlas-sidebar .tab.warn,
+.atlas-sidebar .tab.warn .n {
+  color: var(--yellow);
+}
+
+.atlas-sidebar .tab.crit,
+.atlas-sidebar .tab.crit .n {
+  color: var(--bad);
+}
+
+/* ---------- panels ---------- */
+
+.atlas-sidebar section.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  min-width: 0;
+}
+
+.atlas-sidebar .ph {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.atlas-sidebar .ph h2 {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.atlas-sidebar .sub {
+  font-size: 12px;
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  align-items: center;
+}
+
+.atlas-sidebar .fresh {
+  font-size: 11px;
+  color: var(--muted);
+  font-family: var(--f-mono);
+  padding: 8px 16px 12px;
+}
+
+.atlas-sidebar .note {
+  margin: 10px 16px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  border: 1px solid var(--line);
+  background: var(--hatch);
+}
+
+.atlas-sidebar .note.err {
+  border-color: var(--bad);
+  color: var(--bad);
+  background: transparent;
+}
+
+.atlas-sidebar .note.warn {
+  border-color: var(--warn);
+  color: var(--warn);
+  background: transparent;
+}
+
+.atlas-sidebar .note.closable {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.atlas-sidebar .note.closable > span {
+  flex: 1;
+  min-width: 0;
+}
+
+.atlas-sidebar .note .nx {
+  all: unset;
+  cursor: pointer;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1;
+}
+
+.atlas-sidebar .note .nx:hover {
+  color: var(--ink);
+  background: var(--hatch);
+}
+
+.atlas-sidebar .note .nx:focus-visible {
+  outline: 2px solid var(--accent);
+}
+
+.atlas-sidebar .skel {
+  height: 14px;
+  margin: 12px 16px;
+  border-radius: 4px;
+  background: var(--hatch);
+}
+
+.atlas-sidebar .blank {
+  padding: 16px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* ---------- foundations (Storybook only) ---------- */
+
+.atlas-sidebar .swatches {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.atlas-sidebar .swatch {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  overflow: hidden;
+  font-size: 12px;
+}
+
+.atlas-sidebar .swatch .chip {
+  height: 40px;
+  border-bottom: 1px solid var(--line);
+}
+
+.atlas-sidebar .swatch .meta {
+  padding: 6px 8px;
+  display: grid;
+  gap: 2px;
+}
+
+.atlas-sidebar .swatch code {
+  font-family: var(--f-mono);
+  font-size: 11px;
+}

@@ -4,7 +4,7 @@ import { join } from "node:path";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
-import { inlineBundle } from "./build/inline";
+import { fontsWoff2Only, inlineBundle } from "./build/inline";
 
 const directory = import.meta.dirname;
 
@@ -20,7 +20,7 @@ function sidebarConfig(): unknown {
 export default defineConfig({
   root: directory,
   base: "./",
-  plugins: [react(), inlineBundle()],
+  plugins: [react(), fontsWoff2Only(), inlineBundle()],
   define: { __SIDEBAR_CONFIG__: JSON.stringify(sidebarConfig()) },
   build: {
     outDir: "dist",

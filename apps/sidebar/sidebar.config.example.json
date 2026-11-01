@@ -1,6 +1,18 @@
 {
   "clients": [
-    { "key": "home", "name": "Home Office", "slot": 5 },
-    { "key": "acme", "name": "Acme", "slot": 1 }
+    { "key": "halcyon", "name": "Halcyon Labs", "slot": 1 },
+    { "key": "kestrel", "name": "Kestrel Freight", "slot": 2 },
+    { "key": "meridian", "name": "Meridian Bank", "slot": 4 },
+    { "key": "ashgrove", "name": "Ashgrove Consulting", "slot": 5 }
+  ],
+  "trackers": [
+    {
+      "client": "kestrel",
+      "source": "Monday",
+      "logo": "monday",
+      "release": true
+    },
+    { "client": "halcyon", "source": "Jira", "logo": "jira" },
+    { "client": "meridian", "source": "GitHub", "logo": "github" }
   ]
 }

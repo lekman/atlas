@@ -4,7 +4,7 @@
  * VS Code view does: wrapped in its content security policy, with a nonce
  * on every script and a stand-in `window.claude` that runs first. Fails on
  * any console error or page error, at phone and desktop widths, and when
- * the build is more than one file or loads a script from anywhere.
+ * the build is more than one file or links or loads anything.
  *
  * Run after `bun run build`; the story tests' Chromium is the one used.
  */
@@ -23,20 +23,9 @@ const source = readFileSync(join(dist, "index.html"), "utf8");
 if (/<script\b[^>]*\ssrc=/i.test(source)) {
   problems.push("the build loads a script from a URL");
 }
-// Only Google Fonts may be linked, the one remote source the VS Code
-// view allows for styles.
-const FONTS = "https://fonts.googleapis.com";
+// The fonts are bundled, so the page links nothing at all.
 for (const link of source.match(/<link\b[^>]*>/gi) ?? []) {
-  const href = /\shref="([^"]*)"/i.exec(link)?.[1] ?? "";
-  let origin = "";
-  try {
-    origin = new URL(href).origin;
-  } catch {
-    // A relative or missing href is a local file, which is not allowed.
-  }
-  if (origin !== FONTS) {
-    problems.push(`the build links something besides Google Fonts: ${link}`);
-  }
+  problems.push(`the build links a file: ${link}`);
 }
 
 // The VS Code view's wrapper, as `Atlas.page` in the planner extension
@@ -72,10 +61,8 @@ const browser = await chromium.launch();
 try {
   for (const width of [390, 1280]) {
     const tab = await browser.newPage({ viewport: { width, height: 900 } });
-    // No network: fonts answer empty, so a missing font is not an error.
-    await tab.route("https://fonts.googleapis.com/**", (route) =>
-      route.fulfill({ contentType: "text/css", body: "" }),
-    );
+    // No network at all: any request the page makes fails and is reported.
+    await tab.route("**/*", (route) => route.abort());
     const errors: string[] = [];
     tab.on("console", (m) => {
       if (m.type() === "error") errors.push(m.text());
