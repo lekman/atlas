@@ -3,19 +3,27 @@
 export const formatTime = (d: Date): string =>
   d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
 
-export const formatDay = (d: Date): string =>
-  d.toLocaleDateString("en-GB", {
-    weekday: "short",
+/**
+ * A date from its parts, joined with spaces. Built by hand because ICU
+ * versions disagree on the comma after the weekday: macOS writes
+ * "Wed 11 Mar", Linux "Wed, 11 Mar".
+ */
+function dateParts(d: Date, length: "short" | "long"): string {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    weekday: length,
     day: "numeric",
-    month: "short",
-  });
+    month: length,
+  }).formatToParts(d);
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((p) => p.type === type)?.value ?? "";
+  return `${part("weekday")} ${part("day")} ${part("month")}`;
+}
 
-export const formatToday = (d: Date): string =>
-  d.toLocaleDateString("en-GB", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  });
+/** "Wed 11 Mar". */
+export const formatDay = (d: Date): string => dateParts(d, "short");
+
+/** "Thursday 12 March". */
+export const formatToday = (d: Date): string => dateParts(d, "long");
 
 /** A length of time: "45 min", "2 h 5 min", "3 days". */
 export function formatDuration(ms: number): string {
