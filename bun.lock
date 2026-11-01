@@ -28,6 +28,24 @@
         "typescript": "^6.0",
       },
     },
+    "apps/sidebar": {
+      "name": "@atlas/sidebar",
+      "version": "0.0.0",
+      "dependencies": {
+        "@atlas/runtime": "workspace:*",
+        "@atlas/ui": "workspace:*",
+        "react": "^19.2.8",
+        "react-dom": "^19.2.8",
+      },
+      "devDependencies": {
+        "@types/bun": "^1.4",
+        "@types/react": "^19.2.18",
+        "@types/react-dom": "^19.2.7",
+        "@vitejs/plugin-react": "^6.1.1",
+        "typescript": "^6.0",
+        "vite": "^8.3.5",
+      },
+    },
     "apps/storybook": {
       "name": "@atlas/storybook",
       "version": "0.0.0",
@@ -89,6 +107,14 @@
       "dependencies": {
         "@atlas/core": "workspace:*",
       },
+      "devDependencies": {
+        "@types/bun": "^1.4",
+        "typescript": "^6.0",
+      },
+    },
+    "packages/runtime": {
+      "name": "@atlas/runtime",
+      "version": "0.0.0",
       "devDependencies": {
         "@types/bun": "^1.4",
         "typescript": "^6.0",
@@ -157,7 +183,11 @@
 
     "@atlas/fixtures": ["@atlas/fixtures@workspace:packages/fixtures"],
 
+    "@atlas/runtime": ["@atlas/runtime@workspace:packages/runtime"],
+
     "@atlas/server": ["@atlas/server@workspace:apps/server"],
+
+    "@atlas/sidebar": ["@atlas/sidebar@workspace:apps/sidebar"],
 
     "@atlas/storybook": ["@atlas/storybook@workspace:apps/storybook"],
 
@@ -357,7 +387,7 @@
 
     "@oxc-parser/binding-win32-x64-msvc": ["@oxc-parser/binding-win32-x64-msvc@0.127.0", "", { "os": "win32", "cpu": "x64" }, "sha512-rOrnSQSCbhI2kowr9XxE7m9a8oQXnBHjnS6j95LxxAnEZ0+Fz20WlRXG4ondQb+ejjt2KOsa65sE6++L6kUd+w=="],
 
-    "@oxc-project/types": ["@oxc-project/types@0.127.0", "", {}, "sha512-aIYXQBo4lCbO4z0R3FHeucQHpF46l2LbMdxRvqvuRuW2OxdnSkcng5B8+K12spgLDj93rtN3+J2Vac/TIO+ciQ=="],
+    "@oxc-project/types": ["@oxc-project/types@0.154.0", "", {}, "sha512-KYOUGQFlLWR+s4QMV2Q9ko38TZm7EdO87Qm7rvZLqk/webse/cDjtyxKhg/47l0byCbs/k46LT8qc4PKjAikzA=="],
 
     "@oxc-resolver/binding-android-arm-eabi": ["@oxc-resolver/binding-android-arm-eabi@11.21.2", "", { "os": "android", "cpu": "arm" }, "sha512-xQoCRv+gKax9KTdwdaQNnAFOai8neay7g3jExDIORzhbrejwGSJaZNTdOJHR5ziLg2joMxOCMOFMo4zuxza2uQ=="],
 
@@ -1025,9 +1055,9 @@
 
     "negotiator/content-type": ["content-type@2.1.0", "", {}, "sha512-mj7UPXE0jaqaOsukNZRUEfEi2AcL7C/vwmwcHV0O97eO1E1pxBZuyjlZrx5seTaNBg1U6+o35wpa35Qfcc+7ag=="],
 
-    "redent/strip-indent": ["strip-indent@3.0.0", "", { "dependencies": { "min-indent": "^1.0.0" } }, "sha512-laJTa3Jb+VQpaC6DseHhF7dXVqHTfJPCRDaEbid/drOhgitgYku/letMUqOXFoWV0zIIUbjpdH2t+tYj4bQMRQ=="],
+    "oxc-parser/@oxc-project/types": ["@oxc-project/types@0.127.0", "", {}, "sha512-aIYXQBo4lCbO4z0R3FHeucQHpF46l2LbMdxRvqvuRuW2OxdnSkcng5B8+K12spgLDj93rtN3+J2Vac/TIO+ciQ=="],
 
-    "rolldown/@oxc-project/types": ["@oxc-project/types@0.154.0", "", {}, "sha512-KYOUGQFlLWR+s4QMV2Q9ko38TZm7EdO87Qm7rvZLqk/webse/cDjtyxKhg/47l0byCbs/k46LT8qc4PKjAikzA=="],
+    "redent/strip-indent": ["strip-indent@3.0.0", "", { "dependencies": { "min-indent": "^1.0.0" } }, "sha512-laJTa3Jb+VQpaC6DseHhF7dXVqHTfJPCRDaEbid/drOhgitgYku/letMUqOXFoWV0zIIUbjpdH2t+tYj4bQMRQ=="],
 
     "type-is/content-type": ["content-type@2.1.0", "", {}, "sha512-mj7UPXE0jaqaOsukNZRUEfEi2AcL7C/vwmwcHV0O97eO1E1pxBZuyjlZrx5seTaNBg1U6+o35wpa35Qfcc+7ag=="],
 

@@ -75,6 +75,11 @@ jobs:
       - name: Build Storybook
         run: bun run build-storybook
 
+      # The sidebar is one HTML file. The harness loads it in the same
+      # Chromium, inside the VS Code view's content security policy.
+      - name: Build the sidebar and load it
+        run: bun run --cwd apps/sidebar build && bun run --cwd apps/sidebar harness
+
       - name: Keep the built Storybook
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
