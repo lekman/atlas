@@ -10,12 +10,15 @@
     ".": "./src/index.ts",
     "./fonts": "./src/fonts.ts",
     "./atlas.css": "./src/atlas.css",
-    "./sidebar.css": "./src/theme/sidebar.css"
+    "./sidebar.css": "./src/sidebar/sidebar.css",
+    "./sidebar": "./src/sidebar/index.ts",
+    "./sidebar/fonts": "./src/sidebar/fonts.ts"
   },
   "sideEffects": [
     "*.css",
     "./src/fonts.ts",
-    "./src/index.ts"
+    "./src/index.ts",
+    "./src/sidebar/fonts.ts"
   ],
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -33,6 +36,7 @@
     "@fontsource/eb-garamond": "^5.2.0",
     "@fontsource/fraunces": "^5.2.0",
     "@fontsource/ibm-plex-mono": "^5.2.0",
+    "@fontsource/ibm-plex-sans": "^5.3.0",
     "@fontsource/im-fell-english": "^5.2.0",
     "@fontsource/im-fell-english-sc": "^5.2.0",
     "@fontsource/shippori-mincho": "^5.2.0",

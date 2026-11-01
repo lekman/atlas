@@ -22,8 +22,27 @@ Use the **World** control in the toolbar to see a component in either world.
 Status colours are the same in every world: green running, blue watching,
 amber needs you, red blocked, grey idle.
 
+## The sidebar
+
+The sidebar is the dense, neutral view of the same work: one HTML file that
+the Claude artifact, the phone and the VS Code view all load. Its design
+system lives under **Sidebar**:
+
+- **Foundations** holds the colours and icons. Switch **Lighting** to
+  Night for the dark theme. Every colour drawn as text meets 4.5:1 in both
+  themes, and a unit test keeps it there.
+- **Frame** holds the parts every view sits in: the header, the next-up
+  card, the client pill, the tabs, panels and notes.
+- **Pages / Sidebar** puts them together. The views fill in as each one is
+  built.
+
+Status colours keep one meaning: green healthy, yellow a gap or warning,
+red a failure, amber something that needs you. Clients get colour slots,
+not names, so the sidebar's code holds no client data.
+
 ## Where to start
 
 - **Pages / Atlas** shows the whole view, in the sidebar and full page.
+- **Pages / Sidebar** shows the sidebar's frame.
 - **Worlds / World Canvas** shows one kind of event at a time.
 - **Components** holds the panels on their own.

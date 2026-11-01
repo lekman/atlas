@@ -1,31 +1,16 @@
-* {
-  box-sizing: border-box;
-}
-
+html,
 body {
   margin: 0;
-  background: var(--bg);
-  color: var(--ink);
-  font: 14px/1.45 var(--f-sans);
-  padding-inline: 16px;
-  padding-block: 20px 32px;
+  min-height: 100%;
 }
 
-.wrap {
-  max-width: 1240px;
-  margin: 0 auto;
-  display: grid;
-  gap: 14px;
+/* The page behind the frame, so an overscroll shows the sidebar's colour. */
+body {
+  background: #f1f3f6;
 }
 
-.top h1 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 600;
-}
-
-.top small {
-  color: var(--muted);
-  font-weight: 400;
-  margin-left: 8px;
+@media (prefers-color-scheme: dark) {
+  body {
+    background: #0f141a;
+  }
 }

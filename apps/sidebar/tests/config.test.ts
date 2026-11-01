@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 
 (globalThis as { __SIDEBAR_CONFIG__?: unknown }).__SIDEBAR_CONFIG__ = {
   clients: [],
+  trackers: [],
 };
 const { clientColour } = await import("../src/config");
 
@@ -10,6 +11,7 @@ const config = {
     { key: "acme", name: "Acme", slot: 1 },
     { key: "odd", name: "Odd", slot: 9 },
   ],
+  trackers: [],
 };
 
 describe("clientColour", () => {

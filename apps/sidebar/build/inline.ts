@@ -52,3 +52,23 @@ export function inlineBundle(): Plugin {
     },
   };
 }
+
+/**
+ * Drops the WOFF fallback from bundled font faces. Every browser the
+ * sidebar runs in reads WOFF2, and inlined fonts are paid for in the
+ * file's size, so the fallback would double the fonts for no reader.
+ */
+export function woff2Only(css: string): string {
+  return css.replace(/,\s*url\([^)]*\.woff\)\s*format\(["']woff["']\)/g, "");
+}
+
+export function fontsWoff2Only(): Plugin {
+  return {
+    name: "atlas-fonts-woff2-only",
+    enforce: "pre",
+    transform(code, id) {
+      if (!id.includes("@fontsource") || !id.endsWith(".css")) return null;
+      return { code: woff2Only(code), map: null };
+    },
+  };
+}

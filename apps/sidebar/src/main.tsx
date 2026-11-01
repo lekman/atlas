@@ -1,4 +1,4 @@
-import "@atlas/ui/sidebar.css";
+import "@atlas/ui/sidebar/fonts";
 import "./page.css";
 
 import { Runtime } from "@atlas/runtime";
