@@ -32,7 +32,7 @@ function SidebarPage({
   const [view, setView] = useState("worklist");
   const shown = visibleViews(exampleViews, focus, view);
   return (
-    <SidebarFrame theme={theme}>
+    <SidebarFrame theme={theme} fill>
       <SidebarHeader
         now={STORY_NOW}
         sync={{ liveAt: STORY_NOW.getTime() - 20000, syncedAt: null }}

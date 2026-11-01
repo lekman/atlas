@@ -19,7 +19,21 @@ const configuration: StorybookConfig = {
   framework: getAbsolutePath("@storybook/react-vite"),
   // Storybook reports usage to its makers unless told not to. A tool built
   // for privacy sends nothing it does not need to.
-  core: { disableTelemetry: true },
+  //
+  // The dev server answers only on loopback names unless told otherwise.
+  // STORYBOOK_ALLOWED_HOSTS (comma-separated) adds the names a proxy in
+  // front of it uses, such as a private network's host name, so this
+  // public file names no machine.
+  core: {
+    disableTelemetry: true,
+    ...(process.env.STORYBOOK_ALLOWED_HOSTS
+      ? {
+          allowedHosts: process.env.STORYBOOK_ALLOWED_HOSTS.split(",")
+            .map((host) => host.trim())
+            .filter(Boolean),
+        }
+      : {}),
+  },
   // The stories live beside their components in the shared UI library. This
   // app only configures, tests and publishes them.
   stories: [

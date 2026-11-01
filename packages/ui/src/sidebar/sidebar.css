@@ -96,6 +96,10 @@
   box-sizing: border-box;
 }
 
+.atlas-sidebar.fill {
+  min-height: 100vh;
+}
+
 .atlas-sidebar *,
 .atlas-sidebar *::before,
 .atlas-sidebar *::after {

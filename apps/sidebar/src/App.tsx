@@ -64,7 +64,7 @@ export function App({
   };
 
   return (
-    <SidebarFrame>
+    <SidebarFrame fill>
       <SidebarHeader now={now} sync={{ liveAt: null, syncedAt: null }} />
       <NextUp
         state="next"
