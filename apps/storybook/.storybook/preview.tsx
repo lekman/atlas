@@ -72,7 +72,7 @@ const preview: Preview = {
             "Worklist",
             ["Waiting On You"],
             "Trackers",
-            ["Release Status", "Monday List", "GitHub List"],
+            ["Release Status", "Monday List", "Jira List", "GitHub List"],
             "Hosts",
             ["Hosts Panel", "Host Card"],
           ],

@@ -6,6 +6,7 @@ import { ClientPill } from "../ClientPill";
 import { hostsTab } from "../hosts/model";
 import { GitHubList } from "../GitHubList";
 import { HostsPanel } from "../HostsPanel";
+import { JiraList } from "../JiraList";
 import { MondayList } from "../MondayList";
 import { NextUp } from "../NextUp";
 import { Note } from "../Note";
@@ -25,6 +26,7 @@ import {
 } from "./examples";
 import { clientOfHost, hostsDoc } from "./hosts";
 import { githubExample } from "./github";
+import { jiraExample } from "./jira";
 import { mondayExample } from "./monday";
 import { releaseDrifted } from "./release";
 import { OPERATOR, waitingItems } from "./waiting";
@@ -131,6 +133,15 @@ function SidebarPage({
                   title="Kestrel Freight · Operations board, mine"
                   page={mondayExample}
                   updatedAt={STORY_NOW}
+                  now={STORY_NOW}
+                />
+              ) : v.id === "halcyon" ? (
+                <JiraList
+                  title="Halcyon Labs · Jira, assigned to me"
+                  doc={jiraExample}
+                  folded={new Set(["new"])}
+                  onFold={() => undefined}
+                  today="2026-03-12"
                   now={STORY_NOW}
                 />
               ) : v.id === "meridian" ? (

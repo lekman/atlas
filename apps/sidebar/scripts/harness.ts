@@ -57,6 +57,11 @@ const shim = `(() => {
     "GitHub/list_issues": () => ({ payload: { totalCount: 1, issues: [
       { number: 5, title: "Harness issue", labels: ["bug"], assignees: ["harness"], updated_at: new Date().toISOString() }] } }),
     "GitHub/get_me": () => ({ payload: { login: "harness" } }),
+    "host:dashboard/sync_now": () => ({ structuredContent: {
+      events: { ok: true, doc: { syncedAt: new Date().toISOString(), items: [] } },
+      jira: { ok: true, doc: { ok: true, syncedAt: new Date().toISOString(), items: [
+        { key: "HAR-1", summary: "Harness Jira issue", url: "https://example.atlassian.net/browse/HAR-1",
+          status: "In Progress", category: "indeterminate", type: "Story" }] } } } }),
     "host:dashboard/release_status": () => ({ structuredContent: {
       branch: "release/x", total: 3, checkedAt: new Date().toISOString(),
       drifted: [{ repo: "harness-repo", envs: { staging: "failed" } }] } }),
@@ -146,6 +151,13 @@ try {
     ) {
       problems.push(`${width}px: the GitHub issue is not shown with its link`);
     }
+    // Jira, from the copy the Mac's sync stored a moment ago.
+    await tab.getByRole("tab", { name: "Halcyon Labs" }).click();
+    if (
+      !(await tab.getByRole("link", { name: "Harness Jira issue" }).isVisible())
+    ) {
+      problems.push(`${width}px: the Jira issue from the sync is not shown`);
+    }
     // Hosts end to end: the tab shows the breach, the panel the host, and
     // the copy for other devices is stored in the previous page's shape.
     const hostsTab = tab.getByRole("tab", { name: /host alert/i });
@@ -197,5 +209,5 @@ if (problems.length) {
   process.exit(1);
 }
 console.log(
-  `✓ one file, ${Math.round(source.length / 1024)} KB, renders at 390 and 1280 px with no errors; hosts, waiting, release, Monday and GitHub work end to end`,
+  `✓ one file, ${Math.round(source.length / 1024)} KB, renders at 390 and 1280 px with no errors; hosts, waiting, release, Monday, GitHub, Jira and the sync work end to end`,
 );
