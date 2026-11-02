@@ -134,3 +134,23 @@ export const Answered: Story = {
     ).toBeInTheDocument();
   },
 };
+
+/** A go-ahead from a task, with its summary and the latest state to judge it by. */
+export const WithContext: Story = {
+  name: "With Context",
+  args: {
+    ask: "Your go to import the three tickets",
+    from: "Commander",
+    options: [...YES_NO_OPTIONS],
+    context: {
+      detail:
+        "Three backlog tickets are ready to import into the new tracker. The import is one-way; the old tickets are archived afterwards.",
+      reason: "Import dry run passed on staging at 11:32.",
+    },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(
+      within(canvasElement).getByText(/Import dry run passed/),
+    ).toBeVisible();
+  },
+};

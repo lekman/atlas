@@ -336,6 +336,7 @@ export function App({
         ask={ask}
         from={from}
         options={answerOptions(item, ask)}
+        context={{ detail: item.detail, reason: item.reason }}
         busy={last?.state === "sending"}
         sent={
           last && last.state !== "sending" && last.state !== "failed"

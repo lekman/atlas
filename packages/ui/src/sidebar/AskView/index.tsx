@@ -15,7 +15,7 @@ export interface AskViewProps {
 /**
  * An ask from Commander or a worker, over the sidebar, for asks that have
  * no task to open: who asks, since when, the context, and the answer form.
- * Back or Escape returns to where it was opened.
+ * The form shows the context. Back or Escape returns to where it was opened.
  */
 export function AskView({ item, clientName, children, onClose }: AskViewProps) {
   const title = useId();
@@ -66,10 +66,7 @@ export function AskView({ item, clientName, children, onClose }: AskViewProps) {
             </div>
           </div>
         </div>
-        <div className="dbody">
-          {item.reason && <div className="dnote">{item.reason}</div>}
-          {children}
-        </div>
+        <div className="dbody">{children}</div>
       </div>
     </div>
   );

@@ -106,3 +106,39 @@ describe("answeredView", () => {
     ).toBe("late");
   });
 });
+
+import { askText } from "../src/sidebar/waiting/model";
+
+describe("askText with a possessive", () => {
+  it("turns the operator's go into your go", () => {
+    expect(
+      askText(
+        { kind: "task", ask: "Tobias's go to import the three tickets" },
+        "Tobias",
+      ).ask,
+    ).toBe("Your go to import the three tickets");
+    expect(
+      askText({ kind: "task", ask: "Tobias’s go to merge" }, "Tobias").ask,
+    ).toBe("Your go to merge");
+    expect(
+      askText({ kind: "task", ask: "your approval for the window" }, "Tobias")
+        .ask,
+    ).toBe("Your approval for the window");
+    expect(
+      askText({ kind: "task", ask: "Tobias: approve the budget" }, "Tobias")
+        .ask,
+    ).toBe("Approve the budget");
+  });
+  it("offers yes or no for a go-ahead without a question mark", () => {
+    expect(
+      answerOptions({ kind: "task" }, "Your go to import the three tickets")
+        .length,
+    ).toBe(4);
+    expect(
+      answerOptions({ kind: "task" }, "OK to restart staging").length,
+    ).toBe(4);
+    expect(
+      answerOptions({ kind: "task" }, "Name the support system").length,
+    ).toBe(0);
+  });
+});

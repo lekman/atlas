@@ -23,6 +23,8 @@ export interface AskFormProps {
   status?: { text: string; tone: "ok" | "warn" | "bad" } | null;
   /** Sending now. */
   busy?: boolean;
+  /** What the ask is about, to judge it: the task's summary, then the latest state. */
+  context?: { detail?: string; reason?: string };
   /** The last answer sent: when, and what was chosen or written. */
   sent?: { at: string; answer: AskAnswer } | null;
 }
@@ -42,6 +44,7 @@ export function AskForm({
   status,
   busy = false,
   sent,
+  context,
 }: AskFormProps) {
   const name = useId();
   const [choice, setChoice] = useState<string | null>(
@@ -68,6 +71,8 @@ export function AskForm({
       <div className="askq">
         <span className="ah">Waiting on you</span>
         <p>{ask}</p>
+        {context?.detail && <p className="askctx">{context.detail}</p>}
+        {context?.reason && <p className="askctx">{context.reason}</p>}
       </div>
       {sent && (
         <div className="asksent">
