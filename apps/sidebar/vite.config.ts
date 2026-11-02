@@ -1,5 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
@@ -9,13 +9,13 @@ import { fontsWoff2Only, inlineBundle } from "./build/inline";
 const directory = import.meta.dirname;
 
 /**
- * The config named by SIDEBAR_CONFIG, else this machine's own, else the
+ * The config named by SIDEBAR_CONFIG (absolute, or relative to this folder), else this machine's own, else the
  * example. Checks build with the example, whatever the machine has.
  */
 function sidebarConfig(): unknown {
   if (process.env.SIDEBAR_CONFIG) {
     return JSON.parse(
-      readFileSync(join(directory, process.env.SIDEBAR_CONFIG), "utf8"),
+      readFileSync(resolve(directory, process.env.SIDEBAR_CONFIG), "utf8"),
     );
   }
   const own = join(directory, "sidebar.config.json");
