@@ -180,3 +180,12 @@ export {
   type StatusKind,
   type TrackerSystem,
 } from "./details/model";
+export { PullCard, PullRequests, type PullRequestsProps } from "./PullRequests";
+export {
+  pullCounts,
+  pullFacts,
+  readPulls,
+  type PullRequest,
+  type PullsDoc,
+  type PullState,
+} from "./details/pulls";

@@ -53,6 +53,7 @@ const TEXT = [
   "--client-4",
   "--client-5",
   "--client-other",
+  "--merged",
 ];
 const FILLS = ["--panel", "--bg", "--now"];
 

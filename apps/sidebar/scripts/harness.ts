@@ -76,12 +76,15 @@ const shim = `(() => {
       const now = new Date(), from = new Date(now.getTime() + 60000), to = new Date(now.getTime() + 120000);
       return { structuredContent: { syncedAt: now.toISOString(), items: [
         { ref: "db:1", title: "Harness task for today", customer: "kestrel", band: "today", day: ymd(now), priority: "high",
-          details: "Harness/Plan.md", detailsAt: "2026-03-01T00:00:00Z" },
+          details: "Harness/Plan.md", detailsAt: "2026-03-01T00:00:00Z", key: "HAR-1" },
         { title: "Harness worklist meeting", customer: "kestrel", band: "today", day: ymd(from),
           meeting: { start: hm(from), end: ymd(to) === ymd(from) ? hm(to) : hm(from) } }] } };
     },
     "host:dashboard/details_read": () => ({ structuredContent: { path: "Harness/Plan.md", modifiedAt: "2026-03-01T00:00:00Z",
       md: "---\\nstatus: planned\\n---\\n# Plan\\n\\n## Harness heading\\n\\n<script>window.__pwned = 1<\\/script> [x](javascript:window.__pwned=1)\\n" } }),
+    "host:dashboard/task_prs": () => ({ structuredContent: { linked: false, fetchedAt: new Date().toISOString(), prs: [
+      { repo: "acme/app", number: 7, title: "Harness pull request", url: "https://github.com/acme/app/pull/7",
+        state: "open", checks: "success" }] } }),
     "host:dashboard/release_status": () => ({ structuredContent: {
       branch: "release/x", total: 3, checkedAt: new Date().toISOString(),
       drifted: [{ repo: "harness-repo", envs: { staging: "failed" } }] } }),
@@ -192,6 +195,28 @@ try {
       )
     ) {
       problems.push(`${width}px: the details page ran or kept a script`);
+    }
+    if (
+      !(await dialog
+        .getByRole("link", { name: "Harness pull request" })
+        .isVisible())
+    ) {
+      problems.push(`${width}px: the task's pull request is not shown`);
+    }
+    if (!(await dialog.getByText("IN REVIEW").isVisible())) {
+      problems.push(
+        `${width}px: an open pull request does not put the status in review`,
+      );
+    }
+    const pulls = await tab.evaluate(() =>
+      (
+        window as unknown as { __docs: Map<string, { prs?: unknown[] }> }
+      ).__docs.get("prs/db-1"),
+    );
+    if (pulls?.prs?.length !== 1) {
+      problems.push(
+        `${width}px: the pull requests were not stored for other devices`,
+      );
     }
     await tab.keyboard.press("Escape");
     if (

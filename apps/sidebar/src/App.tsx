@@ -15,6 +15,8 @@ import {
   ReleaseStatus,
   WaitingOnYou,
   DetailsView,
+  pullCounts,
+  PullRequests,
   type WorkItem,
   ActionMenu,
   isWaiting,
@@ -45,6 +47,11 @@ import { KEYS, load, loadSet, save, saveSet } from "./storage";
 import { useCalendar } from "./useCalendar";
 import { useWorklist } from "./useWorklist";
 import { useDetails, useDetailsCopies, type DetailsIndex } from "./useDetails";
+import {
+  searchable,
+  usePullRequests,
+  usePullsRefresh,
+} from "./usePullRequests";
 import { foldAll, planFolds, worklistMeetings } from "./worklist";
 import { useGitHub } from "./useGitHub";
 import { useNow } from "./useNow";
@@ -158,6 +165,8 @@ export function App({
     ? (worklist.doc?.items.find((t) => t.ref && t.ref === opened.ref) ?? opened)
     : null;
   const details = useDetails(runtime, openItem, detailsIndex?.items ?? {});
+  const pulls = usePullRequests(runtime, openItem);
+  usePullsRefresh(runtime, worklist.doc?.items ?? null, worklist.liveAt);
   const workItems = worklist.doc?.items ?? null;
   const meetings = useMemo(
     () =>
@@ -528,7 +537,22 @@ export function App({
           }
           weekEnd={dayKey(new Date(now.getTime() + 7 * 86400000))}
           now={now}
+          openPullRequests={pullCounts(pulls.doc).open}
+          draftPullRequests={pullCounts(pulls.doc).draft}
           onClose={() => setOpened(null)}
+          pullRequests={
+            (openItem.key || searchable(openItem) || pulls.doc) && (
+              <PullRequests
+                doc={pulls.doc}
+                copy={pulls.copy}
+                trackerKey={openItem.key}
+                searchable={searchable(openItem)}
+                onRefresh={runtime.present ? () => pulls.refresh() : undefined}
+                busy={pulls.busy}
+                now={now}
+              />
+            )
+          }
         />
       )}
     </SidebarFrame>
