@@ -224,3 +224,4 @@ export {
   type TriageGrade,
   type TriageViewProps,
 } from "./TriageView";
+export { RowButton, type RowButtonProps } from "./RowButton";

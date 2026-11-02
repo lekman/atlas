@@ -16,6 +16,7 @@ import {
   WaitingOnYou,
   DetailsView,
   ItemActions,
+  RowButton,
   AssessForm,
   movable,
   quadrantOf,
@@ -197,6 +198,21 @@ export function App({
   // Triage: the ungraded tasks it was opened with, while it is open.
   const [triage, setTriage] = useState<readonly WorkItem[] | null>(null);
   const [assessOpen, setAssessOpen] = useState<string | null>(null);
+  // A task a tracker row's button went to: its row is scrolled to and flashed once rendered.
+  const [flash, setFlash] = useState<string | null>(null);
+  useEffect(() => {
+    if (!flash) return;
+    const row = document.querySelector<HTMLElement>(
+      `.task[data-ref="${CSS.escape(flash)}"]`,
+    );
+    row?.scrollIntoView({ block: "center", behavior: "smooth" });
+    row?.classList.add("flash");
+    const timer = setTimeout(() => {
+      row?.classList.remove("flash");
+      setFlash(null);
+    }, 1600);
+    return () => clearTimeout(timer);
+  }, [flash]);
   const triageFor = (rows: readonly WorkItem[]) => {
     const ready = rows.filter((t) => sizing?.[String(t.ref).slice(3)]).length;
     return {
@@ -771,6 +787,75 @@ export function App({
                   error={monday.error}
                   updatedAt={monday.updatedAt}
                   now={now}
+                  rowAction={(item) => {
+                    if (!item.key) return null;
+                    const task = workItems?.find(
+                      (t) => t.key === item.key && !t.meeting,
+                    );
+                    if (task) {
+                      return (
+                        <RowButton
+                          icon="arrow"
+                          label={`Open the task for ${item.key} in the worklist`}
+                          title="Open the task in the worklist"
+                          onClick={() => {
+                            const b = HERE[task.band ?? ""] ?? "today";
+                            setBand(b);
+                            save(KEYS.band, b);
+                            const next = new Set(workFolded);
+                            next.delete(task.customer);
+                            fold(next);
+                            if (!inFocus(task.customer)) choose("all");
+                            open("worklist");
+                            setFlash(task.ref ?? null);
+                          }}
+                        />
+                      );
+                    }
+                    const pending = Boolean(
+                      commander.open(`monday:${item.key}`),
+                    );
+                    return (
+                      <RowButton
+                        icon="send"
+                        label={
+                          pending
+                            ? `Commander is planning ${item.key}`
+                            : `Plan ${item.key} with Commander`
+                        }
+                        title={
+                          pending
+                            ? "Commander is planning this"
+                            : "Plan with Commander: it becomes a task with a details page, a test plan and a priority, or is refused with the reason"
+                        }
+                        disabled={pending}
+                        onClick={() => {
+                          commander
+                            .planTracker({
+                              system: "monday",
+                              key: item.key!,
+                              title: item.name,
+                              customer: mondayTracker.client,
+                              url: item.url,
+                              status: item.status,
+                              priority: item.priority,
+                            })
+                            .catch(() => undefined);
+                        }}
+                      />
+                    );
+                  }}
+                  rowStatus={(item) =>
+                    item.key &&
+                    !workItems?.some(
+                      (t) => t.key === item.key && !t.meeting,
+                    ) ? (
+                      <RequestLine
+                        request={commander.latest(`monday:${item.key}`)}
+                        now={now}
+                      />
+                    ) : null
+                  }
                 />
               ) : v.id === jiraTracker?.client ? (
                 <JiraList
