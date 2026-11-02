@@ -31,6 +31,7 @@
   --client-4: #2f5bd3;
   --client-5: #6a4fcf;
   --client-other: #656c76;
+  --merged: #7e4bde;
   --f-sans:
     "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
     sans-serif;
@@ -59,6 +60,7 @@
     --client-4: #86a6ff;
     --client-5: #ae9bff;
     --client-other: #9aa3af;
+    --merged: #a574f7;
     color-scheme: dark;
   }
 }
@@ -82,6 +84,7 @@
   --client-4: #86a6ff;
   --client-5: #ae9bff;
   --client-other: #9aa3af;
+  --merged: #a574f7;
   color-scheme: dark;
 }
 
@@ -1708,4 +1711,145 @@
 .atlas-sidebar .md .atlas-embed {
   font-style: italic;
   color: var(--muted);
+}
+
+/* ---------- pull requests ---------- */
+
+.atlas-sidebar .prs {
+  list-style: none;
+  margin: 2px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.atlas-sidebar .prc {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: var(--panel);
+  color: var(--ink);
+  display: grid;
+  gap: 6px;
+}
+
+.atlas-sidebar .prc .top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--muted);
+  min-width: 0;
+}
+
+.atlas-sidebar .prc .top .when {
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.atlas-sidebar .prc .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  padding: 0 8px;
+}
+
+.atlas-sidebar .prc .chip .ic {
+  width: 13px;
+  height: 13px;
+}
+
+.atlas-sidebar .prc .chip.open {
+  color: var(--ok);
+}
+
+.atlas-sidebar .prc .chip.draft,
+.atlas-sidebar .prc .chip.closed {
+  color: var(--muted);
+}
+
+.atlas-sidebar .prc .chip.merged {
+  color: var(--merged);
+}
+
+.atlas-sidebar .prc .tt {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.atlas-sidebar .prc .tt:hover {
+  text-decoration: underline;
+}
+
+.atlas-sidebar .prc .meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  font-size: 12px;
+  color: var(--muted);
+  align-items: center;
+}
+
+.atlas-sidebar .prc .add,
+.atlas-sidebar .prc .ok {
+  color: var(--ok);
+}
+
+.atlas-sidebar .prc .del,
+.atlas-sidebar .prc .bad {
+  color: var(--bad);
+}
+
+.atlas-sidebar .prc .warn {
+  color: var(--warn);
+}
+
+.atlas-sidebar .prfoot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.atlas-sidebar .prfoot > span {
+  flex: 1;
+}
+
+.atlas-sidebar .prfoot .rf {
+  all: unset;
+  cursor: pointer;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1;
+}
+
+.atlas-sidebar .prfoot .rf:hover {
+  color: var(--ink);
+  background: var(--hatch);
+}
+
+.atlas-sidebar .prfoot .rf:focus-visible {
+  outline: 2px solid var(--accent);
+}
+
+.atlas-sidebar .prfoot .rf:disabled {
+  cursor: default;
+}
+
+.atlas-sidebar .dnote.compact {
+  margin: 0;
 }

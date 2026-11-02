@@ -6,6 +6,8 @@ import { Agenda } from "../Agenda";
 import { agendaDays } from "../calendar/model";
 import { ClientPill } from "../ClientPill";
 import { DetailsView } from "../DetailsView";
+import { pullCounts } from "../details/pulls";
+import { PullRequests } from "../PullRequests";
 import { hostsTab } from "../hosts/model";
 import { GitHubList } from "../GitHubList";
 import { HostsPanel } from "../HostsPanel";
@@ -32,6 +34,7 @@ import {
 import { clientOfHost, hostsDoc } from "./hosts";
 import { weekEvents } from "./calendar";
 import { detailsPage } from "./details";
+import { pullsDoc } from "./pulls";
 import { githubExample } from "./github";
 import { jiraExample } from "./jira";
 import { mondayExample } from "./monday";
@@ -221,6 +224,19 @@ function SidebarPage({
           mondayPrefix="KF"
           weekEnd="2026-03-19"
           now={STORY_NOW}
+          openPullRequests={
+            opened.ref === "db:1" ? pullCounts(pullsDoc).open : 0
+          }
+          pullRequests={
+            opened.ref === "db:1" && (
+              <PullRequests
+                doc={pullsDoc}
+                trackerKey={opened.key}
+                searchable
+                now={STORY_NOW}
+              />
+            )
+          }
           onClose={() => setOpened(null)}
         />
       )}

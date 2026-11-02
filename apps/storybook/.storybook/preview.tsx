@@ -80,7 +80,7 @@ const preview: Preview = {
             "Worklist",
             ["Worklist", "Waiting On You"],
             "Details",
-            ["Details View"],
+            ["Details View", "Pull Requests"],
             "Calendar",
             ["Agenda"],
             "Trackers",
