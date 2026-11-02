@@ -17,6 +17,8 @@ export interface WorkRowProps {
   actions?: ReactNode;
   /** A line under the meta: a Commander request's state. */
   status?: ReactNode;
+  /** Being changed now. */
+  busy?: boolean;
 }
 
 const dayOf = (day: string) => new Date(`${day}T12:00:00`);
@@ -30,13 +32,19 @@ export function WorkRow({
   onOpen,
   actions,
   status,
+  busy,
 }: WorkRowProps) {
   const when = whenOf(item, today);
-  const className = ["task", item.done && "done", actions && "act"]
+  const className = [
+    "task",
+    item.done && "done",
+    actions && "act",
+    busy && "busy",
+  ]
     .filter(Boolean)
     .join(" ");
   return (
-    <li className={className} data-ref={item.ref}>
+    <li className={className} data-ref={item.ref} aria-busy={busy || undefined}>
       <span
         className={`pri ${item.priority ?? ""}`.trim()}
         title={item.priority ? `${item.priority} priority` : "no priority"}

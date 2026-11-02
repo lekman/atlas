@@ -77,6 +77,7 @@ const shim = `(() => {
       return { structuredContent: { syncedAt: now.toISOString(), items: [
         { ref: "db:1", title: "Harness task for today", customer: "kestrel", band: "today", day: ymd(now), priority: "high",
           details: "Harness/Plan.md", detailsAt: "2026-03-01T00:00:00Z", key: "HAR-1" },
+        { ref: "db:2", title: "Harness second task", customer: "kestrel", band: "today", day: ymd(now) },
         { title: "Harness worklist meeting", customer: "kestrel", band: "today", day: ymd(from),
           meeting: { start: hm(from), end: ymd(to) === ymd(from) ? hm(to) : hm(from) } }] } };
     },
@@ -85,15 +86,25 @@ const shim = `(() => {
     "host:dashboard/task_prs": () => ({ structuredContent: { linked: false, fetchedAt: new Date().toISOString(), prs: [
       { repo: "acme/app", number: 7, title: "Harness pull request", url: "https://github.com/acme/app/pull/7",
         state: "open", checks: "success" }] } }),
+    "host:dashboard/commander_send": (args) => ({ structuredContent: { request: {
+      id: args.id, state: "received", action: args.action, summary: "Harness Commander heard it", updatedAt: new Date().toISOString() } } }),
+    "host:dashboard/task_done": () => {
+      const list = tools["host:dashboard/worklist"]().structuredContent;
+      return { structuredContent: { tasks: { ...list, items: list.items.map((t) => t.ref === "db:1" ? { ...t, done: true } : t) } } };
+    },
+    "Cloudflare Developer Platform/d1_database_query": () => ({ payload: [{ results: [] }] }),
     "host:dashboard/release_status": () => ({ structuredContent: {
       branch: "release/x", total: 3, checkedAt: new Date().toISOString(),
       drifted: [{ repo: "harness-repo", envs: { staging: "failed" } }] } }),
   };
+  // window.__offline makes the local server unreachable, as on the phone.
   const mcp = {
-    callTool: async (server, tool) => {
+    callTool: async (server, tool, args) => {
+      if (window.__offline && server === "host:dashboard") throw { code: "server_not_connected" };
+      (window.__calls = window.__calls || []).push({ server, tool, args });
       const answer = tools[server + "/" + tool];
       if (!answer) throw { code: "not_granted" };
-      return answer();
+      return answer(args);
     },
     watchTool(server, tool, args, onEvent) {
       mcp.callTool(server, tool, args).then(
@@ -178,6 +189,7 @@ try {
     // Details: the task opens its page, drawn without HTML, and Escape returns to it.
     const taskTitle = tab.getByRole("button", {
       name: "Harness task for today",
+      exact: true,
     });
     await taskTitle.click();
     const dialog = tab.getByRole("dialog", { name: "Harness task for today" });
@@ -306,7 +318,7 @@ try {
         window as unknown as { __docs: Map<string, { items?: unknown[] }> }
       ).__docs.get("board/tasks"),
     );
-    if (tasks?.items?.length !== 2) {
+    if (tasks?.items?.length !== 3) {
       problems.push(`${width}px: board/tasks was not stored`);
     }
     const waiting = await tab.evaluate(() =>
@@ -318,6 +330,79 @@ try {
     );
     if (!waiting?.storedAt || waiting.items?.length !== 1) {
       problems.push(`${width}px: board/waiting was not stored with storedAt`);
+    }
+    // Writes, against the stand-in. Status from a task's menu shows Commander's answer under it.
+    await tab.getByRole("tab", { name: "Worklist" }).click();
+    await tab
+      .getByRole("button", { name: "Actions for Harness task for today" })
+      .click();
+    await tab.getByRole("menuitem", { name: "Status" }).click();
+    if (!(await tab.getByText("status · received").isVisible())) {
+      problems.push(
+        `${width}px: a status request does not show under the task`,
+      );
+    }
+    // Done in the details marks it done, closes the details and stores the fresh worklist.
+    await tab
+      .getByRole("button", { name: "Harness task for today", exact: true })
+      .click();
+    await tab.getByRole("button", { name: "Done", exact: true }).click();
+    await tab
+      .getByRole("dialog")
+      .waitFor({ state: "detached", timeout: 5000 })
+      .catch(() => undefined);
+    const doneTask = await tab.evaluate(() =>
+      (
+        window as unknown as {
+          __docs: Map<
+            string,
+            { items?: Array<{ ref?: string; done?: boolean }> }
+          >;
+        }
+      ).__docs
+        .get("board/tasks")
+        ?.items?.find((t) => t.ref === "db:1"),
+    );
+    if (
+      (await tab.getByRole("dialog").count()) !== 0 ||
+      doneTask?.done !== true
+    ) {
+      problems.push(
+        `${width}px: Done does not close the details and store the task as done`,
+      );
+    }
+    // On the phone: without the local server, a change goes through the inbox.
+    await tab.evaluate(() => {
+      (window as unknown as { __offline: boolean }).__offline = true;
+    });
+    await tab
+      .getByRole("button", { name: "Actions for Harness second task" })
+      .click();
+    await tab.getByRole("menuitem", { name: "Move to Tomorrow" }).click();
+    const inserted = await tab.evaluate(() =>
+      (
+        (
+          window as unknown as {
+            __calls?: Array<{
+              tool: string;
+              args?: { sql?: string; params?: unknown[] };
+            }>;
+          }
+        ).__calls ?? []
+      )
+        .filter(
+          (c) =>
+            c.tool === "d1_database_query" && c.args?.sql?.startsWith("INSERT"),
+        )
+        .map((c) => c.args?.params?.[1]),
+    );
+    if (
+      !inserted.includes("task_move") ||
+      !(await tab.getByText("move · queued").isVisible())
+    ) {
+      problems.push(
+        `${width}px: a move from the phone does not go through the inbox`,
+      );
     }
     for (const e of errors) problems.push(`${width}px: ${e}`);
     await tab.close();

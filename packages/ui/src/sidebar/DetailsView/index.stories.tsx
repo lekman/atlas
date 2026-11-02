@@ -2,6 +2,8 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, within } from "storybook/test";
 
 import { DetailsView } from ".";
+import { ItemActions } from "../ItemActions";
+import { RequestLine } from "../RequestLine";
 import { detailsItem, detailsPage } from "../stories/details";
 import { STORY_NOW } from "../stories/examples";
 import { SidebarStoryFrame } from "../stories/SidebarStoryFrame";
@@ -119,4 +121,56 @@ export const NotHere: Story = {
 /** While the page loads. */
 export const Loading: Story = {
   args: { details: { state: "loading" } },
+};
+
+/** With its actions under the title, and the newest Commander request. */
+export const WithActions: Story = {
+  name: "With Actions",
+  args: {
+    actions: (
+      <>
+        <ItemActions
+          groups={[
+            [
+              {
+                icon: "play",
+                label: "Execute: dispatch to the owner",
+                primary: true,
+                onSelect: fn(),
+              },
+              {
+                icon: "pulse",
+                label: "Status: ask the owner where this stands",
+                onSelect: fn(),
+              },
+            ],
+            [
+              { icon: "check", label: "Done", onSelect: fn() },
+              { icon: "right", label: "Move to tomorrow", onSelect: fn() },
+              { icon: "doorout", label: "Move to the backlog", onSelect: fn() },
+            ],
+          ]}
+        />
+        <div className="dstatus">
+          <RequestLine
+            now={STORY_NOW}
+            request={{
+              id: "dash-1",
+              ref: "db:42",
+              action: "execute",
+              state: "dispatched",
+              summary: "Sent to the Kestrel session",
+              requestedAt: STORY_NOW.toISOString(),
+              updatedAt: STORY_NOW.toISOString(),
+            }}
+          />
+        </div>
+      </>
+    ),
+  },
+  play: async ({ canvasElement }) => {
+    await expect(
+      within(canvasElement).getByRole("group", { name: "Item actions" }),
+    ).toBeInTheDocument();
+  },
 };

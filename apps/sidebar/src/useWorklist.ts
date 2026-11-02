@@ -1,6 +1,8 @@
 import type { Runtime } from "@atlas/runtime";
 import { isWorklistDoc, type WorklistDoc } from "@atlas/ui/sidebar";
 
+import { useCallback, useState } from "react";
+
 import { useFeed } from "./useFeed";
 
 /** A live answer is trusted over the stored copy for this long. */
@@ -13,6 +15,8 @@ export interface Worklist {
   error: { text: string; tone: "warn" | "err" } | null;
   /** Neither a live answer nor the stored copy has come yet. */
   pending: boolean;
+  /** Shows a worklist an action answered with, and stores it for other devices. */
+  apply: (doc: WorklistDoc) => void;
 }
 
 /**
@@ -37,12 +41,26 @@ export function useWorklist(runtime: Runtime, now: Date): Worklist {
     },
     "The local dashboard server",
   );
+  // A worklist an action answered with counts until a newer live answer.
+  const [applied, setApplied] = useState<{
+    doc: WorklistDoc;
+    at: number;
+  } | null>(null);
+  const apply = useCallback(
+    (doc: WorklistDoc) => {
+      setApplied({ doc, at: Date.now() });
+      runtime.write("board/tasks", doc).catch(() => undefined);
+    },
+    [runtime],
+  );
   const fresh =
     feed.liveAt !== null &&
     feed.liveAt !== undefined &&
     now.getTime() - feed.liveAt < LIVE_FOR;
+  const newer = applied && applied.at > (feed.liveAt ?? 0) ? applied.doc : null;
   return {
-    doc: fresh ? feed.data : (feed.stored ?? feed.data),
+    apply,
+    doc: newer ?? (fresh ? feed.data : (feed.stored ?? feed.data)),
     liveAt: fresh ? (feed.liveAt ?? null) : null,
     error: feed.error,
     pending: feed.data === null && feed.failure === null,

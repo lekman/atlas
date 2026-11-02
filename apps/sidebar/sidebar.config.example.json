@@ -82,5 +82,10 @@
       "client": "halcyon",
       "note": "Halcyon Labs meetings are placeholders until its calendar feed is added."
     }
+  },
+  "inbox": {
+    "server": "Cloudflare Developer Platform",
+    "tool": "d1_database_query",
+    "databaseId": "00000000-0000-0000-0000-000000000000"
   }
 }

@@ -7,13 +7,20 @@ import {
   type KeyboardEvent,
 } from "react";
 
+import { Icon } from "../Icon";
+import type { IconName } from "../icons";
+
 export interface MenuAction {
   label: string;
+  /** An icon before the label. */
+  icon?: IconName;
   onSelect?: () => void;
   /** Shown, but not chosen. */
   disabled?: boolean;
   /** A line under the action that explains it. */
   hint?: string;
+  /** A divider before this action, starting a new group. */
+  divider?: boolean;
 }
 
 export interface ActionMenuProps {
@@ -118,9 +125,11 @@ export function ActionMenu({ what, actions, footer }: ActionMenuProps) {
         >
           {actions.map((a) => (
             <div key={a.label} role="none">
+              {a.divider && <hr />}
               <button
                 type="button"
                 role="menuitem"
+                className={a.icon ? "mcopy" : undefined}
                 aria-disabled={a.disabled || undefined}
                 title={a.hint}
                 onClick={() => {
@@ -129,6 +138,11 @@ export function ActionMenu({ what, actions, footer }: ActionMenuProps) {
                   a.onSelect?.();
                 }}
               >
+                {a.icon && (
+                  <span className="ico" aria-hidden="true">
+                    <Icon name={a.icon} />
+                  </span>
+                )}
                 {a.label}
               </button>
               {a.hint && <div className="hint">{a.hint}</div>}
