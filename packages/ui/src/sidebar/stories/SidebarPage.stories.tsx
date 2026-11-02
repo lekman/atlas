@@ -5,6 +5,7 @@ import { expect, userEvent, within } from "storybook/test";
 import { Agenda } from "../Agenda";
 import { agendaDays } from "../calendar/model";
 import { ClientPill } from "../ClientPill";
+import { DetailsView } from "../DetailsView";
 import { hostsTab } from "../hosts/model";
 import { GitHubList } from "../GitHubList";
 import { HostsPanel } from "../HostsPanel";
@@ -19,7 +20,7 @@ import { releaseCount } from "../release/model";
 import { ReleaseStatus } from "../ReleaseStatus";
 import { TabPanel, Tabs } from "../Tabs";
 import { WaitingOnYou } from "../WaitingOnYou";
-import type { Band } from "../worklist/model";
+import type { Band, WorkItem } from "../worklist/model";
 import { Worklist } from "../WorklistPanel";
 import { visibleViews } from "../views";
 import {
@@ -30,6 +31,7 @@ import {
 } from "./examples";
 import { clientOfHost, hostsDoc } from "./hosts";
 import { weekEvents } from "./calendar";
+import { detailsPage } from "./details";
 import { githubExample } from "./github";
 import { jiraExample } from "./jira";
 import { mondayExample } from "./monday";
@@ -51,6 +53,7 @@ function SidebarPage({
   const [focus, setFocus] = useState(initialFocus);
   const [view, setView] = useState("worklist");
   const [band, setBand] = useState<Band>("today");
+  const [opened, setOpened] = useState<WorkItem | null>(null);
   const [folded, setFolded] = useState<ReadonlySet<string>>(new Set());
   const shown = visibleViews(exampleViews, focus, view);
   return (
@@ -118,6 +121,7 @@ function SidebarPage({
               showWaiting
               today={STORY_TODAY}
               tomorrow={STORY_TOMORROW}
+              onOpen={(item) => setOpened(item)}
               notes={
                 <WaitingOnYou
                   operator={OPERATOR}
@@ -202,6 +206,24 @@ function SidebarPage({
           )}
         </TabPanel>
       ))}
+      {opened && (
+        <DetailsView
+          item={opened}
+          clientName={
+            exampleClients.find((c) => c.key === opened.customer)?.name ??
+            "Other"
+          }
+          details={
+            opened.ref === "db:1"
+              ? { state: "ready", page: detailsPage }
+              : { state: "none" }
+          }
+          mondayPrefix="KF"
+          weekEnd="2026-03-19"
+          now={STORY_NOW}
+          onClose={() => setOpened(null)}
+        />
+      )}
     </SidebarFrame>
   );
 }
@@ -265,5 +287,23 @@ export const Hosts: Story = {
     const canvas = within(canvasElement);
     await userEvent.click(canvas.getByRole("tab", { name: /host alert/i }));
     await expect(canvas.getByRole("region", { name: /hosts/i })).toBeVisible();
+  },
+};
+
+/** A task opened from the worklist: its details over the sidebar, Back to return. */
+export const Details: Story = {
+  args: { theme: "light" },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const task = canvas.getByRole("button", { name: /scanner api/i });
+    await userEvent.click(task);
+    await expect(
+      canvas.getByRole("dialog", { name: /scanner api/i }),
+    ).toBeVisible();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Back to Atlas" }),
+    );
+    await expect(canvas.queryByRole("dialog")).toBeNull();
+    await expect(task).toHaveFocus();
   },
 };

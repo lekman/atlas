@@ -75,10 +75,13 @@ const shim = `(() => {
       // A meeting a minute from now, on its own day, so the run never straddles midnight.
       const now = new Date(), from = new Date(now.getTime() + 60000), to = new Date(now.getTime() + 120000);
       return { structuredContent: { syncedAt: now.toISOString(), items: [
-        { ref: "db:1", title: "Harness task for today", customer: "kestrel", band: "today", day: ymd(now), priority: "high" },
+        { ref: "db:1", title: "Harness task for today", customer: "kestrel", band: "today", day: ymd(now), priority: "high",
+          details: "Harness/Plan.md", detailsAt: "2026-03-01T00:00:00Z" },
         { title: "Harness worklist meeting", customer: "kestrel", band: "today", day: ymd(from),
           meeting: { start: hm(from), end: ymd(to) === ymd(from) ? hm(to) : hm(from) } }] } };
     },
+    "host:dashboard/details_read": () => ({ structuredContent: { path: "Harness/Plan.md", modifiedAt: "2026-03-01T00:00:00Z",
+      md: "---\\nstatus: planned\\n---\\n# Plan\\n\\n## Harness heading\\n\\n<script>window.__pwned = 1<\\/script> [x](javascript:window.__pwned=1)\\n" } }),
     "host:dashboard/release_status": () => ({ structuredContent: {
       branch: "release/x", total: 3, checkedAt: new Date().toISOString(),
       drifted: [{ repo: "harness-repo", envs: { staging: "failed" } }] } }),
@@ -168,6 +171,48 @@ try {
     }
     if ((await tab.locator(".sync").textContent()) !== "Live") {
       problems.push(`${width}px: the header does not say Live`);
+    }
+    // Details: the task opens its page, drawn without HTML, and Escape returns to it.
+    const taskTitle = tab.getByRole("button", {
+      name: "Harness task for today",
+    });
+    await taskTitle.click();
+    const dialog = tab.getByRole("dialog", { name: "Harness task for today" });
+    if (
+      !(await dialog
+        .getByRole("heading", { name: "Harness heading" })
+        .isVisible())
+    ) {
+      problems.push(`${width}px: the details page does not show`);
+    }
+    if (
+      await tab.evaluate(
+        () =>
+          "__pwned" in window || document.querySelector(".md script") !== null,
+      )
+    ) {
+      problems.push(`${width}px: the details page ran or kept a script`);
+    }
+    await tab.keyboard.press("Escape");
+    if (
+      (await dialog.count()) !== 0 ||
+      !(await taskTitle.evaluate((el) => el === document.activeElement))
+    ) {
+      problems.push(
+        `${width}px: Escape does not close the details and return to the task`,
+      );
+    }
+    const copy = await tab.evaluate(() =>
+      (
+        window as unknown as {
+          __docs: Map<string, { md?: string; copiedAt?: string }>;
+        }
+      ).__docs.get("details/harness-plan"),
+    );
+    if (!copy?.md || !copy.copiedAt) {
+      problems.push(
+        `${width}px: the details page was not copied for other devices`,
+      );
     }
     // Waiting on you sits above the worklist and is stored for other devices.
     if (

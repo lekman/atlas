@@ -79,6 +79,8 @@ const preview: Preview = {
             ],
             "Worklist",
             ["Worklist", "Waiting On You"],
+            "Details",
+            ["Details View"],
             "Calendar",
             ["Agenda"],
             "Trackers",
