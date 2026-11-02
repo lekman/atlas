@@ -57,6 +57,7 @@ export {
 } from "./WaitingOnYou";
 export {
   askText,
+  failedSources,
   isWaitingDoc,
   waitingSource,
   type WaitingDoc,

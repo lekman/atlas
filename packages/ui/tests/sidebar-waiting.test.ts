@@ -1,6 +1,11 @@
 import { describe, expect, it } from "bun:test";
 
-import { askText, isWaitingDoc, waitingSource } from "../src/sidebar";
+import {
+  askText,
+  failedSources,
+  isWaitingDoc,
+  waitingSource,
+} from "../src/sidebar";
 
 describe("askText", () => {
   it("drops the operator's name from a task's waitingFor", () => {
@@ -67,5 +72,14 @@ describe("isWaitingDoc", () => {
   it("accepts the answer and the stored copy", () => {
     expect(isWaitingDoc({ items: [], storedAt: "x" })).toBe(true);
     expect(isWaitingDoc({ hosts: [] })).toBe(false);
+  });
+});
+
+describe("failedSources", () => {
+  it("names each failed source once", () => {
+    expect(
+      failedSources(["acme: down", "questions: refused", "acme: again"]),
+    ).toEqual(["acme", "questions"]);
+    expect(failedSources(undefined)).toEqual([]);
   });
 });

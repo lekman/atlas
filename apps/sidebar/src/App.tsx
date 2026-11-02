@@ -615,6 +615,7 @@ export function App({
                 <>
                   <WaitingOnYou
                     operator={config.operator ?? "you"}
+                    errors={waiting.data?.errors}
                     rows={waitingRows(
                       waiting.data?.items ?? [],
                       focus,

@@ -1,6 +1,11 @@
 import { useId, type CSSProperties } from "react";
 
-import { askText, waitingSource, type WaitingItem } from "../waiting/model";
+import {
+  askText,
+  failedSources,
+  waitingSource,
+  type WaitingItem,
+} from "../waiting/model";
 
 export interface WaitingRow {
   item: WaitingItem;
@@ -14,6 +19,11 @@ export interface WaitingOnYouProps {
   rows: readonly WaitingRow[];
   /** The operator's name, as the asks begin with it. */
   operator: string;
+  /**
+   * Sources that couldn't be read, each "<source>: <message>". With nothing
+   * to list, they say so, so a failed source doesn't read as nothing waiting.
+   */
+  errors?: readonly string[];
 }
 
 /**
@@ -21,9 +31,17 @@ export interface WaitingOnYouProps {
  * operator. It only shows and links; nothing here approves or answers.
  * Absent when nothing waits.
  */
-export function WaitingOnYou({ rows, operator }: WaitingOnYouProps) {
+export function WaitingOnYou({ rows, operator, errors }: WaitingOnYouProps) {
   const heading = useId();
-  if (!rows.length) return null;
+  if (!rows.length) {
+    const failed = failedSources(errors);
+    if (!failed.length) return null;
+    return (
+      <div className="note" title={errors?.join("\n")}>
+        Couldn't check everything that waits on you: {failed.join(", ")}.
+      </div>
+    );
+  }
   return (
     <section className="waiting" aria-labelledby={heading}>
       <div className="wy-h" id={heading}>

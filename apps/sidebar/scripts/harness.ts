@@ -6,7 +6,8 @@
  * any console error or page error, at phone and desktop widths, and when
  * the build is more than one file or links or loads anything.
  *
- * Run after `bun run build`; the story tests' Chromium is the one used.
+ * Run with `bun run check`, which builds with the example config first;
+ * the story tests' Chromium is the one used.
  */
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
