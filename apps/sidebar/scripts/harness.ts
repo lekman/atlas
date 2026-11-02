@@ -115,6 +115,8 @@ const shim = `(() => {
   const mcp = {
     callTool: async (server, tool, args) => {
       if (window.__offline && server === "host:dashboard") throw { code: "server_not_connected" };
+      // window.__refuse names a tool the page's manifest does not declare.
+      if (window.__refuse === tool) throw { code: "not_in_manifest" };
       (window.__calls = window.__calls || []).push({ server, tool, args });
       const answer = tools[server + "/" + tool];
       if (!answer) throw { code: "not_granted" };
@@ -250,6 +252,30 @@ try {
     ) {
       problems.push(`${width}px: answering an ask does not reach Commander`);
     }
+    // A refused answer says why in the form and keeps what was written.
+    await tab.evaluate(() => {
+      (window as unknown as { __refuse?: string }).__refuse =
+        "commander_answer";
+    });
+    await tab.getByRole("radio", { name: "Other" }).check();
+    await tab
+      .getByRole("textbox", { name: "Your answer" })
+      .fill("Tuesday instead");
+    await tab.getByRole("button", { name: "Send to Commander" }).click();
+    if (
+      !(await tab
+        .getByText(/Not sent: this page can't answer yet/)
+        .isVisible()) ||
+      (await tab.getByRole("textbox", { name: "Your answer" }).inputValue()) !==
+        "Tuesday instead"
+    ) {
+      problems.push(
+        `${width}px: a refused answer does not say why in the form`,
+      );
+    }
+    await tab.evaluate(() => {
+      delete (window as unknown as { __refuse?: string }).__refuse;
+    });
     await tab.keyboard.press("Escape");
     // Details: the task opens its page, drawn without HTML, and Escape returns to it.
     const taskTitle = tab.getByRole("button", {

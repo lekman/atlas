@@ -266,6 +266,21 @@ export function useCommander(
           await viaInbox();
           return;
         }
+        // An answer keeps its record, so the form says why it wasn't sent.
+        if (
+          action === "answer" &&
+          (code === "not_in_manifest" || code === "not_granted")
+        ) {
+          patch(id, {
+            state: "failed",
+            updatedAt: new Date().toISOString(),
+            summary:
+              code === "not_in_manifest"
+                ? "Not sent: this page can't answer yet. Quit Claude (Cmd+Q), reopen it, allow it, and send again."
+                : 'Not sent: answering works in the Claude desktop app on your Mac, with the local "dashboard" server running.',
+          });
+          return;
+        }
         if (code === "not_in_manifest" || code === "not_granted") {
           update((held) => {
             const { [id]: _gone, ...rest } = held;
@@ -283,7 +298,12 @@ export function useCommander(
           updatedAt: new Date().toISOString(),
           summary:
             code === "tool_error"
-              ? `Not sent: ${message || "the local server refused"}`
+              ? `Not sent: ${message || "the local server refused"}${
+                  action === "answer" &&
+                  /unknown tool|not found/i.test(message ?? "")
+                    ? ". The local server is older than this page: quit Claude (Cmd+Q) and reopen it."
+                    : ""
+                }`
               : `Couldn't confirm it was sent (${code || "unknown error"}). Check Commander before sending again.`,
         });
       }
