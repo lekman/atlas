@@ -60,7 +60,8 @@ export function loadSet(
       Array.isArray(list) ? list.filter((x) => typeof x === "string") : [],
     );
   } catch {
-    return new Set();
+    // Storage refused (a sandboxed frame): the fallback, as when nothing is saved.
+    return new Set(fallback);
   }
 }
 

@@ -35,6 +35,7 @@ export function useMonday(
             columnIds: [
               board.columns.status,
               board.columns.priority,
+              board.columns.timeline,
               board.columns.key,
             ].filter(Boolean),
             filters: [
