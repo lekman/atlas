@@ -38,12 +38,44 @@ const csp = [
   "font-src https://fonts.gstatic.com data:",
   `script-src 'nonce-${nonce}' https://cdnjs.cloudflare.com`,
 ].join("; ");
-const shim = `window.claude = { use: (name) => name === "db"
-  ? Promise.resolve({ doc: (path) => ({
-      get: async () => ({ id: path, exists: false, data: () => null }),
-      set: async () => {}, delete: async () => {},
-      onSnapshot: (next) => { next({ id: path, exists: false, data: () => null }); return () => {}; } }) })
-  : Promise.reject({ code: "not_granted" }) };`;
+// The runtime stand-in answers host_stats with one invented host and
+// fails every other tool as a connector this view does not have.
+const shim = `(() => {
+  const docs = new Map();
+  const listeners = new Map();
+  const snap = (path) => ({ id: path, exists: docs.has(path), data: () => docs.get(path) ?? null });
+  const tools = {
+    "host:dashboard/host_stats": () => ({ structuredContent: { hosts: [{
+      clientId: "home", host: "harness-host", lastSeen: new Date().toISOString(),
+      latest: { cpuPct: 12, memFreePct: 70, diskFreeGb: 80, runnersBusy: 2, runnersMax: 4 },
+      samples: [], breaches: [{ metric: "cpuPct", level: "warn" }] }] } }),
+  };
+  const mcp = {
+    callTool: async (server, tool) => {
+      const answer = tools[server + "/" + tool];
+      if (!answer) throw { code: "not_granted" };
+      return answer();
+    },
+    watchTool(server, tool, args, onEvent) {
+      mcp.callTool(server, tool, args).then(
+        (result) => onEvent({ type: "data", result }),
+        (error) => onEvent({ type: "error", error }));
+      return () => {};
+    },
+  };
+  const db = { doc: (path) => ({
+    get: async () => snap(path),
+    set: async (data) => { docs.set(path, data); for (const fn of listeners.get(path) ?? []) fn(snap(path)); },
+    delete: async () => { docs.delete(path); },
+    onSnapshot: (next) => {
+      if (!listeners.has(path)) listeners.set(path, new Set());
+      listeners.get(path).add(next); next(snap(path));
+      return () => listeners.get(path).delete(next);
+    } }) };
+  window.claude = { use: (name) => name === "mcp" ? Promise.resolve(mcp)
+    : name === "db" ? Promise.resolve(db) : Promise.reject({ code: "not_granted" }) };
+  window.__docs = docs;
+})();`;
 const body = source
   .replace(/^\s*<!doctype html>/i, "")
   .replace(/<script(?![^>]*\bnonce=)/gi, `<script nonce="${nonce}"`);
@@ -77,6 +109,27 @@ try {
     if (!heading?.startsWith("Atlas")) {
       problems.push(`${width}px: the sidebar did not render`);
     }
+    // Hosts end to end: the tab shows the breach, the panel the host, and
+    // the copy for other devices is stored in the previous page's shape.
+    const hostsTab = tab.getByRole("tab", { name: /host alert/i });
+    if ((await hostsTab.getAttribute("class"))?.includes("warn") !== true) {
+      problems.push(`${width}px: the hosts tab does not show the warning`);
+    }
+    await hostsTab.click();
+    await tab.getByRole("button", { name: /harness-host/ }).click();
+    if (!(await tab.getByText("of 4").isVisible())) {
+      problems.push(`${width}px: the host's runners are not shown`);
+    }
+    const stored = await tab.evaluate(() =>
+      (
+        window as unknown as {
+          __docs: Map<string, { storedAt?: string; hosts?: unknown[] }>;
+        }
+      ).__docs.get("board/hosts"),
+    );
+    if (!stored?.storedAt || stored.hosts?.length !== 1) {
+      problems.push(`${width}px: board/hosts was not stored with storedAt`);
+    }
     for (const e of errors) problems.push(`${width}px: ${e}`);
     await tab.close();
   }
@@ -89,5 +142,5 @@ if (problems.length) {
   process.exit(1);
 }
 console.log(
-  `✓ one file, ${Math.round(source.length / 1024)} KB, renders at 390 and 1280 px with no errors`,
+  `✓ one file, ${Math.round(source.length / 1024)} KB, renders at 390 and 1280 px with no errors; hosts work end to end`,
 );

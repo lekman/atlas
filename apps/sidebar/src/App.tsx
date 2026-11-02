@@ -1,6 +1,8 @@
 import type { Runtime } from "@atlas/runtime";
 import {
   ClientPill,
+  HostsPanel,
+  hostsTab,
   NextUp,
   Note,
   Panel,
@@ -17,7 +19,9 @@ import {
   config as defaultConfig,
   type SidebarConfig,
 } from "./config";
+import { hostsFor } from "./hosts";
 import { KEYS, load, save } from "./storage";
+import { useHosts } from "./useHosts";
 import { sidebarViews, tabLook } from "./views";
 
 export interface AppProps {
@@ -53,6 +57,15 @@ export function App({
     () => load(KEYS.view, (v) => views.some((x) => x.id === v)) ?? "worklist",
   );
   const shown = visibleViews(views, focus, view);
+  const hosts = useHosts(runtime);
+  const shownHosts = hosts.doc
+    ? hostsFor(hosts.doc.hosts, focus, config)
+    : null;
+  const clientOf = (key: string) =>
+    clients.find((c) => c.key === key) ?? {
+      name: "Other",
+      colour: "var(--client-other)",
+    };
 
   const choose = (key: string) => {
     setFocus(key);
@@ -83,6 +96,7 @@ export function App({
           label: v.label,
           iconOnly: true,
           ...tabLook(config, v.id),
+          ...(v.id === "hosts" ? hostsTab(shownHosts) : {}),
         }))}
         selected={shown.selected}
         onSelect={open}
@@ -94,7 +108,19 @@ export function App({
           id={v.id}
           selected={shown.selected}
         >
-          <Panel title={v.label} loading />
+          {v.id === "hosts" ? (
+            <HostsPanel
+              doc={hosts.doc}
+              hosts={shownHosts ?? []}
+              live={hosts.live}
+              error={hosts.error}
+              allClients={focus === "all"}
+              clientOf={(h) => clientOf(h.customer ?? h.clientId)}
+              now={now}
+            />
+          ) : (
+            <Panel title={v.label} loading />
+          )}
         </TabPanel>
       ))}
     </SidebarFrame>

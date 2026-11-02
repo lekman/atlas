@@ -22,9 +22,22 @@ export interface SidebarTracker {
   release?: boolean;
 }
 
+/**
+ * Which hosts a client focus shows. A host shows when its client is listed
+ * in `clients`, its client is not in `notClients` (when that is given), or
+ * its name is in `hosts` (a trailing `*` matches a prefix). A focus without
+ * a filter shows the client's own hosts.
+ */
+export interface HostFilter {
+  clients?: string[];
+  notClients?: string[];
+  hosts?: string[];
+}
+
 export interface SidebarConfig {
   clients: SidebarClient[];
   trackers: SidebarTracker[];
+  hostFilters?: Record<string, HostFilter>;
 }
 
 declare const __SIDEBAR_CONFIG__: SidebarConfig;
