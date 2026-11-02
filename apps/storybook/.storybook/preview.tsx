@@ -81,6 +81,8 @@ const preview: Preview = {
             ["Worklist", "Waiting On You"],
             "Details",
             ["Details View", "Pull Requests"],
+            "Commander",
+            ["Item Actions", "Request Line"],
             "Calendar",
             ["Agenda"],
             "Trackers",

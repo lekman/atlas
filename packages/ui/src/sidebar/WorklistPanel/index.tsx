@@ -51,6 +51,12 @@ export interface WorklistProps {
   menu?: ReactNode;
   /** Opens a task's details. */
   onOpen?: (item: WorkItem) => void;
+  /** A task's ⋯ menu. */
+  rowActions?: (item: WorkItem) => ReactNode;
+  /** A line under a task: its Commander request. */
+  rowStatus?: (item: WorkItem) => ReactNode;
+  /** The task being changed now. */
+  busyRef?: string | null;
 }
 
 /** A group shows its first five tasks until it is opened in full. */
@@ -156,6 +162,9 @@ function DayView({
   today,
   tomorrow,
   onOpen,
+  rowActions,
+  rowStatus,
+  busyRef,
 }: WorklistProps & { items: readonly WorkItem[] }) {
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
   const all = itemsFor(items, band, today, tomorrow);
@@ -214,6 +223,9 @@ function DayView({
                       today={today}
                       showDay={band !== "today"}
                       onOpen={onOpen && t.ref ? () => onOpen(t) : undefined}
+                      actions={rowActions?.(t)}
+                      status={rowStatus?.(t)}
+                      busy={Boolean(busyRef && t.ref === busyRef)}
                     />
                   ))}
                 </ul>
@@ -242,6 +254,9 @@ function PlanView({
   showWaiting,
   today,
   onOpen,
+  rowActions,
+  rowStatus,
+  busyRef,
 }: WorklistProps & { items: readonly WorkItem[] }) {
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
   const [info, setInfo] = useState<string | null>(null);
@@ -339,6 +354,9 @@ function PlanView({
                                 onOpen={
                                   onOpen && t.ref ? () => onOpen(t) : undefined
                                 }
+                                actions={rowActions?.(t)}
+                                status={rowStatus?.(t)}
+                                busy={Boolean(busyRef && t.ref === busyRef)}
                               />
                             ))}
                           </ul>

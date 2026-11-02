@@ -60,3 +60,28 @@ export const Default: Story = {
     await expect(args.actions[0]!.onSelect).toHaveBeenCalled();
   },
 };
+
+/** A task's menu: Copy reference with its icon, then groups divided. */
+export const ItemMenu: Story = {
+  name: "Item Menu",
+  args: {
+    what: "Cut the depots over",
+    actions: [
+      { label: "Copy reference", icon: "clip", onSelect: fn() },
+      { label: "Done", divider: true, onSelect: fn() },
+      { label: "Move to Tomorrow", onSelect: fn() },
+      { label: "Move to Backlog", onSelect: fn() },
+      { label: "Status", divider: true, disabled: true, onSelect: fn() },
+      { label: "Execute", disabled: true, onSelect: fn() },
+    ],
+    footer: "A Commander request for this item is still open.",
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: /actions for/i }));
+    await expect(
+      canvas.getByRole("menuitem", { name: "Copy reference" }),
+    ).toHaveFocus();
+    await expect(canvas.getByText(/still open/)).toBeInTheDocument();
+  },
+};

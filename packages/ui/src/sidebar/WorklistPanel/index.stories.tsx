@@ -4,6 +4,7 @@ import { expect, userEvent, within } from "storybook/test";
 
 import { Worklist } from ".";
 import { ActionMenu } from "../ActionMenu";
+import { RequestLine } from "../RequestLine";
 import { exampleClients } from "../stories/examples";
 import { SidebarStoryFrame } from "../stories/SidebarStoryFrame";
 import {
@@ -161,4 +162,53 @@ export const NoWorklist: Story = {
 /** Before the first answer. */
 export const Loading: Story = {
   args: { items: null, loading: true },
+};
+
+/**
+ * Each open task with its ⋯ menu, and its Commander request under it;
+ * the task being changed is hatched and takes no clicks.
+ */
+export const WithActions: Story = {
+  name: "With Actions",
+  args: {
+    busyRef: "db:2",
+    rowActions: (t) =>
+      t.done ? null : (
+        <ActionMenu
+          what={t.title}
+          actions={[
+            { label: "Copy reference", icon: "clip" },
+            { label: "Done", divider: true },
+            { label: "Move to Tomorrow" },
+          ]}
+        />
+      ),
+    rowStatus: (t) =>
+      t.ref === "db:7" ? (
+        <RequestLine
+          now={new Date("2026-03-12T09:40:00")}
+          request={{
+            id: "dash-1",
+            ref: "db:7",
+            action: "status",
+            state: "answered",
+            summary: "Key rotated on staging; production on Friday",
+            requestedAt: "2026-03-12T09:00:00",
+            updatedAt: "2026-03-12T09:30:00",
+          }}
+        />
+      ) : null,
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText("status · answered")).toBeInTheDocument();
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: /actions for rotate the signing key/i,
+      }),
+    );
+    await expect(
+      canvas.getByRole("menuitem", { name: "Copy reference" }),
+    ).toHaveFocus();
+  },
 };

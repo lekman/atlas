@@ -1853,3 +1853,127 @@
 .atlas-sidebar .dnote.compact {
   margin: 0;
 }
+
+/* ---------- actions ---------- */
+
+.atlas-sidebar .menu button.mcopy {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.atlas-sidebar .menu .ico {
+  display: inline-flex;
+  width: 14px;
+  height: 14px;
+  color: var(--muted);
+}
+
+.atlas-sidebar .menu .ico .ic {
+  width: 14px;
+  height: 14px;
+}
+
+.atlas-sidebar .sub.cmd {
+  margin-top: 2px;
+}
+
+.atlas-sidebar .ago {
+  font-family: var(--f-mono);
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.atlas-sidebar .dacts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 14px 0 0;
+}
+
+.atlas-sidebar .dacts .dgroup {
+  display: contents;
+}
+
+.atlas-sidebar .dicon {
+  all: unset;
+  box-sizing: border-box;
+  width: 42px;
+  height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  color: var(--ink);
+}
+
+.atlas-sidebar .dicon:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.atlas-sidebar .dicon:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.atlas-sidebar .dicon .ic {
+  width: 19px;
+  height: 19px;
+}
+
+.atlas-sidebar .dicon.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--panel);
+}
+
+/* A disabled action stays readable: its icon keeps full contrast, and
+   the dashed border and the default cursor say it can't be used now. */
+.atlas-sidebar .dicon[aria-disabled="true"] {
+  cursor: default;
+  border-style: dashed;
+  color: var(--muted);
+  background: none;
+}
+
+.atlas-sidebar .dacts .sep {
+  width: 1px;
+  background: var(--line);
+  margin: 4px 2px;
+}
+
+.atlas-sidebar .dhint {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 6px;
+  min-height: 16px;
+}
+
+.atlas-sidebar .dstatus {
+  margin: 10px 0 0;
+}
+
+.atlas-sidebar .st.done {
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid var(--ok);
+  color: var(--ok);
+  border-radius: 999px;
+  padding: 0 9px;
+  display: inline-block;
+}
+
+/* A task being changed: no clicks until the answer, and a hatched fill
+   that says so without fading its text below 4.5:1. */
+.atlas-sidebar .task.busy {
+  pointer-events: none;
+  cursor: progress;
+  background-image: repeating-linear-gradient(
+    135deg,
+    var(--hatch) 0 6px,
+    transparent 6px 12px
+  );
+}

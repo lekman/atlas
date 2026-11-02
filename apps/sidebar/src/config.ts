@@ -78,6 +78,18 @@ export interface CalendarConfig {
   samples?: { client: string; note: string };
 }
 
+/**
+ * The phone inbox: a D1 database, written through the Cloudflare
+ * connector, where a view without the local server leaves its requests
+ * for the bridge on the Mac mini to forward.
+ */
+export interface InboxConfig {
+  /** The connector's server name and query tool, as the runtime names them. */
+  server: string;
+  tool: string;
+  databaseId: string;
+}
+
 export interface SidebarConfig {
   /** The operator's name, as asks addressed to them begin with it. */
   operator?: string;
@@ -85,6 +97,7 @@ export interface SidebarConfig {
   trackers: SidebarTracker[];
   hostFilters?: Record<string, HostFilter>;
   calendar?: CalendarConfig;
+  inbox?: InboxConfig;
 }
 
 declare const __SIDEBAR_CONFIG__: SidebarConfig;

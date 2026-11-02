@@ -15,6 +15,11 @@ import {
   ReleaseStatus,
   WaitingOnYou,
   DetailsView,
+  ItemActions,
+  referenceText,
+  RequestLine,
+  type ItemAction,
+  type MenuAction,
   pullCounts,
   PullRequests,
   type WorkItem,
@@ -35,7 +40,7 @@ import {
   upcomingCount,
   visibleViews,
 } from "@atlas/ui/sidebar";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import {
   clientColour,
@@ -47,6 +52,8 @@ import { KEYS, load, loadSet, save, saveSet } from "./storage";
 import { useCalendar } from "./useCalendar";
 import { useWorklist } from "./useWorklist";
 import { useDetails, useDetailsCopies, type DetailsIndex } from "./useDetails";
+import { useCommander } from "./useCommander";
+import { copyText, useTaskActions } from "./useTaskActions";
 import {
   searchable,
   usePullRequests,
@@ -165,6 +172,158 @@ export function App({
     ? (worklist.doc?.items.find((t) => t.ref && t.ref === opened.ref) ?? opened)
     : null;
   const details = useDetails(runtime, openItem, detailsIndex?.items ?? {});
+  const commander = useCommander(runtime, config.inbox);
+  const actions = useTaskActions(runtime, commander, worklist.apply);
+  // A short note above the worklist: what was copied, or that it couldn't be.
+  const [workNote, setWorkNote] = useState<string | null>(null);
+  useEffect(() => {
+    if (!workNote?.startsWith("Copied: ")) return;
+    const timer = setTimeout(() => setWorkNote(null), 3000);
+    return () => clearTimeout(timer);
+  }, [workNote]);
+  const copyReference = async (t: WorkItem) => {
+    const text = referenceText(t.title, t.key);
+    setWorkNote(
+      (await copyText(text))
+        ? `Copied: ${text}`
+        : "Could not copy to the clipboard in this view.",
+    );
+  };
+  const HERE: Record<string, Band> = {
+    today: "today",
+    tomorrow: "tomorrow",
+    future: "backlog",
+    unscheduled: "backlog",
+  };
+  const MOVES: Record<
+    Band,
+    { icon: "today" | "right" | "doorout"; label: string }
+  > = {
+    today: { icon: "today", label: "Move to today" },
+    tomorrow: { icon: "right", label: "Move to tomorrow" },
+    backlog: { icon: "doorout", label: "Move to the backlog" },
+  };
+  const otherBands = (t: WorkItem) =>
+    (["today", "tomorrow", "backlog"] as Band[]).filter(
+      (b) => b !== (HERE[t.band ?? ""] ?? "today"),
+    );
+  const pendingNote = "A Commander request for this item is still open";
+  const rowMenu = (t: WorkItem) => {
+    if (t.done || !t.ref) return null;
+    const open = Boolean(commander.open(t.ref));
+    const items: MenuAction[] = [
+      {
+        label: "Copy reference",
+        icon: "clip",
+        hint: undefined,
+        onSelect: () => {
+          copyReference(t).catch(() => undefined);
+        },
+      },
+      {
+        label: "Done",
+        divider: true,
+        onSelect: () => actions.act(t, "task_done"),
+      },
+      ...otherBands(t).map((b) => ({
+        label: `Move to ${b[0]!.toUpperCase()}${b.slice(1)}`,
+        onSelect: () => actions.act(t, "task_move", { to: b }),
+      })),
+      {
+        label: "Status",
+        divider: true,
+        disabled: open,
+        onSelect: () => commander.send(t, "status"),
+      },
+      {
+        label: "Execute",
+        disabled: open,
+        onSelect: () => commander.send(t, "execute"),
+      },
+    ];
+    return (
+      <ActionMenu
+        what={t.title}
+        actions={items}
+        footer={open ? `${pendingNote}.` : undefined}
+      />
+    );
+  };
+  // One status per task: a claim is newer than the Commander request that led to it.
+  const rowStatus = (t: WorkItem) =>
+    t.claimedBy ? null : (
+      <RequestLine request={commander.latest(t.ref)} now={now} />
+    );
+  const detailActions = (t: WorkItem) => {
+    if (t.done) {
+      return (
+        <div className="dacts">
+          <span className="st done">done</span>
+        </div>
+      );
+    }
+    const open = Boolean(commander.open(t.ref));
+    const busy = actions.busyRef === t.ref;
+    const commanderGroup: ItemAction[] = [
+      ...(t.details
+        ? []
+        : [
+            {
+              icon: "send" as const,
+              label:
+                "Plan with Commander: a details page with a test plan, or a refusal with the reason",
+              primary: true,
+              disabled: open || busy,
+              why: pendingNote.toLowerCase(),
+              onSelect: () => commander.plan(t),
+            },
+          ]),
+      {
+        icon: "play",
+        label: "Execute: dispatch to the owner",
+        primary: Boolean(t.details),
+        disabled: open || busy,
+        why: pendingNote.toLowerCase(),
+        onSelect: () => commander.send(t, "execute"),
+      },
+      {
+        icon: "pulse",
+        label: "Status: ask the owner where this stands",
+        disabled: open || busy,
+        why: pendingNote.toLowerCase(),
+        onSelect: () => commander.send(t, "status"),
+      },
+    ];
+    const taskGroup: ItemAction[] = [
+      {
+        icon: "check",
+        label: "Done",
+        disabled: busy,
+        onSelect: async () => {
+          const fresh = await actions.act(t, "task_done");
+          // Close the details once the fresh worklist has it done, or no longer has it.
+          if (fresh && !fresh.items.some((x) => x.ref === t.ref && !x.done))
+            setOpened(null);
+        },
+      },
+      ...otherBands(t).map((b) => ({
+        icon: MOVES[b].icon,
+        label: MOVES[b].label,
+        disabled: busy,
+        onSelect: () => actions.act(t, "task_move", { to: b }),
+      })),
+    ];
+    return (
+      <>
+        <ItemActions groups={[commanderGroup, taskGroup]} />
+        {commander.latest(t.ref) && (
+          <div className="dstatus">
+            <RequestLine request={commander.latest(t.ref)} now={now} />
+          </div>
+        )}
+      </>
+    );
+  };
   const pulls = usePullRequests(runtime, openItem);
   usePullsRefresh(runtime, worklist.doc?.items ?? null, worklist.liveAt);
   const workItems = worklist.doc?.items ?? null;
@@ -334,6 +493,9 @@ export function App({
               today={dayKey(now)}
               tomorrow={dayKey(tomorrow)}
               onOpen={setOpened}
+              rowActions={rowMenu}
+              rowStatus={rowStatus}
+              busyRef={actions.busyRef}
               notes={
                 <>
                   <WaitingOnYou
@@ -354,6 +516,11 @@ export function App({
                         : row;
                     })}
                   />
+                  {workNote && (
+                    <Note onClose={() => setWorkNote(null)}>{workNote}</Note>
+                  )}
+                  {actions.error && <Note tone="err">{actions.error}</Note>}
+                  {commander.error && <Note tone="err">{commander.error}</Note>}
                   {worklist.error && (
                     <Note tone="err">{worklist.error.text}</Note>
                   )}
@@ -540,6 +707,7 @@ export function App({
           openPullRequests={pullCounts(pulls.doc).open}
           draftPullRequests={pullCounts(pulls.doc).draft}
           onClose={() => setOpened(null)}
+          actions={detailActions(openItem)}
           pullRequests={
             (openItem.key || searchable(openItem) || pulls.doc) && (
               <PullRequests
