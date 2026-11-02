@@ -66,5 +66,21 @@
     "ashgrove": {
       "notClients": ["halcyon"]
     }
+  },
+  "calendar": {
+    "timeZone": "Europe/London",
+    "google": {
+      "client": "ashgrove",
+      "label": "Ashgrove calendar"
+    },
+    "outlook": {
+      "client": "ashgrove",
+      "label": "Work calendar"
+    },
+    "mixedFeeds": ["ashgrove"],
+    "samples": {
+      "client": "halcyon",
+      "note": "Halcyon Labs meetings are placeholders until its calendar feed is added."
+    }
   }
 }

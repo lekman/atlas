@@ -1,11 +1,14 @@
 import type { Runtime } from "@atlas/runtime";
 import {
+  Agenda,
+  agendaDays,
   ClientPill,
   GitHubList,
   HostsPanel,
   hostsTab,
   JiraList,
   MondayList,
+  nextEvent,
   NextUp,
   readJira,
   releaseCount,
@@ -17,6 +20,10 @@ import {
   SidebarHeader,
   TabPanel,
   Tabs,
+  formatDay,
+  formatDuration,
+  formatTime,
+  upcomingCount,
   visibleViews,
 } from "@atlas/ui/sidebar";
 import { useMemo, useState } from "react";
@@ -28,7 +35,9 @@ import {
 } from "./config";
 import { hostsFor } from "./hosts";
 import { KEYS, load, loadSet, save, saveSet } from "./storage";
+import { useCalendar } from "./useCalendar";
 import { useGitHub } from "./useGitHub";
+import { useNow } from "./useNow";
 import { useStored } from "./useStored";
 import { useSync } from "./useSync";
 import { useHosts } from "./useHosts";
@@ -48,8 +57,9 @@ export interface AppProps {
 export function App({
   runtime,
   config = defaultConfig,
-  now = new Date(),
+  now: fixedNow,
 }: AppProps) {
+  const now = useNow(fixedNow);
   const views = useMemo(() => sidebarViews(config), [config]);
   const clients = useMemo(
     () =>
@@ -91,7 +101,9 @@ export function App({
   const jiraTracker = config.trackers.find((t) => t.logo === "jira");
   const jira = useStored(runtime, "board/jira", readJira);
   const events = useStored(runtime, "board/events", (d) =>
-    typeof d === "object" && d !== null ? (d as { syncedAt?: string }) : null,
+    typeof d === "object" && d !== null
+      ? (d as { syncedAt?: string; items?: unknown })
+      : null,
   );
   const sync = useSync(runtime, {
     jira: jira?.syncedAt,
@@ -116,6 +128,13 @@ export function App({
       name: "Other",
       colour: "var(--client-other)",
     };
+  const calendar = useCalendar(runtime, config, events, now);
+  const inFocus = (key: string) => focus === "all" || key === focus;
+  const shownEvents = calendar.events?.filter((e) => inFocus(e.client)) ?? null;
+  const next = shownEvents ? nextEvent(shownEvents, now) : null;
+  const tomorrow = new Date(now);
+  tomorrow.setHours(24, 0, 0, 0);
+  const samples = config.calendar?.samples;
 
   const choose = (key: string) => {
     setFocus(key);
@@ -137,7 +156,25 @@ export function App({
         }}
       />
       <NextUp
-        state="next"
+        state={next?.state ?? "next"}
+        title={
+          next
+            ? `${next.event.title}${next.event.sample ? " (sample)" : ""}`
+            : undefined
+        }
+        empty={shownEvents ? "Nothing in the next 7 days" : "—"}
+        countdown={
+          next
+            ? next.state === "now"
+              ? `ends in ${formatDuration(next.event.end.getTime() - now.getTime())}`
+              : `in ${formatDuration(next.event.start.getTime() - now.getTime())}`
+            : undefined
+        }
+        when={
+          next
+            ? `${next.event.start >= tomorrow ? `${formatDay(next.event.start)} ` : ""}${formatTime(next.event.start)}–${formatTime(next.event.end)} · ${clientOf(next.event.client).name}`
+            : undefined
+        }
         corner={
           <ClientPill clients={clients} focus={focus} onChoose={choose} />
         }
@@ -155,6 +192,9 @@ export function App({
           ...tabLook(config, v.id),
           ...(v.id === "hosts" ? hostsTab(shownHosts) : {}),
           ...(v.id === "release" ? { count: releaseCount(release.data) } : {}),
+          ...(v.id === "agenda" && shownEvents
+            ? { count: String(upcomingCount(shownEvents, now)) }
+            : {}),
         }))}
         selected={shown.selected}
         onSelect={open}
@@ -191,6 +231,34 @@ export function App({
                 />
               }
               loading
+            />
+          ) : v.id === "agenda" ? (
+            <Agenda
+              days={shownEvents ? agendaDays(shownEvents, now) : null}
+              scope={
+                focus === "all"
+                  ? "All customers"
+                  : `${clientOf(focus).name} only`
+              }
+              notes={
+                <>
+                  {samples &&
+                    calendar.usingSamples &&
+                    inFocus(samples.client) && (
+                      <Note tone="warn">
+                        <span className="tag sample">sample</span>{" "}
+                        {samples.note}
+                      </Note>
+                    )}
+                  {calendar.errors.map((e) => (
+                    <Note key={e.text} tone={e.tone}>
+                      {e.text}
+                    </Note>
+                  ))}
+                </>
+              }
+              clientOf={clientOf}
+              now={now}
             />
           ) : v.id === "release" ? (
             releaseView

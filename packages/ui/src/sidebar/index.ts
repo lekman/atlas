@@ -109,3 +109,20 @@ export {
   type JiraDoc,
   type JiraIssue,
 } from "./trackers/jira";
+export { Agenda, type AgendaProps } from "./Agenda";
+export {
+  agendaDays,
+  feedEvents,
+  googleEvents,
+  mergeEvents,
+  nextEvent,
+  outlookEvents,
+  outlookTime,
+  sampleEvents,
+  upcomingCount,
+  wallTime,
+  type AgendaDay,
+  type CalendarEvent,
+  type FeedItem,
+  type SourceOptions,
+} from "./calendar/model";

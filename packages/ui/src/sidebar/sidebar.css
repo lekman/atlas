@@ -1109,3 +1109,121 @@
   background: var(--accent);
   color: var(--panel);
 }
+
+/* ---------- calendar ---------- */
+
+.atlas-sidebar .day {
+  padding: 4px 0 8px;
+}
+
+.atlas-sidebar .dayh {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 16px 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.atlas-sidebar .dayh b {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.atlas-sidebar .evs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.atlas-sidebar .ev {
+  display: grid;
+  grid-template-columns: 96px 4px minmax(0, 1fr);
+  gap: 10px;
+  padding: 6px 16px;
+  align-items: start;
+}
+
+.atlas-sidebar .ev .t {
+  font-family: var(--f-mono);
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  padding-top: 1px;
+}
+
+.atlas-sidebar .ev .bar {
+  align-self: stretch;
+  border-radius: 2px;
+  background: var(--c);
+  min-height: 18px;
+}
+
+.atlas-sidebar .ev .body {
+  min-width: 0;
+}
+
+.atlas-sidebar .ev .name {
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.atlas-sidebar .ev .name a {
+  text-decoration: none;
+}
+
+.atlas-sidebar .ev .name a:hover {
+  text-decoration: underline;
+}
+
+/*
+ * A meeting that has ended reads in the muted colour, and its bar fades.
+ * Fading the whole row, as the previous page did, took its text below
+ * 4.5:1.
+ */
+.atlas-sidebar .ev.past .name,
+.atlas-sidebar .ev.past .name a {
+  color: var(--muted);
+}
+
+.atlas-sidebar .ev.past .bar {
+  opacity: 0.4;
+}
+
+.atlas-sidebar .ev.live {
+  background: var(--now);
+}
+
+.atlas-sidebar .ev.live .t {
+  color: var(--accent);
+}
+
+.atlas-sidebar .ev.sample {
+  background-image: repeating-linear-gradient(
+    135deg,
+    var(--hatch) 0 6px,
+    transparent 6px 12px
+  );
+}
+
+.atlas-sidebar .ev.sample .bar {
+  background: repeating-linear-gradient(
+    180deg,
+    var(--c) 0 3px,
+    transparent 3px 6px
+  );
+}
+
+.atlas-sidebar .tag.sample {
+  color: var(--warn);
+}
+
+.atlas-sidebar .tag.now {
+  color: var(--accent);
+}
+
+.atlas-sidebar .empty {
+  padding: 2px 16px 4px 122px;
+  font-size: 12px;
+  color: var(--muted);
+}
