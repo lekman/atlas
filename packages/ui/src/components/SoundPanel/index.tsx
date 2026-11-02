@@ -16,6 +16,8 @@ export interface SoundPanelProps {
   onPreview(cue: SoundCue): void;
   /** Settings shown above the sound ones, such as the choice of world. */
   children?: ReactNode;
+  /** Inside another dialog, such as the sidebar's settings screen: a plain group, not a second dialog. */
+  embedded?: boolean;
 }
 
 const categoryNames: Array<[SoundCategory, string]> = [
@@ -36,9 +38,14 @@ export function SoundPanel({
   onChange,
   onPreview,
   children,
+  embedded = false,
 }: SoundPanelProps) {
   return (
-    <div className="atlas-panel" role="dialog" aria-label="Settings">
+    <div
+      className="atlas-panel"
+      role={embedded ? "group" : "dialog"}
+      aria-label={embedded ? "Sound and world" : "Settings"}
+    >
       {children}
       <h2 className="atlas-panel-title">Sound</h2>
       <label className="atlas-row" htmlFor="atlas-sound-on">

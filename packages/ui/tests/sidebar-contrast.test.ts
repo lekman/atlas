@@ -82,3 +82,22 @@ describe("sidebar contrast", () => {
     expect(auto).toEqual(themes.dark);
   });
 });
+
+import { worldTokens } from "../src/sidebar/theme/worlds";
+
+describe("sidebar contrast in each world", () => {
+  for (const [world, lighting] of [
+    ["astronomer", "day"],
+    ["mariner", "day"],
+    ["mariner", "night"],
+  ] as const) {
+    const theme = worldTokens(world, lighting);
+    for (const text of TEXT) {
+      for (const fill of FILLS) {
+        it(`${world} ${lighting}: ${text} on ${fill}`, () => {
+          expect(ratio(theme[text]!, theme[fill]!)).toBeGreaterThanOrEqual(4.5);
+        });
+      }
+    }
+  }
+});

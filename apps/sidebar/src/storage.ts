@@ -22,6 +22,12 @@ export const KEYS = {
   showWaiting: "db.showWaiting",
   /** "1" once the backlog has been opened, so its first folds are set once. */
   planInit: "db.planInit",
+  /** The sidebar's world: astronomer or mariner. */
+  world: "atlas.sidebar.world",
+  /** Its lighting: automatic, day or night. */
+  lighting: "atlas.sidebar.lighting",
+  /** The sound settings, as JSON. */
+  sound: "atlas.sidebar.sound",
 } as const;
 
 export function load(

@@ -15,6 +15,9 @@ import {
   ReleaseStatus,
   WaitingOnYou,
   DetailsView,
+  HeaderButtons,
+  SettingsView,
+  syncLabel,
   ItemActions,
   RowButton,
   AssessForm,
@@ -63,6 +66,7 @@ import { useDetails, useDetailsCopies, type DetailsIndex } from "./useDetails";
 import { useCommander } from "./useCommander";
 import { copyText, useTaskActions } from "./useTaskActions";
 import { usePlanning } from "./usePlanning";
+import { usePreferences } from "./usePreferences";
 import {
   searchable,
   usePullRequests,
@@ -182,6 +186,13 @@ export function App({
     : null;
   const details = useDetails(runtime, openItem, detailsIndex?.items ?? {});
   const commander = useCommander(runtime, config.inbox);
+  const prefs = usePreferences();
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const syncState = {
+    liveAt: worklist.liveAt,
+    syncedAt: worklist.doc?.syncedAt ?? null,
+    error: sync && "error" in sync ? sync.error : null,
+  };
   const actions = useTaskActions(runtime, commander, worklist.apply);
   const planning = usePlanning(
     runtime,
@@ -435,14 +446,19 @@ export function App({
   };
 
   return (
-    <SidebarFrame fill>
+    <SidebarFrame fill world={{ id: prefs.world, lighting: prefs.resolved }}>
       <SidebarHeader
         now={now}
-        sync={{
-          liveAt: worklist.liveAt,
-          syncedAt: worklist.doc?.syncedAt ?? null,
-          error: sync && "error" in sync ? sync.error : null,
-        }}
+        sync={syncState}
+        controls={
+          <HeaderButtons
+            soundOn={prefs.sound.enabled}
+            onSound={() =>
+              prefs.setSound({ ...prefs.sound, enabled: !prefs.sound.enabled })
+            }
+            onSettings={() => setSettingsOpen(true)}
+          />
+        }
       />
       <NextUp
         state={next?.state ?? "next"}
@@ -981,6 +997,20 @@ export function App({
               />
             )
           }
+        />
+      )}
+      {settingsOpen && (
+        <SettingsView
+          world={prefs.world}
+          onWorld={prefs.setWorld}
+          lighting={prefs.lighting}
+          onLighting={prefs.setLighting}
+          deviceIsDark={prefs.deviceIsDark}
+          sound={prefs.sound}
+          onSound={prefs.setSound}
+          onPreview={prefs.preview}
+          sync={syncLabel(syncState, now)}
+          onClose={() => setSettingsOpen(false)}
         />
       )}
       {triage && (
