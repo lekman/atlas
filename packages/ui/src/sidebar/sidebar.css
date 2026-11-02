@@ -962,3 +962,124 @@
   display: grid;
   gap: 14px;
 }
+
+/* ---------- tracker rows and groups ---------- */
+
+.atlas-sidebar .rows {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 6px;
+}
+
+.atlas-sidebar .task {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr);
+  gap: 8px;
+  padding: 5px 16px;
+}
+
+.atlas-sidebar .task .tb {
+  min-width: 0;
+}
+
+.atlas-sidebar .task .pri {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-top: 6px;
+  border: 1px solid var(--muted);
+}
+
+.atlas-sidebar .task .pri.high {
+  background: var(--bad);
+  border-color: var(--bad);
+}
+
+.atlas-sidebar .task .pri.medium {
+  background: var(--warn);
+  border-color: var(--warn);
+}
+
+.atlas-sidebar .task .pri.low {
+  background: transparent;
+}
+
+.atlas-sidebar .task .ti {
+  overflow-wrap: anywhere;
+}
+
+.atlas-sidebar .task .ti a {
+  text-decoration: none;
+}
+
+.atlas-sidebar .task .ti a:hover {
+  text-decoration: underline;
+}
+
+.atlas-sidebar .key {
+  font-family: var(--f-mono);
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.atlas-sidebar .grp {
+  padding: 8px 16px 2px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--c);
+  font-weight: 600;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.atlas-sidebar .grp > span:last-child {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.atlas-sidebar button.grp {
+  all: unset;
+  box-sizing: border-box;
+  width: 100%;
+  cursor: pointer;
+  padding: 8px 16px 2px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--c);
+  font-weight: 600;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.atlas-sidebar button.grp:hover .nm {
+  text-decoration: underline;
+}
+
+.atlas-sidebar button.grp:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.atlas-sidebar button.grp .nm {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.atlas-sidebar button.grp .chev {
+  transition: transform 0.15s;
+}
+
+.atlas-sidebar button.grp[aria-expanded="false"] .chev {
+  transform: rotate(-90deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .atlas-sidebar button.grp .chev {
+    transition: none;
+  }
+}

@@ -29,7 +29,20 @@
       "client": "kestrel",
       "source": "Monday",
       "logo": "monday",
-      "release": true
+      "release": true,
+      "title": "Operations board, mine",
+      "monday": {
+        "boardId": 1,
+        "personColumn": "people",
+        "personId": "person-1",
+        "columns": {
+          "status": "status",
+          "priority": "priority",
+          "key": "number"
+        },
+        "doneIndex": 1,
+        "keyPrefix": "KF"
+      }
     },
     {
       "client": "halcyon",

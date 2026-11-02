@@ -3,6 +3,7 @@ import {
   ClientPill,
   HostsPanel,
   hostsTab,
+  MondayList,
   NextUp,
   releaseCount,
   ReleaseStatus,
@@ -25,6 +26,7 @@ import {
 import { hostsFor } from "./hosts";
 import { KEYS, load, save } from "./storage";
 import { useHosts } from "./useHosts";
+import { useMonday } from "./useMonday";
 import { useRelease } from "./useRelease";
 import { useWaiting } from "./useWaiting";
 import { waitingRows } from "./waiting";
@@ -69,6 +71,8 @@ export function App({
     : null;
   const waiting = useWaiting(runtime);
   const release = useRelease(runtime);
+  const mondayTracker = config.trackers.find((t) => t.monday);
+  const monday = useMonday(runtime, mondayTracker?.monday);
   // The client whose release status the sidebar shows, if any.
   const releaseClient = config.trackers.find((t) => t.release)?.client;
   const releaseView = (
@@ -159,7 +163,17 @@ export function App({
             <>
               {/* With every client shown, release status sits above its client's tracker. */}
               {v.id === releaseClient && focus === "all" && releaseView}
-              <Panel title={v.label} loading />
+              {v.id === mondayTracker?.client ? (
+                <MondayList
+                  title={`${clientOf(v.id).name} · ${mondayTracker.title ?? "Monday, assigned to me"}`}
+                  page={monday.data}
+                  error={monday.error}
+                  updatedAt={monday.updatedAt}
+                  now={now}
+                />
+              ) : (
+                <Panel title={v.label} loading />
+              )}
             </>
           )}
         </TabPanel>

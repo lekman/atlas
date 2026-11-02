@@ -17,14 +17,30 @@ export interface SidebarClient {
   keywords?: string[];
 }
 
+/** The Monday board a tracker reads, and how its columns are used. */
+export interface MondayBoard {
+  boardId: number;
+  /** The people column, and the operator's person id in it. */
+  personColumn: string;
+  personId: string;
+  columns: { status: string; priority?: string; key?: string };
+  /** The status column's index for Done, which the query leaves out. */
+  doneIndex?: number;
+  /** Item numbers show as `<prefix>-<number>`. */
+  keyPrefix: string;
+}
+
 /** A client's tracker tab: its name with every client shown is the client's. */
 export interface SidebarTracker {
   client: string;
   /** The tab's name with one client chosen: "Jira", "Monday", "GitHub". */
   source: string;
   logo: "monday" | "jira" | "github";
+  /** The panel's title after the client's name, as "Tech board, mine". */
+  title?: string;
   /** A release-status tab, shown only with this client chosen. */
   release?: boolean;
+  monday?: MondayBoard;
 }
 
 /**
