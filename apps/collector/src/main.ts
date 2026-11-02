@@ -10,6 +10,10 @@
  *   bun apps/collector/src/main.ts --apply --once
  *   bun apps/collector/src/main.ts --list     each session as read here, without calling Atlas
  *
+ * Sessions with a record in ~/.claude/sessions are left to the Atlas server
+ * where it runs on this machine (ATLAS_SESSIONS_DIR); pass --with-records on
+ * a machine without the server to report those too.
+ *
  * Atlas's address is ATLAS_MCP_URL (default the Mac mini's tailnet address).
  * The machine token is read from the Keychain item atlas-token on each call
  * and never printed. Only a session name, enums, numbers and fixed notes
@@ -35,6 +39,7 @@ const URL_ = process.env.ATLAS_MCP_URL ?? "https://server.tail051b7.ts.net/mcp";
 const APPLY = process.argv.includes("--apply");
 const ONCE = process.argv.includes("--once") || !APPLY;
 const TAIL_LINES = 400;
+const WITH_RECORDS = process.argv.includes("--with-records");
 
 const log = (...a: unknown[]) => console.log(new Date().toISOString(), ...a);
 
@@ -157,7 +162,12 @@ function sessions(): Array<{
       transcript,
     });
   }
-  return [...out.values()];
+  return [...out.values()].filter(
+    (s) =>
+      WITH_RECORDS ||
+      s.record.state === null ||
+      process.argv.includes("--list"),
+  );
 }
 
 function lastLines(path: string): string[] {
