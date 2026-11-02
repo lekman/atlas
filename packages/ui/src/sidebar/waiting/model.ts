@@ -30,8 +30,10 @@ export interface WaitingItem {
   worker?: string;
   /** What is asked, as the source wrote it. */
   ask?: string;
-  /** Context, shown as the tooltip. */
+  /** The latest state behind the ask, in a line or two. */
   reason?: string;
+  /** A task's summary, so the ask can be judged without opening it. */
+  detail?: string;
   /** A task's title. */
   title?: string;
   /** When it started waiting, ISO 8601. */
@@ -81,9 +83,18 @@ export function askText(
     item.kind === "commander"
       ? new RegExp(`\\b${name}\\s*(?:to\\b|:)\\s*(.+)$`, "i").exec(raw)
       : null;
+  // "Tobias's go to …" and "your go to …" become "Your go to …"; then a
+  // leading name or "you" with its colon is dropped.
+  const owned = raw.replace(
+    new RegExp(`^\\s*(?:${name}['’]s|your)\\s+`, "i"),
+    "Your ",
+  );
   const said = fromCommander
     ? fromCommander[1]!
-    : raw.replace(new RegExp(`^\\s*(${name}|you)\\s*[:,–-]?\\s*`, "i"), "");
+    : owned.replace(
+        new RegExp(`^\\s*(${name}|you)\\b\\s*[:,–-]?\\s*`, "i"),
+        "",
+      );
   return {
     ask: said.charAt(0).toUpperCase() + said.slice(1),
     tooltip: item.reason ?? (fromCommander ? raw : ""),
@@ -152,18 +163,22 @@ export const YES_NO_OPTIONS: readonly AskOption[] = [
 ];
 
 const OPEN_QUESTION = /^\s*(which|what|who|whom|whose|when|where|why|how)\b/i;
+/** An ask for a go-ahead, which is a yes or no without the question mark. */
+const GO_AHEAD =
+  /^\s*(your\s+(go|approval|ok|okay|sign-off)|approval\b|approve\b|ok\s+to\b|okay\s+to\b|go\s+ahead\b|confirm\b)/i;
 
 /**
  * The options the answer form offers: the asker's own, or the yes and no
- * answers when it asked a closed question ("Restart the waiter?") without
- * any. An open question ("Which client…?") or a request for a name gets
+ * answers when it asked a closed question ("Restart the waiter?") or for a
+ * go-ahead ("Your go to import the tickets") without any. An open question ("Which client…?") or a request for a name gets
  * none, so it is answered in your own words.
  */
 export function answerOptions(item: WaitingItem, ask: string): AskOption[] {
   const own = askOptions(item);
   if (own.length) return own;
   const text = ask.trim();
-  return text.endsWith("?") && !OPEN_QUESTION.test(text)
+  return (text.endsWith("?") && !OPEN_QUESTION.test(text)) ||
+    GO_AHEAD.test(text)
     ? [...YES_NO_OPTIONS]
     : [];
 }

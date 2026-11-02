@@ -115,6 +115,9 @@ export function WaitingOnYou({
                   ),
                 )}
               </div>
+              {row.item.detail && (
+                <div className="detail-line">{row.item.detail}</div>
+              )}
               {row.rule && (
                 <div className="rule">Commander's rule: {row.rule}</div>
               )}
