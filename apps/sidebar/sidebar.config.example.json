@@ -1,9 +1,28 @@
 {
+  "operator": "Alex",
   "clients": [
-    { "key": "halcyon", "name": "Halcyon Labs", "slot": 1 },
-    { "key": "kestrel", "name": "Kestrel Freight", "slot": 2 },
-    { "key": "meridian", "name": "Meridian Bank", "slot": 4 },
-    { "key": "ashgrove", "name": "Ashgrove Consulting", "slot": 5 }
+    {
+      "key": "halcyon",
+      "name": "Halcyon Labs",
+      "slot": 1,
+      "keywords": ["halcyon"]
+    },
+    {
+      "key": "kestrel",
+      "name": "Kestrel Freight",
+      "slot": 2,
+      "keywords": ["kestrel"]
+    },
+    {
+      "key": "meridian",
+      "name": "Meridian Bank",
+      "slot": 4
+    },
+    {
+      "key": "ashgrove",
+      "name": "Ashgrove Consulting",
+      "slot": 5
+    }
   ],
   "trackers": [
     {
@@ -12,7 +31,23 @@
       "logo": "monday",
       "release": true
     },
-    { "client": "halcyon", "source": "Jira", "logo": "jira" },
-    { "client": "meridian", "source": "GitHub", "logo": "github" }
-  ]
+    {
+      "client": "halcyon",
+      "source": "Jira",
+      "logo": "jira"
+    },
+    {
+      "client": "meridian",
+      "source": "GitHub",
+      "logo": "github"
+    }
+  ],
+  "hostFilters": {
+    "halcyon": {
+      "clients": ["halcyon"]
+    },
+    "ashgrove": {
+      "notClients": ["halcyon"]
+    }
+  }
 }

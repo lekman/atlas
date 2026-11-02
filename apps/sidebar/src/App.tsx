@@ -4,6 +4,7 @@ import {
   HostsPanel,
   hostsTab,
   NextUp,
+  WaitingOnYou,
   Note,
   Panel,
   SidebarFrame,
@@ -22,6 +23,8 @@ import {
 import { hostsFor } from "./hosts";
 import { KEYS, load, save } from "./storage";
 import { useHosts } from "./useHosts";
+import { useWaiting } from "./useWaiting";
+import { waitingRows } from "./waiting";
 import { sidebarViews, tabLook } from "./views";
 
 export interface AppProps {
@@ -58,9 +61,10 @@ export function App({
   );
   const shown = visibleViews(views, focus, view);
   const hosts = useHosts(runtime);
-  const shownHosts = hosts.doc
-    ? hostsFor(hosts.doc.hosts, focus, config)
+  const shownHosts = hosts.data
+    ? hostsFor(hosts.data.hosts, focus, config)
     : null;
+  const waiting = useWaiting(runtime);
   const clientOf = (key: string) =>
     clients.find((c) => c.key === key) ?? {
       name: "Other",
@@ -110,13 +114,29 @@ export function App({
         >
           {v.id === "hosts" ? (
             <HostsPanel
-              doc={hosts.doc}
+              doc={hosts.data}
               hosts={shownHosts ?? []}
               live={hosts.live}
               error={hosts.error}
               allClients={focus === "all"}
               clientOf={(h) => clientOf(h.customer ?? h.clientId)}
               now={now}
+            />
+          ) : v.id === "worklist" ? (
+            <Panel
+              title={v.label}
+              notes={
+                <WaitingOnYou
+                  operator={config.operator ?? "you"}
+                  rows={waitingRows(
+                    waiting.data?.items ?? [],
+                    focus,
+                    config,
+                    clientOf,
+                  )}
+                />
+              }
+              loading
             />
           ) : (
             <Panel title={v.label} loading />

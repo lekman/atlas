@@ -69,6 +69,8 @@ const preview: Preview = {
             ["Colours", "Icons"],
             "Frame",
             ["Header", "Next Up", "Client Pill", "Tabs", "Panel", "Note"],
+            "Worklist",
+            ["Waiting On You"],
             "Hosts",
             ["Hosts Panel", "Host Card"],
           ],

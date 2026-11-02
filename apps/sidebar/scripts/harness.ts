@@ -38,8 +38,8 @@ const csp = [
   "font-src https://fonts.gstatic.com data:",
   `script-src 'nonce-${nonce}' https://cdnjs.cloudflare.com`,
 ].join("; ");
-// The runtime stand-in answers host_stats with one invented host and
-// fails every other tool as a connector this view does not have.
+// The runtime stand-in answers host_stats and waiting_on_you with invented
+// data and fails every other tool as a connector this view does not have.
 const shim = `(() => {
   const docs = new Map();
   const listeners = new Map();
@@ -49,6 +49,8 @@ const shim = `(() => {
       clientId: "home", host: "harness-host", lastSeen: new Date().toISOString(),
       latest: { cpuPct: 12, memFreePct: 70, diskFreeGb: 80, runnersBusy: 2, runnersMax: 4 },
       samples: [], breaches: [{ metric: "cpuPct", level: "warn" }] }] } }),
+    "host:dashboard/waiting_on_you": () => ({ structuredContent: { items: [
+      { kind: "question", ask: "Which day suits the review?" }] } }),
   };
   const mcp = {
     callTool: async (server, tool) => {
@@ -109,6 +111,12 @@ try {
     if (!heading?.startsWith("Atlas")) {
       problems.push(`${width}px: the sidebar did not render`);
     }
+    // Waiting on you sits above the worklist and is stored for other devices.
+    if (
+      !(await tab.getByRole("region", { name: /waiting on you/i }).isVisible())
+    ) {
+      problems.push(`${width}px: waiting on you is not shown`);
+    }
     // Hosts end to end: the tab shows the breach, the panel the host, and
     // the copy for other devices is stored in the previous page's shape.
     const hostsTab = tab.getByRole("tab", { name: /host alert/i });
@@ -130,6 +138,16 @@ try {
     if (!stored?.storedAt || stored.hosts?.length !== 1) {
       problems.push(`${width}px: board/hosts was not stored with storedAt`);
     }
+    const waiting = await tab.evaluate(() =>
+      (
+        window as unknown as {
+          __docs: Map<string, { storedAt?: string; items?: unknown[] }>;
+        }
+      ).__docs.get("board/waiting"),
+    );
+    if (!waiting?.storedAt || waiting.items?.length !== 1) {
+      problems.push(`${width}px: board/waiting was not stored with storedAt`);
+    }
     for (const e of errors) problems.push(`${width}px: ${e}`);
     await tab.close();
   }
@@ -142,5 +160,5 @@ if (problems.length) {
   process.exit(1);
 }
 console.log(
-  `✓ one file, ${Math.round(source.length / 1024)} KB, renders at 390 and 1280 px with no errors; hosts work end to end`,
+  `✓ one file, ${Math.round(source.length / 1024)} KB, renders at 390 and 1280 px with no errors; hosts and waiting work end to end`,
 );

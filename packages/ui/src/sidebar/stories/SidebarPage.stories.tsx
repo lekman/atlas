@@ -11,6 +11,7 @@ import { Panel } from "../Panel";
 import { SidebarFrame } from "../SidebarFrame";
 import { SidebarHeader } from "../SidebarHeader";
 import { TabPanel, Tabs } from "../Tabs";
+import { WaitingOnYou } from "../WaitingOnYou";
 import { visibleViews } from "../views";
 import {
   exampleClients,
@@ -19,6 +20,7 @@ import {
   STORY_NOW,
 } from "./examples";
 import { clientOfHost, hostsDoc } from "./hosts";
+import { OPERATOR, waitingItems } from "./waiting";
 
 /**
  * The sidebar's frame with every view as an empty panel. The views fill in
@@ -77,6 +79,34 @@ function SidebarPage({
               allClients={focus === "all"}
               clientOf={clientOfHost}
               now={STORY_NOW}
+            />
+          ) : v.id === "worklist" ? (
+            <Panel
+              title={v.label}
+              notes={
+                <>
+                  <WaitingOnYou
+                    operator={OPERATOR}
+                    rows={waitingItems
+                      .filter(
+                        (i) =>
+                          focus === "all" ||
+                          !i.customer ||
+                          i.customer === focus,
+                      )
+                      .map((item) => ({
+                        item,
+                        client: exampleClients.find(
+                          (c) => c.key === item.customer,
+                        ) ?? {
+                          name: "Other",
+                          colour: "var(--client-other)",
+                        },
+                      }))}
+                  />
+                  <Note>The worklist joins the sidebar in a later step.</Note>
+                </>
+              }
             />
           ) : (
             <Panel
