@@ -111,3 +111,26 @@ export const YesOrNo: Story = {
     });
   },
 };
+
+/** After answering: when, and what was chosen, above the choices to answer again. */
+export const Answered: Story = {
+  args: {
+    ask: "Restart the Dashboard waiter?",
+    from: "Commander",
+    options: [...YES_NO_OPTIONS],
+    sent: {
+      at: "2026-03-12T09:56:33",
+      answer: { choice: "Yes, and for all future requests", always: true },
+    },
+    status: { tone: "warn", text: "Received; waiting for Commander" },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByText(/You answered Thu 12 Mar 09:56/),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("button", { name: "Send again to Commander" }),
+    ).toBeInTheDocument();
+  },
+};

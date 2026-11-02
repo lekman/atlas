@@ -856,6 +856,19 @@
   outline-offset: 1px;
 }
 
+.atlas-sidebar .waiting .late {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--warn);
+  font-weight: 600;
+}
+
+.atlas-sidebar .waiting .late .ic {
+  width: 14px;
+  height: 14px;
+}
+
 .atlas-sidebar .waiting .rule {
   font-size: 12px;
   color: var(--ok);
@@ -884,6 +897,23 @@
 .atlas-sidebar .askf .askq p {
   margin: 2px 0 0;
   font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.atlas-sidebar .askf .asksent {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--now);
+}
+
+.atlas-sidebar .askf .asksent .ah {
+  color: var(--muted);
+}
+
+.atlas-sidebar .askf .asksent p {
+  margin: 0;
   overflow-wrap: anywhere;
 }
 

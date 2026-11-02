@@ -77,3 +77,32 @@ describe("answerOptions", () => {
     expect(YES_NO_OPTIONS.length).toBe(4);
   });
 });
+
+import { answeredView } from "../src/sidebar/waiting/model";
+
+describe("answeredView", () => {
+  const now = new Date("2026-11-02T14:10:00Z");
+  it("shows an ask with no answer, or one that failed to send", () => {
+    expect(answeredView(null, now)).toBe("show");
+    expect(
+      answeredView(
+        { state: "failed", requestedAt: "2026-11-02T14:05:00Z" },
+        now,
+      ),
+    ).toBe("show");
+  });
+  it("hides it for ten minutes after an answer, then marks it late", () => {
+    expect(
+      answeredView(
+        { state: "received", requestedAt: "2026-11-02T14:05:00Z" },
+        now,
+      ),
+    ).toBe("hide");
+    expect(
+      answeredView(
+        { state: "received", requestedAt: "2026-11-02T13:59:00Z" },
+        now,
+      ),
+    ).toBe("late");
+  });
+});

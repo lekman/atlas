@@ -1,5 +1,6 @@
 import { useId, type CSSProperties } from "react";
 
+import { formatTime } from "../format";
 import { Icon } from "../Icon";
 import {
   askText,
@@ -16,6 +17,11 @@ export interface WaitingRow {
   onOpen?: () => void;
   /** A rule Commander would follow to answer it, in words. */
   rule?: string;
+  /**
+   * Answered, and still waiting ten minutes later: the time it was answered.
+   * The source line then says so, with a warning icon, instead of who asks.
+   */
+  answeredAt?: string;
 }
 
 export interface WaitingOnYouProps {
@@ -95,11 +101,19 @@ export function WaitingOnYou({
                 <span className="ask">{ask}</span>
               )}
               <div className="sub">
-                {waitingSource(row.item, row.client.name).map((part, j) => (
-                  <span key={part} className={j === 0 ? "cust" : undefined}>
-                    {part}
-                  </span>
-                ))}
+                {waitingSource(row.item, row.client.name).map((part, j) =>
+                  j === 0 && row.answeredAt ? (
+                    <span key={part} className="late">
+                      <Icon name="gapc" />
+                      Answered {formatTime(new Date(row.answeredAt))}, no reply
+                      yet
+                    </span>
+                  ) : (
+                    <span key={part} className={j === 0 ? "cust" : undefined}>
+                      {part}
+                    </span>
+                  ),
+                )}
               </div>
               {row.rule && (
                 <div className="rule">Commander's rule: {row.rule}</div>

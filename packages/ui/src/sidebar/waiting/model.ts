@@ -167,3 +167,22 @@ export function answerOptions(item: WaitingItem, ask: string): AskOption[] {
     ? [...YES_NO_OPTIONS]
     : [];
 }
+
+/** How long an answered ask stays hidden while its asker hasn't replied. */
+export const ANSWER_GRACE_MS = 10 * 60_000;
+
+/**
+ * What to do with an ask after an answer was sent: show it as usual when
+ * none was sent or sending failed, hide it for ten minutes, then show it
+ * again marked late when it is still waiting.
+ */
+export function answeredView(
+  sent: { state: string; requestedAt: string } | null,
+  now: Date,
+): "show" | "hide" | "late" {
+  if (!sent || sent.state === "failed" || sent.state === "sending")
+    return "show";
+  const at = Date.parse(sent.requestedAt);
+  if (Number.isNaN(at)) return "show";
+  return now.getTime() - at < ANSWER_GRACE_MS ? "hide" : "late";
+}

@@ -261,7 +261,12 @@ try {
     await tab
       .getByRole("textbox", { name: "Your answer" })
       .fill("Tuesday instead");
-    await tab.getByRole("button", { name: "Send to Commander" }).click();
+    if (!(await tab.getByText(/^You answered /).isVisible())) {
+      problems.push(
+        `${width}px: the answer form does not say when you answered`,
+      );
+    }
+    await tab.getByRole("button", { name: "Send again to Commander" }).click();
     if (
       !(await tab
         .getByText(/Not sent: this page can't answer yet/)

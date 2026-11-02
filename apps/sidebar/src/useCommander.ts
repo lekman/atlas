@@ -156,6 +156,7 @@ export function useCommander(
         (held) => ({
           ...held,
           [record.id]: {
+            ...held[record.id],
             ...record,
             state: "sending",
             via: "inbox",
@@ -211,7 +212,11 @@ export function useCommander(
 
   const request = useCallback(
     async (
-      subject: { ref: string; title: string },
+      subject: {
+        ref: string;
+        title: string;
+        answer?: CommanderRequest["answer"];
+      },
       action: RequestAction,
       tool: string,
       buildArgs: (id: string) => Record<string, unknown>,
@@ -227,6 +232,7 @@ export function useCommander(
             ref: subject.ref,
             action,
             title: subject.title,
+            ...(subject.answer ? { answer: subject.answer } : {}),
             state: "sending",
             summary: "",
             worker: null,
@@ -436,7 +442,7 @@ export function useCommander(
       const ref = askKey(item);
       if (!ref) return;
       await request(
-        { ref, title: item.ask ?? item.title ?? "" },
+        { ref, title: item.ask ?? item.title ?? "", answer },
         "answer",
         "commander_answer",
         (id) => ({
