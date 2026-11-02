@@ -5,6 +5,7 @@ import { expect, userEvent, within } from "storybook/test";
 import { ClientPill } from "../ClientPill";
 import { hostsTab } from "../hosts/model";
 import { HostsPanel } from "../HostsPanel";
+import { MondayList } from "../MondayList";
 import { NextUp } from "../NextUp";
 import { Note } from "../Note";
 import { Panel } from "../Panel";
@@ -22,6 +23,7 @@ import {
   STORY_NOW,
 } from "./examples";
 import { clientOfHost, hostsDoc } from "./hosts";
+import { mondayExample } from "./monday";
 import { releaseDrifted } from "./release";
 import { OPERATOR, waitingItems } from "./waiting";
 
@@ -122,12 +124,21 @@ function SidebarPage({
               {v.id === "kestrel" && focus === "all" && (
                 <ReleaseStatus doc={releaseDrifted} live now={STORY_NOW} />
               )}
-              <Panel
-                title={v.label}
-                notes={
-                  <Note>This view joins the sidebar in a later step.</Note>
-                }
-              />
+              {v.id === "kestrel" ? (
+                <MondayList
+                  title="Kestrel Freight · Operations board, mine"
+                  page={mondayExample}
+                  updatedAt={STORY_NOW}
+                  now={STORY_NOW}
+                />
+              ) : (
+                <Panel
+                  title={v.label}
+                  notes={
+                    <Note>This view joins the sidebar in a later step.</Note>
+                  }
+                />
+              )}
             </>
           )}
         </TabPanel>

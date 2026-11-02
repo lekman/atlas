@@ -16,21 +16,27 @@ export interface Feed<T> {
   error: { text: string; tone: "warn" | "err" } | null;
   /** The live read's error as the runtime gave it, unusable connectors included. */
   failure: RuntimeError | null;
+  /** When the live data was read, in epoch milliseconds. */
+  liveAt?: number | null;
 }
 
 /**
  * A tool watched through the runtime, with its stored copy. `server` names
  * the source in error messages. The options are read once, when the
- * runtime is set.
+ * runtime is set; null options watch nothing.
  */
 export function useFeed<T>(
   runtime: Runtime,
-  options: FeedOptions<T>,
+  options: FeedOptions<T> | null,
   server: string,
 ): Feed<T> {
   const [state, setState] = useState<FeedState<T> | null>(null);
+  const on = options !== null;
   // biome-ignore lint/correctness/useExhaustiveDependencies: the options are fixed per call site.
-  useEffect(() => runtime.feed<T>(options, setState), [runtime]);
+  useEffect(
+    () => (options ? runtime.feed<T>(options, setState) : undefined),
+    [runtime, on],
+  );
   const error = state?.error;
   return {
     data: state?.live ?? state?.stored ?? null,
@@ -44,5 +50,6 @@ export function useFeed<T>(
           }
         : null,
     failure: error ?? null,
+    liveAt: state?.liveAt ?? null,
   };
 }
