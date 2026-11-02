@@ -19,6 +19,8 @@ import { releaseCount } from "../release/model";
 import { ReleaseStatus } from "../ReleaseStatus";
 import { TabPanel, Tabs } from "../Tabs";
 import { WaitingOnYou } from "../WaitingOnYou";
+import type { Band } from "../worklist/model";
+import { Worklist } from "../WorklistPanel";
 import { visibleViews } from "../views";
 import {
   exampleClients,
@@ -33,6 +35,7 @@ import { jiraExample } from "./jira";
 import { mondayExample } from "./monday";
 import { releaseDrifted } from "./release";
 import { OPERATOR, waitingItems } from "./waiting";
+import { STORY_TODAY, STORY_TOMORROW, worklistItems } from "./worklist";
 
 /**
  * The sidebar's frame with every view as an empty panel. The views fill in
@@ -47,6 +50,8 @@ function SidebarPage({
 }) {
   const [focus, setFocus] = useState(initialFocus);
   const [view, setView] = useState("worklist");
+  const [band, setBand] = useState<Band>("today");
+  const [folded, setFolded] = useState<ReadonlySet<string>>(new Set());
   const shown = visibleViews(exampleViews, focus, view);
   return (
     <SidebarFrame theme={theme} fill>
@@ -97,31 +102,40 @@ function SidebarPage({
               now={STORY_NOW}
             />
           ) : v.id === "worklist" ? (
-            <Panel
-              title={v.label}
+            <Worklist
+              items={worklistItems}
+              band={band}
+              onBand={setBand}
+              clients={exampleClients}
+              focus={focus}
+              folded={folded}
+              onFold={(key) => {
+                const next = new Set(folded);
+                if (!next.delete(key)) next.add(key);
+                setFolded(next);
+              }}
+              showDone={false}
+              showWaiting
+              today={STORY_TODAY}
+              tomorrow={STORY_TOMORROW}
               notes={
-                <>
-                  <WaitingOnYou
-                    operator={OPERATOR}
-                    rows={waitingItems
-                      .filter(
-                        (i) =>
-                          focus === "all" ||
-                          !i.customer ||
-                          i.customer === focus,
-                      )
-                      .map((item) => ({
-                        item,
-                        client: exampleClients.find(
-                          (c) => c.key === item.customer,
-                        ) ?? {
-                          name: "Other",
-                          colour: "var(--client-other)",
-                        },
-                      }))}
-                  />
-                  <Note>The worklist joins the sidebar in a later step.</Note>
-                </>
+                <WaitingOnYou
+                  operator={OPERATOR}
+                  rows={waitingItems
+                    .filter(
+                      (i) =>
+                        focus === "all" || !i.customer || i.customer === focus,
+                    )
+                    .map((item) => ({
+                      item,
+                      client: exampleClients.find(
+                        (c) => c.key === item.customer,
+                      ) ?? {
+                        name: "Other",
+                        colour: "var(--client-other)",
+                      },
+                    }))}
+                />
               }
             />
           ) : v.id === "agenda" ? (

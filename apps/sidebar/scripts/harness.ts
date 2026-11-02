@@ -69,6 +69,16 @@ const shim = `(() => {
       id: "o1", subject: "Harness Outlook meeting",
       start: { dateTime: new Date(Date.now() + 90 * 60000).toISOString().replace("Z", ""), timeZone: "UTC" },
       end: { dateTime: new Date(Date.now() + 120 * 60000).toISOString().replace("Z", ""), timeZone: "UTC" } }) }] }),
+    "host:dashboard/worklist": () => {
+      const ymd = (d) => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+      const hm = (d) => d.getHours() + ":" + String(d.getMinutes()).padStart(2, "0");
+      // A meeting a minute from now, on its own day, so the run never straddles midnight.
+      const now = new Date(), from = new Date(now.getTime() + 60000), to = new Date(now.getTime() + 120000);
+      return { structuredContent: { syncedAt: now.toISOString(), items: [
+        { ref: "db:1", title: "Harness task for today", customer: "kestrel", band: "today", day: ymd(now), priority: "high" },
+        { title: "Harness worklist meeting", customer: "kestrel", band: "today", day: ymd(from),
+          meeting: { start: hm(from), end: ymd(to) === ymd(from) ? hm(to) : hm(from) } }] } };
+    },
     "host:dashboard/release_status": () => ({ structuredContent: {
       branch: "release/x", total: 3, checkedAt: new Date().toISOString(),
       drifted: [{ repo: "harness-repo", envs: { staging: "failed" } }] } }),
@@ -115,7 +125,11 @@ const page = [
 const browser = await chromium.launch();
 try {
   for (const width of [390, 1280]) {
-    const tab = await browser.newPage({ viewport: { width, height: 900 } });
+    // The example config's home time zone, so wall-clock meetings read as written.
+    const tab = await browser.newPage({
+      viewport: { width, height: 900 },
+      timezoneId: "Europe/London",
+    });
     // No network at all: any request the page makes fails and is reported.
     await tab.route("**/*", (route) => route.abort());
     const errors: string[] = [];
@@ -138,12 +152,23 @@ try {
       problems.push(`${width}px: the next-up card has no meeting`);
     }
     await tab.getByRole("tab", { name: "Calendar" }).click();
-    for (const name of ["Harness Google meeting", "Harness Outlook meeting"]) {
+    for (const name of [
+      "Harness Google meeting",
+      "Harness Outlook meeting",
+      "Harness worklist meeting",
+    ]) {
       if (!(await tab.getByText(name).first().isVisible())) {
         problems.push(`${width}px: the calendar does not show ${name}`);
       }
     }
     await tab.getByRole("tab", { name: "Worklist" }).click();
+    // The worklist, live: today's task, and the header says so.
+    if (!(await tab.getByText("Harness task for today").isVisible())) {
+      problems.push(`${width}px: the worklist does not show today's task`);
+    }
+    if ((await tab.locator(".sync").textContent()) !== "Live") {
+      problems.push(`${width}px: the header does not say Live`);
+    }
     // Waiting on you sits above the worklist and is stored for other devices.
     if (
       !(await tab.getByRole("region", { name: /waiting on you/i }).isVisible())
@@ -205,6 +230,14 @@ try {
     );
     if (!release?.checkedAt) {
       problems.push(`${width}px: board/release was not stored`);
+    }
+    const tasks = await tab.evaluate(() =>
+      (
+        window as unknown as { __docs: Map<string, { items?: unknown[] }> }
+      ).__docs.get("board/tasks"),
+    );
+    if (tasks?.items?.length !== 2) {
+      problems.push(`${width}px: board/tasks was not stored`);
     }
     const waiting = await tab.evaluate(() =>
       (
