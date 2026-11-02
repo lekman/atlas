@@ -25,7 +25,16 @@ export interface MondayBoard {
   /** The people column, and the operator's person id in it. */
   personColumn: string;
   personId: string;
-  columns: { status: string; priority?: string; key?: string };
+  /**
+   * The columns the query asks for. `timeline` is asked for but not shown,
+   * as the previous page did.
+   */
+  columns: {
+    status: string;
+    priority?: string;
+    timeline?: string;
+    key?: string;
+  };
   /** The status column's index for Done, which the query leaves out. */
   doneIndex?: number;
   /** Item numbers show as `<prefix>-<number>`. */

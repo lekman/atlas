@@ -480,6 +480,17 @@ export function App({
           iconOnly: true,
           ...tabLook(config, v.id),
           ...(v.id === "hosts" ? hostsTab(shownHosts) : {}),
+          // Tracker tabs count as the previous page did: Monday items not
+          // done, Jira issues when the sync worked, GitHub's open total.
+          ...(v.id === mondayTracker?.client && monday.data
+            ? { count: String(monday.data.items.length) }
+            : {}),
+          ...(v.id === jiraTracker?.client && jira?.ok
+            ? { count: String(jira.items.length) }
+            : {}),
+          ...(v.id === githubTracker?.client && github.data
+            ? { count: String(github.data.total) }
+            : {}),
           ...(v.id === "worklist" && workItems
             ? {
                 count: String(

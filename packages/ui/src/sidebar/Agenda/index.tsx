@@ -20,16 +20,9 @@ export interface AgendaProps {
  */
 export function Agenda({ days, scope, notes, clientOf, now }: AgendaProps) {
   if (!days)
-    return (
-      <Panel
-        title="Calendar · next 7 days"
-        sub={scope}
-        notes={notes}
-        loading={3}
-      />
-    );
+    return <Panel title="Calendar" sub={scope} notes={notes} loading={3} />;
   return (
-    <Panel title="Calendar · next 7 days" sub={scope} notes={notes}>
+    <Panel title="Calendar" sub={scope} notes={notes}>
       {days.map((day) => (
         <div key={day.date.getTime()} className="day">
           <div className="dayh">
