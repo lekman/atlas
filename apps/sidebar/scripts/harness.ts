@@ -38,7 +38,7 @@ const csp = [
   "font-src https://fonts.gstatic.com data:",
   `script-src 'nonce-${nonce}' https://cdnjs.cloudflare.com`,
 ].join("; ");
-// The runtime stand-in answers the local server's tools and Monday with invented
+// The runtime stand-in answers the local server's tools and the connectors with invented
 // data and fails every other tool as a connector this view does not have.
 const shim = `(() => {
   const docs = new Map();
@@ -62,6 +62,13 @@ const shim = `(() => {
       jira: { ok: true, doc: { ok: true, syncedAt: new Date().toISOString(), items: [
         { key: "HAR-1", summary: "Harness Jira issue", url: "https://example.atlassian.net/browse/HAR-1",
           status: "In Progress", category: "indeterminate", type: "Story" }] } } } }),
+    "Google Calendar/list_events": () => ({ payload: { events: [{ summary: "Harness Google meeting",
+      start: { dateTime: new Date(Date.now() + 30 * 60000).toISOString() },
+      end: { dateTime: new Date(Date.now() + 60 * 60000).toISOString() } }] } }),
+    "Microsoft 365/outlook_calendar_search": () => ({ content: [{ type: "text", text: JSON.stringify({
+      id: "o1", subject: "Harness Outlook meeting",
+      start: { dateTime: new Date(Date.now() + 90 * 60000).toISOString().replace("Z", ""), timeZone: "UTC" },
+      end: { dateTime: new Date(Date.now() + 120 * 60000).toISOString().replace("Z", ""), timeZone: "UTC" } }) }] }),
     "host:dashboard/release_status": () => ({ structuredContent: {
       branch: "release/x", total: 3, checkedAt: new Date().toISOString(),
       drifted: [{ repo: "harness-repo", envs: { staging: "failed" } }] } }),
@@ -125,6 +132,18 @@ try {
     if (!heading?.startsWith("Atlas")) {
       problems.push(`${width}px: the sidebar did not render`);
     }
+    // The next-up card and the calendar, from Google and Outlook merged.
+    const nextTitle = await tab.locator(".nextup .title").textContent();
+    if (!nextTitle || nextTitle === "—") {
+      problems.push(`${width}px: the next-up card has no meeting`);
+    }
+    await tab.getByRole("tab", { name: "Calendar" }).click();
+    for (const name of ["Harness Google meeting", "Harness Outlook meeting"]) {
+      if (!(await tab.getByText(name).first().isVisible())) {
+        problems.push(`${width}px: the calendar does not show ${name}`);
+      }
+    }
+    await tab.getByRole("tab", { name: "Worklist" }).click();
     // Waiting on you sits above the worklist and is stored for other devices.
     if (
       !(await tab.getByRole("region", { name: /waiting on you/i }).isVisible())
@@ -209,5 +228,5 @@ if (problems.length) {
   process.exit(1);
 }
 console.log(
-  `✓ one file, ${Math.round(source.length / 1024)} KB, renders at 390 and 1280 px with no errors; hosts, waiting, release, Monday, GitHub, Jira and the sync work end to end`,
+  `✓ one file, ${Math.round(source.length / 1024)} KB, renders at 390 and 1280 px with no errors; every panel works end to end`,
 );

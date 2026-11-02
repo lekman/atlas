@@ -57,12 +57,32 @@ export interface HostFilter {
   hosts?: string[];
 }
 
+/** A calendar read through a connector: whose it is, and its name in the sidebar. */
+export interface ConnectedCalendar {
+  /** The client its events belong to when the title names none. */
+  client: string;
+  /** Shown under each event and before its errors, as "Work calendar". */
+  label: string;
+}
+
+export interface CalendarConfig {
+  /** Where wall-clock times without a known zone are read, an IANA name. */
+  timeZone: string;
+  google?: ConnectedCalendar;
+  outlook?: ConnectedCalendar;
+  /** Clients whose feed carries other clients' work, read by title. */
+  mixedFeeds?: string[];
+  /** Placeholder meetings for a client without a calendar, and the note that says so. */
+  samples?: { client: string; note: string };
+}
+
 export interface SidebarConfig {
   /** The operator's name, as asks addressed to them begin with it. */
   operator?: string;
   clients: SidebarClient[];
   trackers: SidebarTracker[];
   hostFilters?: Record<string, HostFilter>;
+  calendar?: CalendarConfig;
 }
 
 declare const __SIDEBAR_CONFIG__: SidebarConfig;

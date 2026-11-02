@@ -245,3 +245,24 @@ describe("Runtime.feed", () => {
     expect(states.at(-1)?.error?.code).toBe("tool_error");
   });
 });
+
+describe("Runtime.watch raw", () => {
+  it("hands over the host's result untouched when asked", async () => {
+    const result = {
+      content: [
+        { type: "text", text: '{"id":1}' },
+        { type: "text", text: '{"id":2}' },
+      ],
+    };
+    const fake = createFakeRuntime({ tools: { "m/t": () => result } });
+    const seen: unknown[] = [];
+    const stop = new Runtime(fake).watch("m", "t", null, {
+      onData: (d) => seen.push(d),
+      raw: true,
+    });
+    await tick();
+    await tick();
+    stop();
+    expect(seen).toEqual([result]);
+  });
+});

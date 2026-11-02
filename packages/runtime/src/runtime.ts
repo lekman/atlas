@@ -143,6 +143,8 @@ export interface FeedOptions<T> {
   /** The document to store; default the data itself. */
   toStored?: (data: T, now: Date) => unknown;
   watch?: WatchOptions;
+  /** `accept` gets the result as the host sent it, not its data. */
+  raw?: boolean;
 }
 
 export interface RuntimeOptions {
@@ -213,6 +215,8 @@ export class Runtime {
     handlers: {
       onData: (data: unknown, at: number) => void;
       onError?: (error: RuntimeError) => void;
+      /** Hand over the result as the host sent it, for tools whose answer `toolData` can't read. */
+      raw?: boolean;
     },
     options?: WatchOptions,
   ): () => void {
@@ -222,7 +226,10 @@ export class Runtime {
       if (stopped) return;
       if (event.type === "data") {
         const at = cachedAt(event.result) ?? this.#now().getTime();
-        handlers.onData(toolData(event.result), at);
+        handlers.onData(
+          handlers.raw ? event.result : toolData(event.result),
+          at,
+        );
       } else handlers.onError?.(toRuntimeError(event.error));
     };
     this.#mcp().then(
@@ -352,6 +359,7 @@ export class Runtime {
               : data;
             this.write(options.path, doc).catch(() => undefined);
           },
+          raw: options.raw,
           onError: (error) => {
             state.error = error;
             if (UNAUTHORISED.has(error.code)) {

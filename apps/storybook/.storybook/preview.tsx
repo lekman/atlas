@@ -71,6 +71,8 @@ const preview: Preview = {
             ["Header", "Next Up", "Client Pill", "Tabs", "Panel", "Note"],
             "Worklist",
             ["Waiting On You"],
+            "Calendar",
+            ["Agenda"],
             "Trackers",
             ["Release Status", "Monday List", "Jira List", "GitHub List"],
             "Hosts",

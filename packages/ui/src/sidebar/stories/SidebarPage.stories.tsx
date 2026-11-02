@@ -2,6 +2,8 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
 import { expect, userEvent, within } from "storybook/test";
 
+import { Agenda } from "../Agenda";
+import { agendaDays } from "../calendar/model";
 import { ClientPill } from "../ClientPill";
 import { hostsTab } from "../hosts/model";
 import { GitHubList } from "../GitHubList";
@@ -25,6 +27,7 @@ import {
   STORY_NOW,
 } from "./examples";
 import { clientOfHost, hostsDoc } from "./hosts";
+import { weekEvents } from "./calendar";
 import { githubExample } from "./github";
 import { jiraExample } from "./jira";
 import { mondayExample } from "./monday";
@@ -120,6 +123,21 @@ function SidebarPage({
                   <Note>The worklist joins the sidebar in a later step.</Note>
                 </>
               }
+            />
+          ) : v.id === "agenda" ? (
+            <Agenda
+              days={agendaDays(
+                weekEvents.filter((e) => focus === "all" || e.client === focus),
+                STORY_NOW,
+              )}
+              scope={focus === "all" ? "All customers" : "One client only"}
+              clientOf={(key) =>
+                exampleClients.find((c) => c.key === key) ?? {
+                  name: "Other",
+                  colour: "var(--client-other)",
+                }
+              }
+              now={STORY_NOW}
             />
           ) : v.id === "release" ? (
             <ReleaseStatus doc={releaseDrifted} live now={STORY_NOW} />

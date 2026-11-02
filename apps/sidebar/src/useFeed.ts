@@ -29,13 +29,15 @@ export function useFeed<T>(
   runtime: Runtime,
   options: FeedOptions<T> | null,
   server: string,
+  /** A new key restarts the watch with the options of that render, as a new day's dates. */
+  key = "",
 ): Feed<T> {
   const [state, setState] = useState<FeedState<T> | null>(null);
   const on = options !== null;
-  // biome-ignore lint/correctness/useExhaustiveDependencies: the options are fixed per call site.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the options are fixed per call site and key.
   useEffect(
     () => (options ? runtime.feed<T>(options, setState) : undefined),
-    [runtime, on],
+    [runtime, on, key],
   );
   const error = state?.error;
   return {
