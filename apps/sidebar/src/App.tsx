@@ -4,8 +4,10 @@ import {
   GitHubList,
   HostsPanel,
   hostsTab,
+  JiraList,
   MondayList,
   NextUp,
+  readJira,
   releaseCount,
   ReleaseStatus,
   WaitingOnYou,
@@ -27,6 +29,8 @@ import {
 import { hostsFor } from "./hosts";
 import { KEYS, load, loadSet, save, saveSet } from "./storage";
 import { useGitHub } from "./useGitHub";
+import { useStored } from "./useStored";
+import { useSync } from "./useSync";
 import { useHosts } from "./useHosts";
 import { useMonday } from "./useMonday";
 import { useRelease } from "./useRelease";
@@ -84,6 +88,19 @@ export function App({
   const [githubFolded, setGithubFolded] = useState(() =>
     loadSet(KEYS.githubFolded),
   );
+  const jiraTracker = config.trackers.find((t) => t.logo === "jira");
+  const jira = useStored(runtime, "board/jira", readJira);
+  const events = useStored(runtime, "board/events", (d) =>
+    typeof d === "object" && d !== null ? (d as { syncedAt?: string }) : null,
+  );
+  const sync = useSync(runtime, {
+    jira: jira?.syncedAt,
+    events: events?.syncedAt,
+  });
+  // "To do" starts folded until the operator chooses, as before.
+  const [jiraFolded, setJiraFolded] = useState(() =>
+    loadSet(KEYS.jiraFolded, ["cat:new"]),
+  );
   // The client whose release status the sidebar shows, if any.
   const releaseClient = config.trackers.find((t) => t.release)?.client;
   const releaseView = (
@@ -111,7 +128,14 @@ export function App({
 
   return (
     <SidebarFrame fill>
-      <SidebarHeader now={now} sync={{ liveAt: null, syncedAt: null }} />
+      <SidebarHeader
+        now={now}
+        sync={{
+          liveAt: null,
+          syncedAt: null,
+          error: sync && "error" in sync ? sync.error : null,
+        }}
+      />
       <NextUp
         state="next"
         corner={
@@ -182,6 +206,26 @@ export function App({
                   updatedAt={monday.updatedAt}
                   now={now}
                 />
+              ) : v.id === jiraTracker?.client ? (
+                <JiraList
+                  title={`${clientOf(v.id).name} · ${jiraTracker.title ?? "Jira, assigned to me"}`}
+                  doc={jira}
+                  folded={
+                    new Set(
+                      [...jiraFolded]
+                        .filter((k) => k.startsWith("cat:"))
+                        .map((k) => k.slice(4)),
+                    )
+                  }
+                  onFold={(group) => {
+                    const next = new Set(jiraFolded);
+                    if (!next.delete(`cat:${group}`)) next.add(`cat:${group}`);
+                    setJiraFolded(next);
+                    saveSet(KEYS.jiraFolded, next);
+                  }}
+                  today={dayKey(now)}
+                  now={now}
+                />
               ) : v.id === githubTracker?.client && githubTracker.github ? (
                 <GitHubList
                   title={`${clientOf(v.id).name} · ${githubTracker.title ?? "GitHub issues"}`}
@@ -220,4 +264,9 @@ export function App({
       ))}
     </SidebarFrame>
   );
+}
+
+/** YYYY-MM-DD in local time. */
+function dayKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }

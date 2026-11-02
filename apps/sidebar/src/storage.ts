@@ -10,6 +10,8 @@ export const KEYS = {
   githubMine: "db.ghMine",
   /** The GitHub groups folded, as a JSON list of labels prefixed `lb:`. */
   githubFolded: "db.gCollapsed",
+  /** The Jira groups folded, as a JSON list of categories prefixed `cat:`. */
+  jiraFolded: "db.jCollapsed",
 } as const;
 
 export function load(
@@ -32,10 +34,18 @@ export function save(key: string, value: string): void {
   }
 }
 
-/** A set saved as a JSON list; empty when missing or unreadable. */
-export function loadSet(key: string): Set<string> {
+/**
+ * A set saved as a JSON list; `fallback` when nothing is saved, empty when
+ * it is unreadable.
+ */
+export function loadSet(
+  key: string,
+  fallback: readonly string[] = [],
+): Set<string> {
   try {
-    const list: unknown = JSON.parse(localStorage.getItem(key) ?? "null");
+    const saved = localStorage.getItem(key);
+    if (saved === null) return new Set(fallback);
+    const list: unknown = JSON.parse(saved);
     return new Set(
       Array.isArray(list) ? list.filter((x) => typeof x === "string") : [],
     );
