@@ -3,10 +3,10 @@ import {
   lightingPreferences,
   plannedWorlds,
   worldIds,
-  worlds,
+  worldLooks as worlds,
   type LightingPreference,
   type WorldId,
-} from "@atlas/worlds";
+} from "@atlas/worlds/looks";
 
 export interface WorldPickerProps {
   /** The world in use, marked as current. */

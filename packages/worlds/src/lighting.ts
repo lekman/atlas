@@ -1,4 +1,4 @@
-import type { Lighting, Palette, World } from "./types";
+import type { Lighting, Palette, WorldLook } from "./types";
 
 /** What the reader chose: follow the device, or always day, or always night. */
 export type LightingPreference = "automatic" | "day" | "night";
@@ -19,14 +19,14 @@ export function resolveLighting(
 }
 
 /** The palette a world draws with under this lighting. */
-export function paletteFor(world: World, lighting: Lighting): Palette {
+export function paletteFor(world: WorldLook, lighting: Lighting): Palette {
   return lighting === "night" && world.night
     ? world.night.palette
     : world.palette;
 }
 
 /** What the world picker says about a world after dark. */
-export function describeNight(world: World): string {
+export function describeNight(world: WorldLook): string {
   if (world.night) return `${world.night.name}: ${world.night.description}`;
   if (world.palette.darkGround) return "Always dark.";
   return "No night mode yet; the day map is shown.";

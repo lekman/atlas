@@ -5,13 +5,13 @@ import {
   isBackgroundChoice,
   lightingPreferences,
   resolveLighting,
-  worlds,
+  worldLooks as worlds,
   type AmbiencePlayer,
   type Lighting,
   type LightingPreference,
   type SoundCue,
   type SoundSettings,
-} from "@atlas/worlds";
+} from "@atlas/worlds/looks";
 import { isSidebarWorld, type SidebarWorldId } from "@atlas/ui/sidebar";
 import { useEffect, useRef, useState } from "react";
 

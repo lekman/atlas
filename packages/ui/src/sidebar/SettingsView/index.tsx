@@ -1,10 +1,10 @@
 import {
   resolveLighting,
-  worlds,
+  worldLooks as worlds,
   type LightingPreference,
   type SoundCue,
   type SoundSettings,
-} from "@atlas/worlds";
+} from "@atlas/worlds/looks";
 import { useEffect, useId, useRef } from "react";
 
 import { SoundPanel } from "../../components/SoundPanel";

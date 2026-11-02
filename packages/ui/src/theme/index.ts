@@ -1,4 +1,4 @@
-import { paletteFor, type Lighting, type World } from "@atlas/worlds";
+import { paletteFor, type Lighting, type WorldLook } from "@atlas/worlds/looks";
 import type { CSSProperties } from "react";
 
 /**
@@ -8,7 +8,7 @@ import type { CSSProperties } from "react";
  * world's night palette is used, where it has one.
  */
 export function worldStyle(
-  world: World,
+  world: WorldLook,
   lighting: Lighting = "day",
 ): CSSProperties {
   const palette = paletteFor(world, lighting);

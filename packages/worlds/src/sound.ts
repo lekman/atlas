@@ -6,7 +6,7 @@
  * a browser allows only after a user gesture anyway.
  */
 import type { BackgroundChoice } from "./ambience";
-import type { SoundCategory, SoundCue, Synthesiser, World } from "./types";
+import type { SoundCategory, SoundCue, Synthesiser, WorldLook } from "./types";
 
 export interface SoundSettings {
   enabled: boolean;
@@ -37,9 +37,9 @@ export const cueCategory: Record<SoundCue, SoundCategory> = {
 };
 
 export interface SoundPlayer {
-  play(world: World, cue: SoundCue, settings: SoundSettings): void;
+  play(world: WorldLook, cue: SoundCue, settings: SoundSettings): void;
   /** Play regardless of the category switches, for a preview button. */
-  preview(world: World, cue: SoundCue, settings: SoundSettings): void;
+  preview(world: WorldLook, cue: SoundCue, settings: SoundSettings): void;
 }
 
 type AudioContextConstructor = new () => AudioContext;
@@ -62,7 +62,7 @@ export function createSoundPlayer(
     return context && master ? webAudioSynthesiser(context, master) : null;
   };
 
-  const run = (world: World, cue: SoundCue, settings: SoundSettings) => {
+  const run = (world: WorldLook, cue: SoundCue, settings: SoundSettings) => {
     const synthesiser = ready(settings.volume);
     if (!synthesiser) return;
     try {

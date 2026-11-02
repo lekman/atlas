@@ -19,12 +19,7 @@ export const worlds = {
   doctor,
 } satisfies Record<string, World>;
 
-export type WorldId = keyof typeof worlds;
-export const worldIds = Object.keys(worlds) as WorldId[];
-
-export function isWorldId(value: unknown): value is WorldId {
-  return typeof value === "string" && value in worlds;
-}
+export { isWorldId, worldIds, worldLooks, type WorldId } from "./looks";
 
 export { astronomer, doctor, gardener, mariner, samurai, woodsman };
 export * from "./camera";
