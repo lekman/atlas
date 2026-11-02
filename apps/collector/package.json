@@ -1,0 +1,21 @@
+{
+  "name": "@atlas/collector-app",
+  "version": "0.0.0",
+  "description": "Runs on a machine, reads its Claude Code sessions every minute and reports their status to Atlas: a session stuck on approval shows as waiting",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "bun test tests/",
+    "start": "bun src/main.ts"
+  },
+  "dependencies": {
+    "@atlas/collector": "workspace:*",
+    "@atlas/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4",
+    "typescript": "^6.0"
+  }
+}
