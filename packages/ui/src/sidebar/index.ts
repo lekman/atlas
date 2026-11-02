@@ -90,3 +90,11 @@ export {
   type MondayItem,
   type MondayPage,
 } from "./trackers/monday";
+export { GitHubList, type GitHubListProps } from "./GitHubList";
+export {
+  githubGroups,
+  githubPage,
+  isHot,
+  type GitHubIssue,
+  type GitHubPage,
+} from "./trackers/github";
