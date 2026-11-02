@@ -4,6 +4,7 @@ import {
   type FeedOptions,
   type FeedState,
   type Runtime,
+  type RuntimeError,
 } from "@atlas/runtime";
 import { useEffect, useState } from "react";
 
@@ -13,6 +14,8 @@ export interface Feed<T> {
   live: boolean;
   /** Why the live read failed, in words; none for a connector unusable here. */
   error: { text: string; tone: "warn" | "err" } | null;
+  /** The live read's error as the runtime gave it, unusable connectors included. */
+  failure: RuntimeError | null;
 }
 
 /**
@@ -40,5 +43,6 @@ export function useFeed<T>(
             tone: error.code === "server_unavailable" ? "warn" : "err",
           }
         : null,
+    failure: error ?? null,
   };
 }
