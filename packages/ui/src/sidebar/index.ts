@@ -161,3 +161,22 @@ export {
   type WorkItem,
   type WorklistDoc,
 } from "./worklist/model";
+export { Badge, type BadgeProps } from "./Badge";
+export {
+  DetailsView,
+  type DetailsState,
+  type DetailsViewProps,
+} from "./DetailsView";
+export {
+  detailsKey,
+  field,
+  isDetailsPage,
+  liveStatus,
+  pageRepos,
+  trackerSystem,
+  TRACKER_NAME,
+  type DetailsCopy,
+  type DetailsPage,
+  type StatusKind,
+  type TrackerSystem,
+} from "./details/model";

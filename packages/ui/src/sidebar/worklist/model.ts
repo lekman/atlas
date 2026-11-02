@@ -31,6 +31,15 @@ export interface WorkItem {
   claimedBy?: string;
   /** A meeting entry: its wall-clock start and end, "9:30". */
   meeting?: { start: string; end: string };
+  /** The details page's path in the vault, and when it last changed. */
+  details?: string;
+  detailsAt?: string;
+  /** The tracker's address for the item. */
+  link?: string;
+  /** A real deadline, YYYY-MM-DD. */
+  due?: string;
+  /** The item's own pull requests, `owner/repo#12`. */
+  pullRequests?: string[];
 }
 
 export interface WorklistDoc {

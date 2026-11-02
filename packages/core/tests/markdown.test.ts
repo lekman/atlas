@@ -1,6 +1,12 @@
 import { describe, expect, it } from "bun:test";
 
-import { inlineText, isSafeHref, parseInline, parseMarkdown } from "../src";
+import {
+  inlineText,
+  isSafeHref,
+  parseInline,
+  parseMarkdown,
+  splitFrontMatter,
+} from "../src";
 
 describe("blocks", () => {
   it("reads headings and paragraphs, joining wrapped lines", () => {
@@ -193,5 +199,26 @@ describe("raw HTML stays text", () => {
       ),
     );
     for (const type of types) expect(type).not.toMatch(/html/i);
+  });
+});
+
+describe("splitFrontMatter", () => {
+  it("reads flat fields and returns the body without the block", () => {
+    const { fields, body } = splitFrontMatter(
+      '---\nstatus: planned\ntracker: "PROJ-7"\ntags: [a, b]\n  nested: no\n---\n# Title\n',
+    );
+    expect(fields).toEqual([
+      ["status", "planned"],
+      ["tracker", "PROJ-7"],
+      ["tags", "[a, b]"],
+    ]);
+    expect(body).toBe("# Title\n");
+  });
+
+  it("returns a note without front matter whole", () => {
+    expect(splitFrontMatter("# Title\n---\nx")).toEqual({
+      fields: [],
+      body: "# Title\n---\nx",
+    });
   });
 });

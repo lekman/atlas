@@ -14,6 +14,8 @@ import {
   releaseCount,
   ReleaseStatus,
   WaitingOnYou,
+  DetailsView,
+  type WorkItem,
   ActionMenu,
   isWaiting,
   openCount,
@@ -42,6 +44,7 @@ import { hostsFor } from "./hosts";
 import { KEYS, load, loadSet, save, saveSet } from "./storage";
 import { useCalendar } from "./useCalendar";
 import { useWorklist } from "./useWorklist";
+import { useDetails, useDetailsCopies, type DetailsIndex } from "./useDetails";
 import { foldAll, planFolds, worklistMeetings } from "./worklist";
 import { useGitHub } from "./useGitHub";
 import { useNow } from "./useNow";
@@ -136,6 +139,25 @@ export function App({
       colour: "var(--client-other)",
     };
   const worklist = useWorklist(runtime, now);
+  const detailsIndex = useStored(runtime, "board/details", (d) =>
+    typeof d === "object" &&
+    d !== null &&
+    typeof (d as DetailsIndex).items === "object"
+      ? (d as DetailsIndex)
+      : null,
+  );
+  useDetailsCopies(
+    runtime,
+    worklist.doc?.items ?? null,
+    worklist.liveAt,
+    detailsIndex,
+  );
+  // The item whose details are open: the worklist's current copy of it when it has one.
+  const [opened, setOpened] = useState<WorkItem | null>(null);
+  const openItem = opened
+    ? (worklist.doc?.items.find((t) => t.ref && t.ref === opened.ref) ?? opened)
+    : null;
+  const details = useDetails(runtime, openItem, detailsIndex?.items ?? {});
   const workItems = worklist.doc?.items ?? null;
   const meetings = useMemo(
     () =>
@@ -302,6 +324,7 @@ export function App({
               showWaiting={showWaiting}
               today={dayKey(now)}
               tomorrow={dayKey(tomorrow)}
+              onOpen={setOpened}
               notes={
                 <>
                   <WaitingOnYou
@@ -311,7 +334,16 @@ export function App({
                       focus,
                       config,
                       clientOf,
-                    )}
+                    ).map((row) => {
+                      // A waiting task opens its details once the worklist has it.
+                      const task =
+                        row.item.kind === "task" && row.item.ref
+                          ? workItems?.find((t) => t.ref === row.item.ref)
+                          : undefined;
+                      return task
+                        ? { ...row, onOpen: () => setOpened(task) }
+                        : row;
+                    })}
                   />
                   {worklist.error && (
                     <Note tone="err">{worklist.error.text}</Note>
@@ -483,6 +515,22 @@ export function App({
           )}
         </TabPanel>
       ))}
+      {openItem && (
+        <DetailsView
+          item={openItem}
+          clientName={clientOf(openItem.customer).name}
+          details={details}
+          githubOrg={
+            config.clients.find((c) => c.key === openItem.customer)?.githubOrg
+          }
+          mondayPrefix={
+            config.trackers.find((t) => t.monday)?.monday?.keyPrefix
+          }
+          weekEnd={dayKey(new Date(now.getTime() + 7 * 86400000))}
+          now={now}
+          onClose={() => setOpened(null)}
+        />
+      )}
     </SidebarFrame>
   );
 }

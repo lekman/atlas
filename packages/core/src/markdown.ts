@@ -493,3 +493,28 @@ export function inlineText(nodes: readonly Inline[]): string {
     })
     .join("");
 }
+
+/** A note's front matter, as `key: value` pairs in order, and the note without it. */
+export interface FrontMatter {
+  fields: Array<[key: string, value: string]>;
+  body: string;
+}
+
+/**
+ * Splits the `---` block at the top of a note into its fields. Only flat
+ * `key: value` lines are read, quotes trimmed; anything else in the block
+ * is left out. A note without front matter comes back whole.
+ */
+export function splitFrontMatter(text: string): FrontMatter {
+  const match = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/.exec(text);
+  if (!match) return { fields: [], body: text };
+  const fields = match[1]!
+    .split(/\r?\n/)
+    .map((line) => /^(\w[\w .-]*):\s*(.*)$/.exec(line))
+    .filter((m): m is RegExpExecArray => m !== null)
+    .map((m): [string, string] => [
+      m[1]!.trim(),
+      m[2]!.replace(/^["']|["']$/g, ""),
+    ]);
+  return { fields, body: text.slice(match[0].length) };
+}

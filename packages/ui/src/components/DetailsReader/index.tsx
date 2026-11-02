@@ -1,16 +1,14 @@
 import {
   inlineText,
   parseMarkdown,
-  type Block,
   type DetailsDocument,
-  type Inline,
-  type ListBlock,
   type TrackerReference,
 } from "@atlas/core";
 import type { World } from "@atlas/worlds";
-import { useId, useMemo, type ReactNode } from "react";
+import { useId, useMemo } from "react";
 
 import { daysBetween, longDay } from "../../dates";
+import { MarkdownBlocks } from "../../markdown/MarkdownBlocks";
 
 export interface DetailsReaderProps {
   /** The document to read. */
@@ -162,204 +160,10 @@ export function DetailsReader({
         aria-label={`${document.title}, text`}
       >
         <div className="atlas-prose">
-          {renderBlocks(blocks, onOpenWikiLink)}
+          <MarkdownBlocks blocks={blocks} onWikiLink={onOpenWikiLink} />
         </div>
         <p className="atlas-details-source">{document.sourcePath}</p>
       </div>
     </article>
   );
-}
-
-type WikiHandler = ((target: string) => void) | undefined;
-
-function renderBlocks(
-  blocks: readonly Block[],
-  onWiki: WikiHandler,
-): ReactNode {
-  return blocks.map((block, index) => renderBlock(block, index, onWiki));
-}
-
-function renderBlock(
-  block: Block,
-  key: number,
-  onWiki: WikiHandler,
-): ReactNode {
-  switch (block.type) {
-    case "heading": {
-      // The reader's title is the h2, so the note's own levels start below it.
-      const level = Math.min(block.level + 2, 6);
-      const Heading = `h${level}` as "h3" | "h4" | "h5" | "h6";
-      return (
-        <Heading key={key}>{renderInline(block.children, onWiki)}</Heading>
-      );
-    }
-    case "paragraph":
-      return <p key={key}>{renderInline(block.children, onWiki)}</p>;
-    case "list":
-      return renderList(block, key, onWiki);
-    case "table":
-      return (
-        <div
-          key={key}
-          className="atlas-table-scroll"
-          tabIndex={0}
-          role="region"
-          aria-label="Table"
-        >
-          <table>
-            <thead>
-              <tr>
-                {block.header.map((cell, column) => (
-                  <th
-                    key={column}
-                    scope="col"
-                    style={{ textAlign: block.align[column] ?? undefined }}
-                  >
-                    {renderInline(cell, onWiki)}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {block.rows.map((row, rowIndex) => (
-                <tr key={rowIndex}>
-                  {row.map((cell, column) => (
-                    <td
-                      key={column}
-                      style={{ textAlign: block.align[column] ?? undefined }}
-                    >
-                      {renderInline(cell, onWiki)}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      );
-    case "codeBlock":
-      return (
-        <pre
-          key={key}
-          tabIndex={0}
-          role="region"
-          aria-label={block.language ? `Code, ${block.language}` : "Code"}
-        >
-          <code>{block.text}</code>
-        </pre>
-      );
-    case "quote":
-      return (
-        <blockquote key={key}>
-          {renderBlocks(block.children, onWiki)}
-        </blockquote>
-      );
-    case "callout":
-      return (
-        <aside
-          key={key}
-          className="atlas-callout"
-          data-kind={calloutTone(block.kind)}
-        >
-          <p className="atlas-callout-title">
-            <span className="atlas-callout-kind">{block.kind}</span>
-            {renderInline(block.title, onWiki)}
-          </p>
-          {renderBlocks(block.children, onWiki)}
-        </aside>
-      );
-    case "rule":
-      return <hr key={key} />;
-  }
-}
-
-/** Callout kinds, folded into the four status hues a reader already knows. */
-function calloutTone(kind: string): string {
-  if (
-    ["warning", "caution", "attention", "question", "help", "faq"].includes(
-      kind,
-    )
-  )
-    return "waiting";
-  if (["danger", "error", "bug", "failure", "fail", "missing"].includes(kind))
-    return "blocked";
-  if (["tip", "hint", "important", "success", "check", "done"].includes(kind))
-    return "running";
-  return "watching";
-}
-
-function renderList(
-  list: ListBlock,
-  key: number,
-  onWiki: WikiHandler,
-): ReactNode {
-  const items = list.items.map((item, index) => (
-    <li key={index} data-checked={item.checked}>
-      {item.checked !== undefined && (
-        <>
-          <span className="atlas-check" aria-hidden="true">
-            {item.checked ? "✓" : ""}
-          </span>
-          <span className="atlas-visually-hidden">
-            {item.checked ? "Done: " : "Open: "}
-          </span>
-        </>
-      )}
-      {renderInline(item.children, onWiki)}
-      {item.list && renderList(item.list, 0, onWiki)}
-    </li>
-  ));
-  return list.ordered ? <ol key={key}>{items}</ol> : <ul key={key}>{items}</ul>;
-}
-
-function renderInline(
-  nodes: readonly Inline[],
-  onWiki: WikiHandler,
-): ReactNode {
-  return nodes.map((node, index) => {
-    switch (node.type) {
-      case "text":
-        return node.text;
-      case "strong":
-        return (
-          <strong key={index}>{renderInline(node.children, onWiki)}</strong>
-        );
-      case "emphasis":
-        return <em key={index}>{renderInline(node.children, onWiki)}</em>;
-      case "code":
-        return <code key={index}>{node.text}</code>;
-      case "link":
-        return (
-          <a
-            key={index}
-            href={node.href}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            {renderInline(node.children, onWiki)}
-          </a>
-        );
-      case "wikiLink":
-        return onWiki ? (
-          <button
-            key={index}
-            type="button"
-            className="atlas-wiki-link"
-            onClick={() => onWiki(node.target)}
-          >
-            {node.label}
-          </button>
-        ) : (
-          <span key={index} className="atlas-wiki-link">
-            {node.label}
-          </span>
-        );
-      case "embed":
-        return (
-          <span key={index} className="atlas-embed">
-            Embedded file: {node.target}
-          </span>
-        );
-    }
-  });
 }

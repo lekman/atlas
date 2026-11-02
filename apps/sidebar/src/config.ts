@@ -15,6 +15,8 @@ export interface SidebarClient {
    * title, matched as whole words, ignoring case.
    */
   keywords?: string[];
+  /** The client's GitHub organisation, for bare repository names on a details page. */
+  githubOrg?: string;
 }
 
 /** The Monday board a tracker reads, and how its columns are used. */
