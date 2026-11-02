@@ -1,11 +1,12 @@
 /**
- * Requests to Commander about a task: status, execute, plan, and done or
- * move when they go through the phone inbox. The local server forwards
+ * Requests to Commander about a task: status, execute, plan, an answer to
+ * an ask, and done or move when they go through the phone inbox. The local server forwards
  * them to Commander on the Mac mini; the sidebar keeps its own record of
  * each, and a copy at `board/commander` for other devices.
  */
 
-export type RequestAction = "status" | "execute" | "plan" | "done" | "move";
+export type RequestAction =
+  "status" | "execute" | "plan" | "done" | "move" | "answer";
 
 export type RequestState =
   | "sending"
@@ -62,6 +63,7 @@ const ACTIONS: ReadonlySet<string> = new Set([
   "plan",
   "done",
   "move",
+  "answer",
 ]);
 
 /**

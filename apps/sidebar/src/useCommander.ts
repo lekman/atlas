@@ -7,7 +7,10 @@ import {
   pickUpdate,
   toStore,
   type CommanderRequest,
+  askKey,
+  type AskAnswer,
   type RequestAction,
+  type WaitingItem,
   type WorkItem,
 } from "@atlas/ui/sidebar";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -64,6 +67,12 @@ export interface Commander {
    * with the reason. Its requests are kept under `<system>:<key>`.
    */
   planTracker: (item: TrackerItem) => Promise<void>;
+  /**
+   * Answers an ask that waits on the operator. Commander hands the answer to
+   * the worker that asked, or to the task's owner, and closes the ask. Kept
+   * under the task's ref, or `ask:<kind>:<id>`.
+   */
+  answer: (item: WaitingItem, answer: AskAnswer) => Promise<void>;
   /**
    * Leaves a request in the phone inbox for the Mac mini; false when there
    * is no inbox. Done and move go this way from the phone.
@@ -398,6 +407,32 @@ export function useCommander(
           url: item.url ?? "",
           status: item.status ?? "",
           priority: item.priority ?? "",
+        }),
+      );
+    },
+    answer: async (item, answer) => {
+      const ref = askKey(item);
+      if (!ref) return;
+      await request(
+        { ref, title: item.ask ?? item.title ?? "" },
+        "answer",
+        "commander_answer",
+        (id) => ({
+          id,
+          ref,
+          ask: {
+            kind: item.kind,
+            ...(item.id ? { id: item.id } : {}),
+            ...(item.ref ? { ref: item.ref } : {}),
+            ...(item.worker ? { worker: item.worker } : {}),
+            ...(item.customer ? { customer: item.customer } : {}),
+            ask: String(item.ask ?? "").slice(0, 300),
+            ...(item.title ? { title: item.title } : {}),
+          },
+          answer: {
+            ...(answer.choice ? { choice: answer.choice.slice(0, 80) } : {}),
+            ...(answer.text ? { text: answer.text.slice(0, 2000) } : {}),
+          },
         }),
       );
     },

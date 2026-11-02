@@ -14,6 +14,11 @@ import {
   releaseCount,
   ReleaseStatus,
   WaitingOnYou,
+  AskForm,
+  askKey,
+  askText,
+  askOptions,
+  AskView,
   DetailsView,
   HeaderButtons,
   SettingsView,
@@ -33,6 +38,7 @@ import {
   type MenuAction,
   pullCounts,
   PullRequests,
+  type WaitingItem,
   type WorkItem,
   ActionMenu,
   isWaiting,
@@ -181,6 +187,8 @@ export function App({
   );
   // The item whose details are open: the worklist's current copy of it when it has one.
   const [opened, setOpened] = useState<WorkItem | null>(null);
+  // A Commander ask with no task to open, while its answer view is open.
+  const [asking, setAsking] = useState<WaitingItem | null>(null);
   const openItem = opened
     ? (worklist.doc?.items.find((t) => t.ref && t.ref === opened.ref) ?? opened)
     : null;
@@ -314,6 +322,42 @@ export function App({
     t.claimedBy ? null : (
       <RequestLine request={commander.latest(t.ref)} now={now} />
     );
+  // The answer form for an ask, with what happened to the last answer sent.
+  const answerForm = (item: WaitingItem) => {
+    const sent = commander.latest(askKey(item) ?? undefined);
+    const last = sent?.action === "answer" ? sent : null;
+    const from =
+      item.kind === "commander" && item.worker ? item.worker : "Commander";
+    return (
+      <AskForm
+        key={askKey(item) ?? item.ask}
+        ask={askText(item, config.operator ?? "you").ask}
+        from={from}
+        options={askOptions(item)}
+        busy={last?.state === "sending"}
+        status={
+          !last || last.state === "sending"
+            ? null
+            : last.state === "failed"
+              ? { tone: "bad", text: last.summary || "Not sent." }
+              : last.state === "done" || last.state === "answered"
+                ? {
+                    tone: "ok",
+                    text: last.summary || `${from} has your answer.`,
+                  }
+                : {
+                    tone: "warn",
+                    text:
+                      last.summary || `Sent; Commander hands it to ${from}.`,
+                  }
+        }
+        onSend={(answer) => {
+          commander.answer(item, answer).catch(() => undefined);
+        }}
+      />
+    );
+  };
+
   const detailActions = (t: WorkItem) => {
     if (t.done) {
       return (
@@ -654,8 +698,10 @@ export function App({
                         row.item.kind === "task" && row.item.ref
                           ? workItems?.find((t) => t.ref === row.item.ref)
                           : undefined;
-                      return task
-                        ? { ...row, onOpen: () => setOpened(task) }
+                      if (task)
+                        return { ...row, onOpen: () => setOpened(task) };
+                      return row.item.kind !== "task" && askKey(row.item)
+                        ? { ...row, onOpen: () => setAsking(row.item) }
                         : row;
                     })}
                   />
@@ -941,6 +987,18 @@ export function App({
           )}
         </TabPanel>
       ))}
+      {asking && (
+        <AskView
+          item={asking}
+          clientName={
+            waitingRows([asking], "all", config, clientOf)[0]?.client.name ??
+            "Other"
+          }
+          onClose={() => setAsking(null)}
+        >
+          {answerForm(asking)}
+        </AskView>
+      )}
       {openItem && (
         <DetailsView
           item={openItem}
@@ -984,6 +1042,12 @@ export function App({
               </div>
             ) : null
           }
+          ask={(() => {
+            const waits = waiting.data?.items.find(
+              (w) => w.kind === "task" && w.ref && w.ref === openItem.ref,
+            );
+            return waits ? answerForm(waits) : null;
+          })()}
           pullRequests={
             (openItem.key || searchable(openItem) || pulls.doc) && (
               <PullRequests
