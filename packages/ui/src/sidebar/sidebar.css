@@ -1326,10 +1326,10 @@
 
 .atlas-sidebar .qhdr {
   display: grid;
-  grid-template-columns: auto 18px minmax(0, 1fr);
+  grid-template-columns: auto 18px minmax(0, 1fr) auto;
   align-items: center;
   gap: 4px;
-  padding-right: 16px;
+  padding-right: 8px;
   margin-top: 10px;
   border-top: 1px solid var(--line);
 }
@@ -1976,4 +1976,126 @@
     var(--hatch) 0 6px,
     transparent 6px 12px
   );
+}
+
+/* ---------- assess and triage ---------- */
+
+.atlas-sidebar .assess {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+}
+
+.atlas-sidebar .assess .arow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.atlas-sidebar .assess select,
+.atlas-sidebar .assess input,
+.atlas-sidebar .triage select {
+  font: inherit;
+  font-size: 13px;
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 4px 6px;
+}
+
+.atlas-sidebar .assess label {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.atlas-sidebar .lnk {
+  all: unset;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--accent);
+}
+
+.atlas-sidebar .lnk:hover {
+  text-decoration: underline;
+}
+
+.atlas-sidebar .lnk:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.atlas-sidebar .pri-btn {
+  font: inherit;
+  font-size: 13px;
+  padding: 5px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: var(--panel);
+  cursor: pointer;
+}
+
+/* Disabled: outlined and in the muted colour, still 4.5:1, rather than faded. */
+.atlas-sidebar .pri-btn:disabled {
+  cursor: default;
+  background: none;
+  border-style: dashed;
+  border-color: var(--muted);
+  color: var(--muted);
+}
+
+.atlas-sidebar .triage {
+  display: grid;
+  gap: 10px;
+  padding: 4px 0 16px;
+}
+
+.atlas-sidebar .triage .tr1 {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.atlas-sidebar .triage .tr1 .sel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.atlas-sidebar .triage .why {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 3px;
+}
+
+.atlas-sidebar .triage .tbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  position: sticky;
+  bottom: 0;
+  background: var(--bg);
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+}
+
+.atlas-sidebar button.bdg {
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  background: none;
+}
+
+.atlas-sidebar button.bdg:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }

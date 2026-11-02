@@ -230,3 +230,70 @@ export function openCount(
     (t) => !t.done && inFocus(t.customer),
   ).length;
 }
+
+/** Business values and effort sizes, as the task database takes them. */
+export const VALUES = [
+  "veryHigh",
+  "high",
+  "medium",
+  "low",
+  "none",
+  "negative",
+] as const;
+export const EFFORTS = ["XS", "S", "M", "L", "XL"] as const;
+
+/**
+ * Whether a bulk move may move a task: a database task, open, not claimed,
+ * not in progress or blocked, and not waiting on a merge or a release.
+ */
+export const movable = (t: WorkItem): boolean =>
+  String(t.ref ?? "").startsWith("db:") &&
+  !t.done &&
+  !t.claimedBy &&
+  !(t.flags ?? []).some((f) => f === "active" || f === "blocked") &&
+  !isWaiting(t);
+
+/**
+ * Trim today to one day: keep Q1, then the highest Q2 that fits eight
+ * hours; give the references of today's other graded tasks that may move.
+ * Ungraded tasks stay; blocked ones don't count against the hours.
+ */
+export function trimPlan(todays: readonly WorkItem[]): string[] {
+  const blocked = (t: WorkItem) => (t.flags ?? []).includes("blocked");
+  const keep = new Set(
+    todays.filter((t) => quadrantOf(t) === "Q1-do-now").map((t) => t.ref),
+  );
+  let used = hoursOf(todays.filter((t) => keep.has(t.ref) && !blocked(t)));
+  for (const t of todays
+    .filter((x) => quadrantOf(x) === "Q2-schedule")
+    .sort(byPriority)) {
+    const need = HOURS[t.effort ?? ""] ?? 0;
+    if (!movable(t) || used + need <= DAY_HOURS) {
+      keep.add(t.ref);
+      used += blocked(t) ? 0 : need;
+    }
+  }
+  return todays
+    .filter(
+      (t) => quadrantOf(t) !== "unsized" && !keep.has(t.ref) && movable(t),
+    )
+    .map((t) => t.ref!);
+}
+
+/** "; 2 skipped (claimed; done)", from a bulk change's skipped list, or nothing. */
+export function skippedText(skipped: ReadonlyArray<{ why?: string }>): string {
+  if (!skipped.length) return "";
+  const reasons = [...new Set(skipped.map((x) => x.why ?? "no reason"))]
+    .slice(0, 3)
+    .join("; ");
+  return `; ${skipped.length} skipped (${reasons})`;
+}
+
+/** A suggested grade for a task, from `board/sizing`, keyed by the task's id without `db:`. */
+export interface Sizing {
+  value?: string;
+  effort?: string;
+  /** Check this before grading, in words. */
+  flag?: string;
+  reason?: string;
+}

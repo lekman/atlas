@@ -212,3 +212,29 @@ export const WithActions: Story = {
     ).toHaveFocus();
   },
 };
+
+/** The backlog with each quadrant's ⋯: moves, and Triage for the ungraded. */
+export const BacklogWithMenus: Story = {
+  name: "Backlog With Menus",
+  args: {
+    band: "backlog",
+    quadrantActions: (q, rows) => (
+      <ActionMenu
+        what={q === "unsized" ? "Ungraded" : q.slice(0, 2)}
+        actions={[
+          ...(q === "unsized" ? [{ label: `Triage ${rows.length}` }] : []),
+          { label: `Move ${rows.length} from today to the backlog` },
+        ]}
+      />
+    ),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Actions for Ungraded" }),
+    );
+    await expect(
+      canvas.getByRole("menuitem", { name: /^Triage/ }),
+    ).toHaveFocus();
+  },
+};

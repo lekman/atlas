@@ -16,6 +16,13 @@ import {
   WaitingOnYou,
   DetailsView,
   ItemActions,
+  AssessForm,
+  movable,
+  quadrantOf,
+  TriageView,
+  trimPlan,
+  whenOf,
+  type Sizing,
   referenceText,
   RequestLine,
   type ItemAction,
@@ -54,6 +61,7 @@ import { useWorklist } from "./useWorklist";
 import { useDetails, useDetailsCopies, type DetailsIndex } from "./useDetails";
 import { useCommander } from "./useCommander";
 import { copyText, useTaskActions } from "./useTaskActions";
+import { usePlanning } from "./usePlanning";
 import {
   searchable,
   usePullRequests,
@@ -174,6 +182,31 @@ export function App({
   const details = useDetails(runtime, openItem, detailsIndex?.items ?? {});
   const commander = useCommander(runtime, config.inbox);
   const actions = useTaskActions(runtime, commander, worklist.apply);
+  const planning = usePlanning(
+    runtime,
+    commander,
+    worklist.doc?.items ?? null,
+    worklist.apply,
+  );
+  const sizing = useStored(runtime, "board/sizing", (d) => {
+    const items = (d as { items?: unknown } | null)?.items;
+    return typeof items === "object" && items !== null
+      ? (items as Record<string, Sizing>)
+      : null;
+  });
+  // Triage: the ungraded tasks it was opened with, while it is open.
+  const [triage, setTriage] = useState<readonly WorkItem[] | null>(null);
+  const [assessOpen, setAssessOpen] = useState<string | null>(null);
+  const triageFor = (rows: readonly WorkItem[]) => {
+    const ready = rows.filter((t) => sizing?.[String(t.ref).slice(3)]).length;
+    return {
+      label: `Triage ${rows.length}${ready ? ` (${ready} suggested)` : ""}`,
+      hint: ready
+        ? "Check the suggested value and effort, then save"
+        : "No suggestions yet; grade them by hand",
+      onSelect: () => setTriage(rows),
+    };
+  };
   // A short note above the worklist: what was copied, or that it couldn't be.
   const [workNote, setWorkNote] = useState<string | null>(null);
   useEffect(() => {
@@ -493,6 +526,72 @@ export function App({
               today={dayKey(now)}
               tomorrow={dayKey(tomorrow)}
               onOpen={setOpened}
+              quadrantActions={(q, rows) => {
+                const today = dayKey(now);
+                const todays = rows.filter(
+                  (t) => whenOf(t, today) === "today" && movable(t),
+                );
+                const tomorrows = rows.filter(
+                  (t) => whenOf(t, today) === "tomorrow" && movable(t),
+                );
+                const later = rows.filter(
+                  (t) => whenOf(t, today) !== "today" && movable(t),
+                );
+                const ungraded = rows.filter((t) =>
+                  String(t.ref).startsWith("db:"),
+                );
+                return (
+                  <ActionMenu
+                    what={q === "unsized" ? "Ungraded" : q.slice(0, 2)}
+                    footer={
+                      runtime.present
+                        ? undefined
+                        : "Moves made here are queued and applied on the Mac mini within a minute."
+                    }
+                    actions={[
+                      ...(q === "Q1-do-now"
+                        ? [
+                            {
+                              label: `Plan ${later.length} for today`,
+                              disabled: !later.length || planning.busy,
+                              onSelect: () =>
+                                planning.moveMany(
+                                  later.map((t) => t.ref!),
+                                  "today",
+                                ),
+                            },
+                          ]
+                        : []),
+                      ...(q === "unsized"
+                        ? [
+                            {
+                              ...triageFor(ungraded),
+                              disabled: !ungraded.length,
+                            },
+                          ]
+                        : []),
+                      {
+                        label: `Move ${todays.length} from today to the backlog`,
+                        disabled: !todays.length || planning.busy,
+                        onSelect: () =>
+                          planning.moveMany(
+                            todays.map((t) => t.ref!),
+                            "backlog",
+                          ),
+                      },
+                      {
+                        label: `Move ${tomorrows.length} from tomorrow to the backlog`,
+                        disabled: !tomorrows.length || planning.busy,
+                        onSelect: () =>
+                          planning.moveMany(
+                            tomorrows.map((t) => t.ref!),
+                            "backlog",
+                          ),
+                      },
+                    ]}
+                  />
+                );
+              }}
               rowActions={rowMenu}
               rowStatus={rowStatus}
               busyRef={actions.busyRef}
@@ -518,6 +617,13 @@ export function App({
                   />
                   {workNote && (
                     <Note onClose={() => setWorkNote(null)}>{workNote}</Note>
+                  )}
+                  {planning.note && (
+                    <Note
+                      onClose={planning.busy ? undefined : planning.clearNote}
+                    >
+                      {planning.note}
+                    </Note>
                   )}
                   {actions.error && <Note tone="err">{actions.error}</Note>}
                   {commander.error && <Note tone="err">{commander.error}</Note>}
@@ -577,6 +683,37 @@ export function App({
                             ),
                           ),
                       },
+                      ...(() => {
+                        const open = workItems.filter(
+                          (t) => !t.meeting && !t.done && inFocus(t.customer),
+                        );
+                        const trim = trimPlan(
+                          open.filter(
+                            (t) => whenOf(t, dayKey(now)) === "today",
+                          ),
+                        );
+                        const ungraded = open.filter(
+                          (t) =>
+                            quadrantOf(t) === "unsized" &&
+                            String(t.ref).startsWith("db:"),
+                        );
+                        return [
+                          {
+                            label: `Trim today to one day (${trim.length})`,
+                            hint: "Keeps Q1 and the highest Q2 that fits 8h; moves today's other graded tasks to the backlog. Ungraded tasks stay.",
+                            disabled: !trim.length || planning.busy,
+                            onSelect: () => planning.moveMany(trim, "backlog"),
+                          },
+                          {
+                            ...triageFor(ungraded),
+                            label: triageFor(ungraded).label.replace(
+                              /^Triage (\d+)/,
+                              "Triage $1 ungraded",
+                            ),
+                            disabled: !ungraded.length,
+                          },
+                        ];
+                      })(),
                       {
                         label: "Expand all",
                         onSelect: () =>
@@ -708,6 +845,32 @@ export function App({
           draftPullRequests={pullCounts(pulls.doc).draft}
           onClose={() => setOpened(null)}
           actions={detailActions(openItem)}
+          onAssess={
+            openItem.ref?.startsWith("db:")
+              ? () =>
+                  setAssessOpen(
+                    assessOpen === openItem.ref ? null : (openItem.ref ?? null),
+                  )
+              : undefined
+          }
+          assessOpen={assessOpen === openItem.ref}
+          assess={
+            assessOpen === openItem.ref ? (
+              <AssessForm
+                item={openItem}
+                canSave={runtime.present}
+                onCancel={() => setAssessOpen(null)}
+                onSave={(change) => {
+                  setAssessOpen(null);
+                  planning.assess(openItem, change).catch(() => undefined);
+                }}
+              />
+            ) : planning.assessNote?.ref === openItem.ref ? (
+              <div className="note" role="status">
+                {planning.assessNote?.text}
+              </div>
+            ) : null
+          }
           pullRequests={
             (openItem.key || searchable(openItem) || pulls.doc) && (
               <PullRequests
@@ -721,6 +884,27 @@ export function App({
               />
             )
           }
+        />
+      )}
+      {triage && (
+        <TriageView
+          items={(workItems ?? []).filter(
+            (t) =>
+              !t.done &&
+              quadrantOf(t) === "unsized" &&
+              String(t.ref).startsWith("db:") &&
+              triage.some((x) => x.ref === t.ref),
+          )}
+          sizing={sizing ?? {}}
+          clientOf={clientOf}
+          clientOrder={config.clients.map((c) => c.key)}
+          today={dayKey(now)}
+          onSave={(grades) => {
+            planning.grade(grades).catch(() => undefined);
+          }}
+          busy={planning.busy}
+          note={planning.triageNote}
+          onClose={() => setTriage(null)}
         />
       )}
     </SidebarFrame>

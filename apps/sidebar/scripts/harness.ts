@@ -93,6 +93,8 @@ const shim = `(() => {
       return { structuredContent: { tasks: { ...list, items: list.items.map((t) => t.ref === "db:1" ? { ...t, done: true } : t) } } };
     },
     "Cloudflare Developer Platform/d1_database_query": () => ({ payload: [{ results: [] }] }),
+    "host:dashboard/task_grade_many": (args) => ({ structuredContent: { graded: args.grades.map((g) => g.ref), skipped: [] } }),
+    "host:dashboard/task_assess": () => ({ structuredContent: {} }),
     "host:dashboard/release_status": () => ({ structuredContent: {
       branch: "release/x", total: 3, checkedAt: new Date().toISOString(),
       drifted: [{ repo: "harness-repo", envs: { staging: "failed" } }] } }),
@@ -371,6 +373,62 @@ try {
         `${width}px: Done does not close the details and store the task as done`,
       );
     }
+    // Triage grades the ungraded task in one call.
+    await tab.getByRole("button", { name: "Actions for the worklist" }).click();
+    await tab.getByRole("menuitem", { name: /^Triage 1 ungraded/ }).click();
+    await tab
+      .getByRole("combobox", { name: "Business value for Harness second task" })
+      .selectOption("medium");
+    await tab
+      .getByRole("combobox", { name: "Effort for Harness second task" })
+      .selectOption("S");
+    await tab.getByRole("button", { name: "Save 1 grade" }).click();
+    const graded = await tab.evaluate(
+      () =>
+        (
+          (
+            window as unknown as {
+              __calls?: Array<{ tool: string; args?: { grades?: unknown } }>;
+            }
+          ).__calls ?? []
+        ).find((c) => c.tool === "task_grade_many")?.args?.grades,
+    );
+    if (
+      JSON.stringify(graded) !==
+      JSON.stringify([{ ref: "db:2", value: "medium", effort: "S" }])
+    ) {
+      problems.push(`${width}px: Triage does not save the grade`);
+    }
+    await tab
+      .getByText("Graded 1.")
+      .waitFor({ timeout: 5000 })
+      .catch(() => {
+        problems.push(`${width}px: Triage does not say what it saved`);
+      });
+    await tab.keyboard.press("Escape");
+    // The quadrant badge opens the value, effort and due date form, which saves only the change.
+    await tab
+      .getByRole("button", { name: "Harness second task", exact: true })
+      .click();
+    await tab.getByRole("button", { name: /Q/, expanded: false }).click();
+    await tab.getByRole("combobox", { name: "Effort" }).selectOption("L");
+    await tab.getByRole("button", { name: "Save", exact: true }).click();
+    const assessed = await tab.evaluate(
+      () =>
+        (
+          (
+            window as unknown as {
+              __calls?: Array<{ tool: string; args?: unknown }>;
+            }
+          ).__calls ?? []
+        ).find((c) => c.tool === "task_assess")?.args,
+    );
+    if (
+      JSON.stringify(assessed) !== JSON.stringify({ ref: "db:2", effort: "L" })
+    ) {
+      problems.push(`${width}px: the form does not save only the change`);
+    }
+    await tab.keyboard.press("Escape");
     // On the phone: without the local server, a change goes through the inbox.
     await tab.evaluate(() => {
       (window as unknown as { __offline: boolean }).__offline = true;

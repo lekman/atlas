@@ -57,6 +57,8 @@ export interface WorklistProps {
   rowStatus?: (item: WorkItem) => ReactNode;
   /** The task being changed now. */
   busyRef?: string | null;
+  /** A quadrant's ⋯ menu, given its key and its open tasks. */
+  quadrantActions?: (quadrant: string, rows: readonly WorkItem[]) => ReactNode;
 }
 
 /** A group shows its first five tasks until it is opened in full. */
@@ -257,6 +259,7 @@ function PlanView({
   rowActions,
   rowStatus,
   busyRef,
+  quadrantActions,
 }: WorklistProps & { items: readonly WorkItem[] }) {
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
   const [info, setInfo] = useState<string | null>(null);
@@ -320,6 +323,7 @@ function PlanView({
               <span className="qc">
                 {rows.length} open{todays ? ` · ${todays} today` : ""}
               </span>
+              <span>{quadrantActions?.(q.key, rows)}</span>
             </div>
             {info === q.key && <div className="qnote">{q.about}</div>}
             {!closed && (
