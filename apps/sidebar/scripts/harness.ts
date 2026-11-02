@@ -51,7 +51,11 @@ const shim = `(() => {
       latest: { cpuPct: 12, memFreePct: 70, diskFreeGb: 80, runnersBusy: 2, runnersMax: 4 },
       samples: [], breaches: [{ metric: "cpuPct", level: "warn" }] }] } }),
     "host:dashboard/waiting_on_you": () => ({ structuredContent: { items: [
-      { kind: "question", ask: "Which day suits the review?" }] } }),
+      { kind: "question", id: "q1", ask: "Which day suits the review?", options: [
+        { label: "Thursday", description: "The team is free all afternoon.", recommended: true },
+        { label: "Friday" }] }] } }),
+    "host:dashboard/commander_answer": (args) => ({ structuredContent: { request: {
+      id: args.id, state: "received", action: "answer", summary: "Harness Commander has the answer", updatedAt: new Date().toISOString() } } }),
     "monday.com/get_board_items_page": () => ({ payload: { items: [{
       name: "Harness board item", url: "https://example.monday.com/1", updated_at: new Date().toISOString(),
       column_values: { status: "Stuck", priority: "High", number: "9" } },
@@ -220,6 +224,33 @@ try {
     if ((await tab.getByRole("dialog").count()) !== 0) {
       problems.push(`${width}px: Escape does not close the settings`);
     }
+    // An ask from Commander opens with its options; the answer goes to Commander.
+    await tab
+      .getByRole("button", { name: "Which day suits the review?" })
+      .click();
+    await tab.getByRole("radio", { name: /Thursday \(Recommended\)/ }).check();
+    await tab.getByRole("button", { name: "Send to Commander" }).click();
+    const answered = await tab.evaluate(
+      () =>
+        (
+          (
+            window as unknown as {
+              __calls?: Array<{
+                tool: string;
+                args?: { answer?: { choice?: string }; ask?: { id?: string } };
+              }>;
+            }
+          ).__calls ?? []
+        ).find((c) => c.tool === "commander_answer")?.args,
+    );
+    if (
+      answered?.answer?.choice !== "Thursday" ||
+      answered?.ask?.id !== "q1" ||
+      !(await tab.getByText("Harness Commander has the answer").isVisible())
+    ) {
+      problems.push(`${width}px: answering an ask does not reach Commander`);
+    }
+    await tab.keyboard.press("Escape");
     // Details: the task opens its page, drawn without HTML, and Escape returns to it.
     const taskTitle = tab.getByRole("button", {
       name: "Harness task for today",

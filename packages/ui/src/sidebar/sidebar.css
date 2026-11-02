@@ -861,6 +861,112 @@
   color: var(--ok);
 }
 
+/* ---------- answer an ask ---------- */
+
+.atlas-sidebar .askf {
+  margin: 12px 0;
+  border: 1px solid var(--warn);
+  border-left-width: 3px;
+  border-radius: 6px;
+  padding: 10px 12px 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.atlas-sidebar .askf .ah {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  font-weight: 600;
+  color: var(--warn);
+}
+
+.atlas-sidebar .askf .askq p {
+  margin: 2px 0 0;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.atlas-sidebar .askf fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.atlas-sidebar .askf .opt {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 6px;
+  align-items: start;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.atlas-sidebar .askf .opt:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--now);
+}
+
+.atlas-sidebar .askf .opt input {
+  margin: 3px 0 0;
+}
+
+.atlas-sidebar .askf .opt span {
+  display: grid;
+  gap: 2px;
+}
+
+.atlas-sidebar .askf .opt em {
+  font-style: normal;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.atlas-sidebar .askf .asknote {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.atlas-sidebar .askf textarea {
+  font: inherit;
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 6px 8px;
+  resize: vertical;
+}
+
+.atlas-sidebar .askf .acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.atlas-sidebar .askf .askst {
+  font-size: 12px;
+}
+
+.atlas-sidebar .askf .askst.ok {
+  color: var(--ok);
+}
+
+.atlas-sidebar .askf .askst.warn {
+  color: var(--warn);
+}
+
+.atlas-sidebar .askf .askst.bad {
+  color: var(--bad);
+}
+
 /* ---------- teach commander ---------- */
 
 .atlas-sidebar .teachv {

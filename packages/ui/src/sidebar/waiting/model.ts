@@ -5,10 +5,23 @@
  */
 import { formatDay } from "../format";
 
+/** One answer the asker offers, as AskUserQuestion offers its options. */
+export interface AskOption {
+  label: string;
+  /** What choosing it does. */
+  description?: string;
+  /** The asker's recommendation; listed first. */
+  recommended?: boolean;
+}
+
 export interface WaitingItem {
   kind: "task" | "commander" | "question";
   /** A task's reference, to open its details. */
   ref?: string;
+  /** A Commander request's or question's id. */
+  id?: string;
+  /** The answers the asker offers, when it offered any. */
+  options?: AskOption[];
   /** A task's client key. */
   customer?: string;
   /** The Commander worker that asks. */
@@ -91,4 +104,36 @@ export function waitingSource(item: WaitingItem, clientName: string): string[] {
       ? [`since ${formatDay(since)}`]
       : []),
   ];
+}
+
+/** At most four options the asker offered, trimmed, the recommended one first. */
+export function askOptions(item: WaitingItem): AskOption[] {
+  const seen = new Set<string>();
+  const valid = (item.options ?? []).flatMap((o) => {
+    const label =
+      typeof o?.label === "string" ? o.label.trim().slice(0, 80) : "";
+    if (!label || seen.has(label.toLowerCase())) return [];
+    seen.add(label.toLowerCase());
+    const description =
+      typeof o.description === "string"
+        ? o.description.trim().slice(0, 300)
+        : "";
+    return [
+      {
+        label,
+        ...(description ? { description } : {}),
+        ...(o.recommended === true ? { recommended: true } : {}),
+      },
+    ];
+  });
+  return [
+    ...valid.filter((o) => o.recommended),
+    ...valid.filter((o) => !o.recommended),
+  ].slice(0, 4);
+}
+
+/** The key an answer to this ask is kept under: the task's ref, or the ask's own id. */
+export function askKey(item: WaitingItem): string | null {
+  if (item.kind === "task") return item.ref ?? null;
+  return item.id ? `ask:${item.kind}:${item.id}` : null;
 }

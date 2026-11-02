@@ -49,6 +49,8 @@ export interface DetailsViewProps {
   onClose: () => void;
   /** The item's actions, under the title. */
   actions?: ReactNode;
+  /** The answer form, when the item waits on the operator: after the badges, before the pull requests. */
+  ask?: ReactNode;
   /** The item's pull requests, after the badges. */
   pullRequests?: ReactNode;
   /** The quadrant badge opens this: the value, effort and due date form, or what saving it did. */
@@ -81,6 +83,7 @@ export function DetailsView({
   mondayPrefix,
   openPullRequests,
   draftPullRequests,
+  ask,
   weekEnd,
   now,
   onClose,
@@ -236,6 +239,7 @@ export function DetailsView({
               ))}
             </div>
           )}
+          {ask}
           {pullRequests}
           {details.state === "loading" && <div className="dnote">Loading…</div>}
           {details.state === "none" && (
