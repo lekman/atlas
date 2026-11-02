@@ -3,7 +3,12 @@
  * (day, or its night where it has one), its faces, and a background drawn
  * after the full page's. Only the worlds the sidebar offers are here.
  */
-import { paletteFor, worlds, type Lighting, type Palette } from "@atlas/worlds";
+import {
+  paletteFor,
+  worldLooks as worlds,
+  type Lighting,
+  type Palette,
+} from "@atlas/worlds/looks";
 import type { CSSProperties } from "react";
 
 export const SIDEBAR_WORLDS = ["astronomer", "mariner"] as const;

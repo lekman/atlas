@@ -1,4 +1,4 @@
-import type { Lighting } from "@atlas/worlds";
+import type { Lighting } from "@atlas/worlds/looks";
 import type { ReactNode } from "react";
 
 import { worldFrameStyle, type SidebarWorldId } from "../theme/worlds";

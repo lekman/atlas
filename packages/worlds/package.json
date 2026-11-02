@@ -7,7 +7,8 @@
   "license": "MIT",
   "main": "./src/index.ts",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./looks": "./src/looks.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

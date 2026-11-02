@@ -4,7 +4,7 @@ import {
   type SoundCategory,
   type SoundCue,
   type SoundSettings,
-} from "@atlas/worlds";
+} from "@atlas/worlds/looks";
 import type { ReactNode } from "react";
 
 export interface SoundPanelProps {

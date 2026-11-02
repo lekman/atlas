@@ -226,6 +226,12 @@ export interface World {
   stillMap: StillMap;
 }
 
+/** What a world looks and sounds like, without its painter or its words. */
+export type WorldLook = Pick<
+  World,
+  "id" | "name" | "description" | "palette" | "night" | "typefaces" | "voices"
+>;
+
 export interface PlannedWorld {
   id: string;
   name: string;
