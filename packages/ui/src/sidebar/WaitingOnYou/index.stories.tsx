@@ -81,3 +81,22 @@ export const NothingWaiting: Story = {
     await expect(within(canvasElement).queryByRole("region")).toBeNull();
   },
 };
+
+/**
+ * Nothing to list, but a source couldn't be read: a quiet note says which,
+ * with the messages as its tooltip, so it doesn't read as nothing waiting.
+ */
+export const SourceFailed: Story = {
+  name: "Source Failed",
+  args: {
+    rows: [],
+    errors: ["questions: connection refused", "commander: timed out after 10s"],
+  },
+  play: async ({ canvasElement }) => {
+    await expect(
+      within(canvasElement).getByText(
+        "Couldn't check everything that waits on you: questions, commander.",
+      ),
+    ).toBeInTheDocument();
+  },
+};

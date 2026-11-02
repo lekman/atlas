@@ -8,8 +8,16 @@ import { fontsWoff2Only, inlineBundle } from "./build/inline";
 
 const directory = import.meta.dirname;
 
-/** This machine's config when it has one, otherwise the example. */
+/**
+ * The config named by SIDEBAR_CONFIG, else this machine's own, else the
+ * example. Checks build with the example, whatever the machine has.
+ */
 function sidebarConfig(): unknown {
+  if (process.env.SIDEBAR_CONFIG) {
+    return JSON.parse(
+      readFileSync(join(directory, process.env.SIDEBAR_CONFIG), "utf8"),
+    );
+  }
   const own = join(directory, "sidebar.config.json");
   const file = existsSync(own)
     ? own

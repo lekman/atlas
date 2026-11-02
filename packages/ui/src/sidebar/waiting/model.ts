@@ -26,7 +26,18 @@ export interface WaitingItem {
 /** The tool's answer, and the stored copy (`board/waiting`) with `storedAt`. */
 export interface WaitingDoc {
   items: WaitingItem[];
+  /** Sources that couldn't be read, each "<source>: <message>". */
+  errors?: string[];
   storedAt?: string;
+}
+
+/** The sources that failed, by name, from `errors`. */
+export function failedSources(errors: readonly string[] | undefined): string[] {
+  return [
+    ...new Set(
+      (errors ?? []).map((e) => e.split(":")[0]!.trim()).filter(Boolean),
+    ),
+  ];
 }
 
 export function isWaitingDoc(value: unknown): value is WaitingDoc {
