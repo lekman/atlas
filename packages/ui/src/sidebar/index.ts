@@ -235,3 +235,14 @@ export {
   worldTokens,
   type SidebarWorldId,
 } from "./theme/worlds";
+export { DecisionsView, type DecisionsViewProps } from "./DecisionsView";
+export {
+  judge,
+  ruleFor,
+  verdictText,
+  type DecisionRule,
+  type Guard,
+  type RepeatedAsk,
+  type RuleMode,
+  type Verdict,
+} from "./decisions/model";

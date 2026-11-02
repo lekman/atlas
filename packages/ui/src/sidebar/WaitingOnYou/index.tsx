@@ -1,5 +1,6 @@
 import { useId, type CSSProperties } from "react";
 
+import { Icon } from "../Icon";
 import {
   askText,
   failedSources,
@@ -13,6 +14,8 @@ export interface WaitingRow {
   client: { name: string; colour: string };
   /** Opens the task's details; without it the ask is plain text. */
   onOpen?: () => void;
+  /** A rule Commander would follow to answer it, in words. */
+  rule?: string;
 }
 
 export interface WaitingOnYouProps {
@@ -24,6 +27,11 @@ export interface WaitingOnYouProps {
    * to list, they say so, so a failed source doesn't read as nothing waiting.
    */
   errors?: readonly string[];
+  /**
+   * Opens Teach Commander. With it, an icon button takes the count's place
+   * and says the count in its name.
+   */
+  onTeach?: () => void;
 }
 
 /**
@@ -31,7 +39,12 @@ export interface WaitingOnYouProps {
  * operator. It only shows and links; nothing here approves or answers.
  * Absent when nothing waits.
  */
-export function WaitingOnYou({ rows, operator, errors }: WaitingOnYouProps) {
+export function WaitingOnYou({
+  rows,
+  operator,
+  errors,
+  onTeach,
+}: WaitingOnYouProps) {
   const heading = useId();
   if (!rows.length) {
     const failed = failedSources(errors);
@@ -45,7 +58,20 @@ export function WaitingOnYou({ rows, operator, errors }: WaitingOnYouProps) {
   return (
     <section className="waiting" aria-labelledby={heading}>
       <div className="wy-h" id={heading}>
-        Waiting on you <span className="n">{rows.length}</span>
+        Waiting on you
+        {onTeach ? (
+          <button
+            type="button"
+            className="teach"
+            aria-label={`Teach Commander, ${rows.length} waiting`}
+            title="Teach Commander your answers"
+            onClick={onTeach}
+          >
+            <Icon name="teach" />
+          </button>
+        ) : (
+          <span className="n">{rows.length}</span>
+        )}
       </div>
       <ul>
         {rows.map((row, i) => {
@@ -75,6 +101,9 @@ export function WaitingOnYou({ rows, operator, errors }: WaitingOnYouProps) {
                   </span>
                 ))}
               </div>
+              {row.rule && (
+                <div className="rule">Commander's rule: {row.rule}</div>
+              )}
             </li>
           );
         })}

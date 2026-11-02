@@ -834,6 +834,119 @@
   overflow-wrap: anywhere;
 }
 
+.atlas-sidebar .waiting .teach {
+  all: unset;
+  box-sizing: border-box;
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin: -6px 0 -6px auto;
+  border-radius: 6px;
+  color: var(--warn);
+  cursor: pointer;
+}
+
+.atlas-sidebar .waiting .teach:hover {
+  background: var(--now);
+}
+
+.atlas-sidebar .waiting .teach:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.atlas-sidebar .waiting .rule {
+  font-size: 12px;
+  color: var(--ok);
+}
+
+/* ---------- teach commander ---------- */
+
+.atlas-sidebar .teachv {
+  display: grid;
+  gap: 18px;
+  padding: 12px 0 16px;
+}
+
+.atlas-sidebar .teachv h3 {
+  margin: 0 0 4px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted);
+}
+
+.atlas-sidebar .teachv ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.atlas-sidebar .teachv li {
+  display: grid;
+  gap: 4px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.atlas-sidebar .teachv .q {
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.atlas-sidebar .teachv .sub,
+.atlas-sidebar .teachv .why {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.atlas-sidebar .teachv .verdict.suggest {
+  color: var(--ok);
+}
+
+.atlas-sidebar .teachv .verdict.guarded {
+  color: var(--bad);
+}
+
+.atlas-sidebar .teachv .answers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.atlas-sidebar .teachv .answers span {
+  font-size: 11px;
+  padding: 1px 6px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+
+.atlas-sidebar .teachv .acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.atlas-sidebar .teachv .sec-btn {
+  all: unset;
+  box-sizing: border-box;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+}
+
+.atlas-sidebar .teachv .sec-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
 /* ---------- release status ---------- */
 
 .atlas-sidebar .rel {
