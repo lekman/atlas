@@ -52,7 +52,11 @@
     {
       "client": "meridian",
       "source": "GitHub",
-      "logo": "github"
+      "logo": "github",
+      "github": {
+        "owner": "meridian-bank",
+        "name": "ledger"
+      }
     }
   ],
   "hostFilters": {

@@ -41,6 +41,8 @@ export interface SidebarTracker {
   /** A release-status tab, shown only with this client chosen. */
   release?: boolean;
   monday?: MondayBoard;
+  /** The GitHub repository whose open issues the tab lists. */
+  github?: { owner: string; name: string };
 }
 
 /**

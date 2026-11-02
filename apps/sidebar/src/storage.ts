@@ -6,6 +6,10 @@
 export const KEYS = {
   focus: "db.focus",
   view: "db.view",
+  /** "1" when the GitHub list shows only the operator's issues. */
+  githubMine: "db.ghMine",
+  /** The GitHub groups folded, as a JSON list of labels prefixed `lb:`. */
+  githubFolded: "db.gCollapsed",
 } as const;
 
 export function load(
@@ -26,4 +30,20 @@ export function save(key: string, value: string): void {
   } catch {
     // Storage refused (a private window, a sandbox): the choice lasts this visit.
   }
+}
+
+/** A set saved as a JSON list; empty when missing or unreadable. */
+export function loadSet(key: string): Set<string> {
+  try {
+    const list: unknown = JSON.parse(localStorage.getItem(key) ?? "null");
+    return new Set(
+      Array.isArray(list) ? list.filter((x) => typeof x === "string") : [],
+    );
+  } catch {
+    return new Set();
+  }
+}
+
+export function saveSet(key: string, set: ReadonlySet<string>): void {
+  save(key, JSON.stringify([...set]));
 }

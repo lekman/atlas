@@ -1083,3 +1083,29 @@
     transition: none;
   }
 }
+
+.atlas-sidebar .tag.neutral {
+  color: var(--muted);
+}
+
+/* ---------- segmented buttons ---------- */
+
+.atlas-sidebar .seg {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.atlas-sidebar .seg button {
+  border: 0;
+  background: transparent;
+  padding: 3px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.atlas-sidebar .seg button[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--panel);
+}

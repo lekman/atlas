@@ -1,6 +1,7 @@
 import type { Runtime } from "@atlas/runtime";
 import {
   ClientPill,
+  GitHubList,
   HostsPanel,
   hostsTab,
   MondayList,
@@ -24,7 +25,8 @@ import {
   type SidebarConfig,
 } from "./config";
 import { hostsFor } from "./hosts";
-import { KEYS, load, save } from "./storage";
+import { KEYS, load, loadSet, save, saveSet } from "./storage";
+import { useGitHub } from "./useGitHub";
 import { useHosts } from "./useHosts";
 import { useMonday } from "./useMonday";
 import { useRelease } from "./useRelease";
@@ -73,6 +75,15 @@ export function App({
   const release = useRelease(runtime);
   const mondayTracker = config.trackers.find((t) => t.monday);
   const monday = useMonday(runtime, mondayTracker?.monday);
+  const githubTracker = config.trackers.find((t) => t.github);
+  const github = useGitHub(runtime, githubTracker?.github);
+  const [githubMine, setGithubMine] = useState(
+    () => load(KEYS.githubMine, () => true) === "1",
+  );
+  // Saved with the previous page's `lb:` prefix, so its folds carry over.
+  const [githubFolded, setGithubFolded] = useState(() =>
+    loadSet(KEYS.githubFolded),
+  );
   // The client whose release status the sidebar shows, if any.
   const releaseClient = config.trackers.find((t) => t.release)?.client;
   const releaseView = (
@@ -169,6 +180,35 @@ export function App({
                   page={monday.data}
                   error={monday.error}
                   updatedAt={monday.updatedAt}
+                  now={now}
+                />
+              ) : v.id === githubTracker?.client && githubTracker.github ? (
+                <GitHubList
+                  title={`${clientOf(v.id).name} · ${githubTracker.title ?? "GitHub issues"}`}
+                  repo={`${githubTracker.github.owner}/${githubTracker.github.name}`}
+                  page={github.data}
+                  error={github.error}
+                  me={github.me}
+                  mine={githubMine}
+                  onMine={(mine) => {
+                    setGithubMine(mine);
+                    save(KEYS.githubMine, mine ? "1" : "0");
+                  }}
+                  folded={
+                    new Set(
+                      [...githubFolded]
+                        .filter((k) => k.startsWith("lb:"))
+                        .map((k) => k.slice(3)),
+                    )
+                  }
+                  onFold={(label) => {
+                    const next = new Set(githubFolded);
+                    if (!next.delete(`lb:${label}`)) next.add(`lb:${label}`);
+                    setGithubFolded(next);
+                    saveSet(KEYS.githubFolded, next);
+                  }}
+                  colour={clientOf(v.id).colour}
+                  updatedAt={github.updatedAt}
                   now={now}
                 />
               ) : (

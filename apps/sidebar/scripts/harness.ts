@@ -54,6 +54,9 @@ const shim = `(() => {
     "monday.com/get_board_items_page": () => ({ payload: { items: [{
       name: "Harness board item", url: "https://example.monday.com/1", updated_at: new Date().toISOString(),
       column_values: { status: "Stuck", priority: "High", number: "9" } }] } }),
+    "GitHub/list_issues": () => ({ payload: { totalCount: 1, issues: [
+      { number: 5, title: "Harness issue", labels: ["bug"], assignees: ["harness"], updated_at: new Date().toISOString() }] } }),
+    "GitHub/get_me": () => ({ payload: { login: "harness" } }),
     "host:dashboard/release_status": () => ({ structuredContent: {
       branch: "release/x", total: 3, checkedAt: new Date().toISOString(),
       drifted: [{ repo: "harness-repo", envs: { staging: "failed" } }] } }),
@@ -134,6 +137,15 @@ try {
     ) {
       problems.push(`${width}px: the Monday board is not shown`);
     }
+    // GitHub issues, with links built from the configured repository.
+    await tab.getByRole("tab", { name: "Meridian Bank" }).click();
+    const issue = tab.getByRole("link", { name: "Harness issue" });
+    if (
+      (await issue.getAttribute("href")) !==
+      "https://github.com/meridian-bank/ledger/issues/5"
+    ) {
+      problems.push(`${width}px: the GitHub issue is not shown with its link`);
+    }
     // Hosts end to end: the tab shows the breach, the panel the host, and
     // the copy for other devices is stored in the previous page's shape.
     const hostsTab = tab.getByRole("tab", { name: /host alert/i });
@@ -185,5 +197,5 @@ if (problems.length) {
   process.exit(1);
 }
 console.log(
-  `✓ one file, ${Math.round(source.length / 1024)} KB, renders at 390 and 1280 px with no errors; hosts, waiting, release and Monday work end to end`,
+  `✓ one file, ${Math.round(source.length / 1024)} KB, renders at 390 and 1280 px with no errors; hosts, waiting, release, Monday and GitHub work end to end`,
 );

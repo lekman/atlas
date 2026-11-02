@@ -4,6 +4,7 @@ import { expect, userEvent, within } from "storybook/test";
 
 import { ClientPill } from "../ClientPill";
 import { hostsTab } from "../hosts/model";
+import { GitHubList } from "../GitHubList";
 import { HostsPanel } from "../HostsPanel";
 import { MondayList } from "../MondayList";
 import { NextUp } from "../NextUp";
@@ -23,6 +24,7 @@ import {
   STORY_NOW,
 } from "./examples";
 import { clientOfHost, hostsDoc } from "./hosts";
+import { githubExample } from "./github";
 import { mondayExample } from "./monday";
 import { releaseDrifted } from "./release";
 import { OPERATOR, waitingItems } from "./waiting";
@@ -128,6 +130,20 @@ function SidebarPage({
                 <MondayList
                   title="Kestrel Freight · Operations board, mine"
                   page={mondayExample}
+                  updatedAt={STORY_NOW}
+                  now={STORY_NOW}
+                />
+              ) : v.id === "meridian" ? (
+                <GitHubList
+                  title="Meridian Bank · GitHub issues"
+                  repo="meridian-bank/ledger"
+                  page={githubExample}
+                  me="alex-a"
+                  mine={false}
+                  onMine={() => undefined}
+                  folded={new Set()}
+                  onFold={() => undefined}
+                  colour="var(--client-4)"
                   updatedAt={STORY_NOW}
                   now={STORY_NOW}
                 />
