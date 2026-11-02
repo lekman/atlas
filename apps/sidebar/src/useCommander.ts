@@ -85,6 +85,8 @@ export interface Commander {
   ) => Promise<boolean>;
   /** Why the last request could not be sent at all, in words. */
   error: string | null;
+  /** Hides the error, from its close button. */
+  clearError: () => void;
 }
 
 /**
@@ -459,5 +461,6 @@ export function useCommander(
     },
     queue,
     error,
+    clearError: () => setError(null),
   };
 }

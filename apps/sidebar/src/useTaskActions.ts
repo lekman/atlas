@@ -24,6 +24,8 @@ export interface TaskActions {
   busyRef: string | null;
   /** Why the last change failed, in words. */
   error: string | null;
+  /** Hides the error, from its close button. */
+  clearError: () => void;
 }
 
 /**
@@ -86,7 +88,7 @@ export function useTaskActions(
         } else {
           setError(
             code === "tool_error"
-              ? `Couldn't update Dashboard.md: ${message || "the edit was refused"}.`
+              ? `Couldn't update ${fromDatabase ? "the task" : "Dashboard.md"}: ${(message || "the edit was refused").replace(/[.\s]+$/, "")}.`
               : code === "not_in_manifest"
                 ? "Done and Move aren't switched on for this page yet."
                 : code === "server_not_connected" || code === "not_granted"
@@ -102,7 +104,7 @@ export function useTaskActions(
     [runtime, commander, onFresh],
   );
 
-  return { act, busyRef, error };
+  return { act, busyRef, error, clearError: () => setError(null) };
 }
 
 /** Copies text to the clipboard; a sandboxed frame may refuse the API, where a selected textarea still works. */
