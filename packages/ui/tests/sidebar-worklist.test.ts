@@ -5,6 +5,9 @@ import {
   isWaiting,
   isWorklistDoc,
   itemsFor,
+  movable,
+  skippedText,
+  trimPlan,
   openCount,
   quadrantOf,
   todaySummary,
@@ -144,5 +147,52 @@ describe("isWaiting, openCount and isWorklistDoc", () => {
   it("accepts the answer and the stored copy", () => {
     expect(isWorklistDoc({ items: [], syncedAt: "x" })).toBe(true);
     expect(isWorklistDoc({ hosts: [] })).toBe(false);
+  });
+});
+
+describe("movable, trimPlan and skippedText", () => {
+  const T2 = "2026-03-12";
+  const task = (ref: string, more: Partial<WorkItem>): WorkItem => ({
+    ref,
+    title: ref,
+    customer: "acme",
+    band: "today",
+    day: T2,
+    ...more,
+  });
+
+  it("moves only open database tasks nobody is working on or waiting for", () => {
+    expect(movable(task("db:1", {}))).toBe(true);
+    expect(movable(task("md:1", {}))).toBe(false);
+    expect(movable(task("db:1", { claimedBy: "ops" }))).toBe(false);
+    expect(movable(task("db:1", { flags: ["blocked"] }))).toBe(false);
+    expect(movable(task("db:1", { flags: ["merged"] }))).toBe(false);
+  });
+
+  it("keeps Q1 and the highest Q2 that fits a day, moving the rest of today's graded work", () => {
+    const todays = [
+      task("db:q1", { quadrant: "Q1-do-now", effort: "M" }),
+      task("db:q2a", {
+        quadrant: "Q2-schedule",
+        effort: "S",
+        priority: "high",
+      }),
+      task("db:q2b", { quadrant: "Q2-schedule", effort: "M", priority: "low" }),
+      task("db:q3", { quadrant: "Q3-minimise", effort: "XS" }),
+      task("db:ungraded", {}),
+      task("db:claimed", {
+        quadrant: "Q4-drop",
+        effort: "S",
+        claimedBy: "ops",
+      }),
+    ];
+    expect(trimPlan(todays)).toEqual(["db:q2b", "db:q3"]);
+  });
+
+  it("summarises what a bulk change skipped", () => {
+    expect(skippedText([])).toBe("");
+    expect(
+      skippedText([{ why: "claimed" }, { why: "claimed" }, { why: "done" }]),
+    ).toBe("; 3 skipped (claimed; done)");
   });
 });

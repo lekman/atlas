@@ -83,6 +83,8 @@ const preview: Preview = {
             ["Details View", "Pull Requests"],
             "Commander",
             ["Item Actions", "Request Line"],
+            "Planning",
+            ["Triage", "Assess Form"],
             "Calendar",
             ["Agenda"],
             "Trackers",

@@ -51,6 +51,10 @@ export interface DetailsViewProps {
   actions?: ReactNode;
   /** The item's pull requests, after the badges. */
   pullRequests?: ReactNode;
+  /** The quadrant badge opens this: the value, effort and due date form, or what saving it did. */
+  assess?: ReactNode;
+  onAssess?: () => void;
+  assessOpen?: boolean;
 }
 
 const STATUS: Record<StatusKind, { colour: string; ink: string }> = {
@@ -82,6 +86,9 @@ export function DetailsView({
   onClose,
   actions,
   pullRequests,
+  assess,
+  onAssess,
+  assessOpen,
 }: DetailsViewProps) {
   const title = useId();
   const back = useRef<HTMLButtonElement>(null);
@@ -189,7 +196,13 @@ export function DetailsView({
                 }`.toUpperCase()}
                 colour={quadrant.colour}
                 ink="var(--panel)"
-                title={quadrant.about}
+                title={
+                  onAssess
+                    ? "Change value, effort and due date"
+                    : quadrant.about
+                }
+                onClick={onAssess}
+                expanded={onAssess ? Boolean(assessOpen) : undefined}
               />
             )}
             {graded && item.due && (
@@ -208,6 +221,7 @@ export function DetailsView({
               />
             )}
           </div>
+          {assess}
           {repos.length > 0 && (
             <div className="bdgs repos">
               {repos.map((r) => (
