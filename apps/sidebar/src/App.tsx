@@ -4,6 +4,8 @@ import {
   HostsPanel,
   hostsTab,
   NextUp,
+  releaseCount,
+  ReleaseStatus,
   WaitingOnYou,
   Note,
   Panel,
@@ -23,6 +25,7 @@ import {
 import { hostsFor } from "./hosts";
 import { KEYS, load, save } from "./storage";
 import { useHosts } from "./useHosts";
+import { useRelease } from "./useRelease";
 import { useWaiting } from "./useWaiting";
 import { waitingRows } from "./waiting";
 import { sidebarViews, tabLook } from "./views";
@@ -65,6 +68,17 @@ export function App({
     ? hostsFor(hosts.data.hosts, focus, config)
     : null;
   const waiting = useWaiting(runtime);
+  const release = useRelease(runtime);
+  // The client whose release status the sidebar shows, if any.
+  const releaseClient = config.trackers.find((t) => t.release)?.client;
+  const releaseView = (
+    <ReleaseStatus
+      doc={release.data}
+      live={release.live}
+      error={release.failure}
+      now={now}
+    />
+  );
   const clientOf = (key: string) =>
     clients.find((c) => c.key === key) ?? {
       name: "Other",
@@ -101,6 +115,7 @@ export function App({
           iconOnly: true,
           ...tabLook(config, v.id),
           ...(v.id === "hosts" ? hostsTab(shownHosts) : {}),
+          ...(v.id === "release" ? { count: releaseCount(release.data) } : {}),
         }))}
         selected={shown.selected}
         onSelect={open}
@@ -138,8 +153,14 @@ export function App({
               }
               loading
             />
+          ) : v.id === "release" ? (
+            releaseView
           ) : (
-            <Panel title={v.label} loading />
+            <>
+              {/* With every client shown, release status sits above its client's tracker. */}
+              {v.id === releaseClient && focus === "all" && releaseView}
+              <Panel title={v.label} loading />
+            </>
           )}
         </TabPanel>
       ))}

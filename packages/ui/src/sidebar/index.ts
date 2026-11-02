@@ -62,3 +62,18 @@ export {
   type WaitingDoc,
   type WaitingItem,
 } from "./waiting/model";
+export { ReleaseStatus, type ReleaseStatusProps } from "./ReleaseStatus";
+export {
+  brokenReason,
+  drifts,
+  ENVIRONMENTS,
+  envStates,
+  envText,
+  isReleaseDoc,
+  releaseCount,
+  releaseLevel,
+  stateKind,
+  type DriftedRepo,
+  type EnvState,
+  type ReleaseDoc,
+} from "./release/model";

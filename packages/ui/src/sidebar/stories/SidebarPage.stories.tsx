@@ -10,6 +10,8 @@ import { Note } from "../Note";
 import { Panel } from "../Panel";
 import { SidebarFrame } from "../SidebarFrame";
 import { SidebarHeader } from "../SidebarHeader";
+import { releaseCount } from "../release/model";
+import { ReleaseStatus } from "../ReleaseStatus";
 import { TabPanel, Tabs } from "../Tabs";
 import { WaitingOnYou } from "../WaitingOnYou";
 import { visibleViews } from "../views";
@@ -20,6 +22,7 @@ import {
   STORY_NOW,
 } from "./examples";
 import { clientOfHost, hostsDoc } from "./hosts";
+import { releaseDrifted } from "./release";
 import { OPERATOR, waitingItems } from "./waiting";
 
 /**
@@ -59,7 +62,11 @@ function SidebarPage({
         label="Views"
         idPrefix="page"
         tabs={exampleTabs(shown.views).map((t) =>
-          t.id === "hosts" ? { ...t, ...hostsTab(hostsDoc.hosts) } : t,
+          t.id === "hosts"
+            ? { ...t, ...hostsTab(hostsDoc.hosts) }
+            : t.id === "release"
+              ? { ...t, count: releaseCount(releaseDrifted) }
+              : t,
         )}
         selected={shown.selected}
         onSelect={setView}
@@ -108,11 +115,20 @@ function SidebarPage({
                 </>
               }
             />
+          ) : v.id === "release" ? (
+            <ReleaseStatus doc={releaseDrifted} live now={STORY_NOW} />
           ) : (
-            <Panel
-              title={v.label}
-              notes={<Note>This view joins the sidebar in a later step.</Note>}
-            />
+            <>
+              {v.id === "kestrel" && focus === "all" && (
+                <ReleaseStatus doc={releaseDrifted} live now={STORY_NOW} />
+              )}
+              <Panel
+                title={v.label}
+                notes={
+                  <Note>This view joins the sidebar in a later step.</Note>
+                }
+              />
+            </>
           )}
         </TabPanel>
       ))}
