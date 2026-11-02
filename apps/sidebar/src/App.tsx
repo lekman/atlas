@@ -716,8 +716,16 @@ export function App({
                       {planning.note}
                     </Note>
                   )}
-                  {actions.error && <Note tone="err">{actions.error}</Note>}
-                  {commander.error && <Note tone="err">{commander.error}</Note>}
+                  {actions.error && (
+                    <Note tone="err" onClose={actions.clearError}>
+                      {actions.error}
+                    </Note>
+                  )}
+                  {commander.error && (
+                    <Note tone="err" onClose={commander.clearError}>
+                      {commander.error}
+                    </Note>
+                  )}
                   {worklist.error && (
                     <Note tone="err">{worklist.error.text}</Note>
                   )}
