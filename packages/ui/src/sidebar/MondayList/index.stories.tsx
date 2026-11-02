@@ -2,6 +2,8 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
 
 import { MondayList } from ".";
+import { RequestLine } from "../RequestLine";
+import { RowButton } from "../RowButton";
 import { STORY_NOW } from "../stories/examples";
 import { mondayExample } from "../stories/monday";
 import { SidebarStoryFrame } from "../stories/SidebarStoryFrame";
@@ -69,4 +71,61 @@ export const NotAllowed: Story = {
 /** Before the first answer. */
 export const Loading: Story = {
   args: { page: null },
+};
+
+/**
+ * Each row's button: to its task in the worklist when it has one, or Plan
+ * with Commander when it hasn't; a plan in progress shows under the row
+ * and waits.
+ */
+export const WithButtons: Story = {
+  name: "With Buttons",
+  args: {
+    rowAction: (item) =>
+      item.key === "KF-301" ? (
+        <RowButton
+          icon="arrow"
+          label={`Open the task for ${item.key} in the worklist`}
+          onClick={() => undefined}
+        />
+      ) : (
+        <RowButton
+          icon="send"
+          label={
+            item.key === "KF-296"
+              ? `Commander is planning ${item.key}`
+              : `Plan ${item.key} with Commander`
+          }
+          disabled={item.key === "KF-296"}
+          onClick={() => undefined}
+        />
+      ),
+    rowStatus: (item) =>
+      item.key === "KF-296" ? (
+        <RequestLine
+          now={STORY_NOW}
+          request={{
+            id: "dash-9",
+            ref: "monday:KF-296",
+            action: "plan",
+            state: "asked",
+            summary: "Asked the Kestrel session for a plan",
+            requestedAt: STORY_NOW.toISOString(),
+            updatedAt: STORY_NOW.toISOString(),
+          }}
+        />
+      ) : null,
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole("button", {
+        name: "Open the task for KF-301 in the worklist",
+      }),
+    ).toBeInTheDocument();
+    await expect(
+      canvas.getByRole("button", { name: "Commander is planning KF-296" }),
+    ).toHaveAttribute("aria-disabled", "true");
+    await expect(canvas.getByText("plan · asked")).toBeInTheDocument();
+  },
 };

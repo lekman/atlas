@@ -53,7 +53,9 @@ const shim = `(() => {
       { kind: "question", ask: "Which day suits the review?" }] } }),
     "monday.com/get_board_items_page": () => ({ payload: { items: [{
       name: "Harness board item", url: "https://example.monday.com/1", updated_at: new Date().toISOString(),
-      column_values: { status: "Stuck", priority: "High", number: "9" } }] } }),
+      column_values: { status: "Stuck", priority: "High", number: "9" } },
+      { name: "Harness board item with a task", url: "https://example.monday.com/2", updated_at: new Date().toISOString(),
+        column_values: { status: "Working on it", priority: "Medium", number: "10" } }] } }),
     "GitHub/list_issues": () => ({ payload: { totalCount: 1, issues: [
       { number: 5, title: "Harness issue", labels: ["bug"], assignees: ["harness"], updated_at: new Date().toISOString() }] } }),
     "GitHub/get_me": () => ({ payload: { login: "harness" } }),
@@ -78,6 +80,9 @@ const shim = `(() => {
         { ref: "db:1", title: "Harness task for today", customer: "kestrel", band: "today", day: ymd(now), priority: "high",
           details: "Harness/Plan.md", detailsAt: "2026-03-01T00:00:00Z", key: "HAR-1" },
         { ref: "db:2", title: "Harness second task", customer: "kestrel", band: "today", day: ymd(now) },
+        { ref: "db:3", title: "Harness tracked task", customer: "kestrel", band: "tomorrow", key: "KF-10",
+          quadrant: "Q2-schedule", value: "medium", effort: "S",
+          day: ymd(new Date(now.getTime() + 86400000)) },
         { title: "Harness worklist meeting", customer: "kestrel", band: "today", day: ymd(from),
           meeting: { start: hm(from), end: ymd(to) === ymd(from) ? hm(to) : hm(from) } }] } };
     },
@@ -95,6 +100,8 @@ const shim = `(() => {
     "Cloudflare Developer Platform/d1_database_query": () => ({ payload: [{ results: [] }] }),
     "host:dashboard/task_grade_many": (args) => ({ structuredContent: { graded: args.grades.map((g) => g.ref), skipped: [] } }),
     "host:dashboard/task_assess": () => ({ structuredContent: {} }),
+    "host:dashboard/commander_plan": (args) => ({ structuredContent: { request: {
+      id: args.id, state: "received", action: "plan", updatedAt: new Date().toISOString() } } }),
     "host:dashboard/release_status": () => ({ structuredContent: {
       branch: "release/x", total: 3, checkedAt: new Date().toISOString(),
       drifted: [{ repo: "harness-repo", envs: { staging: "failed" } }] } }),
@@ -266,7 +273,9 @@ try {
     }
     // The Monday board, read through the connector, in the same client's tab.
     if (
-      !(await tab.getByRole("link", { name: "Harness board item" }).isVisible())
+      !(await tab
+        .getByRole("link", { name: "Harness board item", exact: true })
+        .isVisible())
     ) {
       problems.push(`${width}px: the Monday board is not shown`);
     }
@@ -320,7 +329,7 @@ try {
         window as unknown as { __docs: Map<string, { items?: unknown[] }> }
       ).__docs.get("board/tasks"),
     );
-    if (tasks?.items?.length !== 3) {
+    if (tasks?.items?.length !== 4) {
       problems.push(`${width}px: board/tasks was not stored`);
     }
     const waiting = await tab.evaluate(() =>
@@ -429,6 +438,46 @@ try {
       problems.push(`${width}px: the form does not save only the change`);
     }
     await tab.keyboard.press("Escape");
+    // A Monday row whose task exists goes to it in the worklist; one without asks Commander to plan it.
+    await tab.getByRole("tab", { name: "Kestrel Freight" }).click();
+    await tab.getByRole("button", { name: "Plan KF-9 with Commander" }).click();
+    const planned = await tab.evaluate(
+      () =>
+        (
+          (
+            window as unknown as {
+              __calls?: Array<{
+                tool: string;
+                args?: { system?: string; key?: string };
+              }>;
+            }
+          ).__calls ?? []
+        ).find((c) => c.tool === "commander_plan")?.args,
+    );
+    if (
+      planned?.system !== "monday" ||
+      planned?.key !== "KF-9" ||
+      !(await tab.getByText("plan · received").isVisible())
+    ) {
+      problems.push(
+        `${width}px: a Monday row without a task is not planned with Commander`,
+      );
+    }
+    await tab
+      .getByRole("button", { name: "Open the task for KF-10 in the worklist" })
+      .click();
+    const flashed = tab.locator('.task[data-ref="db:3"]');
+    if (
+      (await tab
+        .getByRole("tab", { name: "Worklist" })
+        .getAttribute("aria-selected")) !== "true" ||
+      !(await flashed.isVisible())
+    ) {
+      problems.push(
+        `${width}px: a Monday row does not go to its task in the worklist`,
+      );
+    }
+    await tab.getByRole("button", { name: "Today", exact: true }).click();
     // On the phone: without the local server, a change goes through the inbox.
     await tab.evaluate(() => {
       (window as unknown as { __offline: boolean }).__offline = true;

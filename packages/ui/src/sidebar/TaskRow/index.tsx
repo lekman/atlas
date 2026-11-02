@@ -12,6 +12,10 @@ export interface TaskRowProps {
   url?: string | null;
   /** The line under the title: key, status, people, times. */
   meta?: ReactNode;
+  /** A line under the meta: a Commander request's state. */
+  status?: ReactNode;
+  /** A button at the end of the row. */
+  action?: ReactNode;
 }
 
 /** One item from a tracker: a priority dot, the title as a link, and a meta line. */
@@ -21,9 +25,11 @@ export function TaskRow({
   title,
   url,
   meta,
+  status,
+  action,
 }: TaskRowProps) {
   return (
-    <li className="task">
+    <li className={action ? "task go" : "task"}>
       <span
         className={`pri ${priority}`.trim()}
         title={priorityLabel ?? (priority ? undefined : "no priority")}
@@ -40,7 +46,9 @@ export function TaskRow({
           )}
         </div>
         {meta && <div className="sub">{meta}</div>}
+        {status}
       </div>
+      {action}
     </li>
   );
 }

@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 import { formatAgo, formatTime } from "../format";
 import { GroupHeader } from "../GroupHeader";
 import { Note } from "../Note";
@@ -7,6 +9,7 @@ import { priorityOf } from "../trackers/model";
 import {
   mondayGroups,
   mondayStatusColour,
+  type MondayItem,
   type MondayPage,
 } from "../trackers/monday";
 
@@ -18,6 +21,10 @@ export interface MondayListProps {
   /** When the page was read. */
   updatedAt: Date | null;
   now: Date;
+  /** The row's button: go to its task, or plan it with Commander. */
+  rowAction?: (item: MondayItem) => ReactNode;
+  /** A line under the row: its Commander request. */
+  rowStatus?: (item: MondayItem) => ReactNode;
 }
 
 /** The items assigned to the operator that aren't Done, grouped by status, newest first. */
@@ -27,6 +34,8 @@ export function MondayList({
   error,
   updatedAt,
   now,
+  rowAction,
+  rowStatus,
 }: MondayListProps) {
   const notes = error ? <Note tone={error.tone}>{error.text}</Note> : null;
   if (!page) return <Panel title={title} notes={notes} loading={!error} />;
@@ -70,6 +79,8 @@ export function MondayList({
                         <span>updated {formatAgo(i.updated, now)}</span>
                       </>
                     }
+                    status={rowStatus?.(i)}
+                    action={rowAction?.(i)}
                   />
                 ))}
               </ul>

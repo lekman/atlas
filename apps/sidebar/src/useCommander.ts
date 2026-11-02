@@ -39,6 +39,17 @@ function d1Rows(result: unknown): Array<Record<string, unknown>> {
   return Array.isArray(rows) ? (rows as Array<Record<string, unknown>>) : [];
 }
 
+/** A tracker item, as a plan request carries it. */
+export interface TrackerItem {
+  system: "monday" | "jira" | "github";
+  key: string;
+  title: string;
+  customer: string;
+  url?: string | null;
+  status?: string | null;
+  priority?: string | null;
+}
+
 export interface Commander {
   records: Readonly<Record<string, CommanderRequest>>;
   latest: (ref: string | undefined) => CommanderRequest | null;
@@ -47,6 +58,12 @@ export interface Commander {
   send: (item: WorkItem, action: "status" | "execute") => Promise<void>;
   /** Asks Commander to plan a task: a details page with a test plan, or a refusal with the reason. */
   plan: (item: WorkItem) => Promise<void>;
+  /**
+   * Asks Commander to plan a tracker item that has no task yet: it becomes
+   * a task with a details page, a test plan and a priority, or is refused
+   * with the reason. Its requests are kept under `<system>:<key>`.
+   */
+  planTracker: (item: TrackerItem) => Promise<void>;
   /**
    * Leaves a request in the phone inbox for the Mac mini; false when there
    * is no inbox. Done and move go this way from the phone.
@@ -183,12 +200,11 @@ export function useCommander(
 
   const request = useCallback(
     async (
-      item: WorkItem,
+      subject: { ref: string; title: string },
       action: RequestAction,
       tool: string,
-      extra: Record<string, unknown>,
+      buildArgs: (id: string) => Record<string, unknown>,
     ) => {
-      if (!item.ref) return;
       const id = requestId();
       const now = new Date().toISOString();
       setError(null);
@@ -197,9 +213,9 @@ export function useCommander(
           ...held,
           [id]: {
             id,
-            ref: item.ref!,
+            ref: subject.ref,
             action,
-            title: item.title,
+            title: subject.title,
             state: "sending",
             summary: "",
             worker: null,
@@ -209,10 +225,10 @@ export function useCommander(
         }),
         false,
       );
-      const args = { ...extra, id, ref: item.ref, item: itemOf(item) };
+      const args = buildArgs(id);
       const viaInbox = () =>
         queue(
-          { id, ref: item.ref!, action, title: item.title },
+          { id, ref: subject.ref, action, title: subject.title },
           tool,
           args,
           "In the inbox; the Mac mini picks it up within a minute.",
@@ -232,8 +248,8 @@ export function useCommander(
           ...update_,
           state: update_.state ?? "received",
           id,
-          ref: item.ref,
-          title: item.title,
+          ref: subject.ref,
+          title: subject.title,
         });
       } catch (err) {
         const { code, message } = err as { code?: string; message?: string };
@@ -340,8 +356,51 @@ export function useCommander(
     records,
     latest: (ref) => latestRequest(records, ref),
     open: (ref) => openRequest(records, ref),
-    send: (item, action) => request(item, action, "commander_send", { action }),
-    plan: (item) => request(item, "plan", "commander_plan", {}),
+    send: async (item, action) => {
+      if (!item.ref) return;
+      await request(
+        { ref: item.ref, title: item.title },
+        action,
+        "commander_send",
+        (id) => ({
+          ref: item.ref,
+          action,
+          id,
+          item: itemOf(item),
+        }),
+      );
+    },
+    plan: async (item) => {
+      if (!item.ref) return;
+      await request(
+        { ref: item.ref, title: item.title },
+        "plan",
+        "commander_plan",
+        (id) => ({
+          id,
+          ref: item.ref,
+          item: itemOf(item),
+        }),
+      );
+    },
+    planTracker: async (item) => {
+      const ref = `${item.system}:${item.key}`;
+      await request(
+        { ref, title: item.title },
+        "plan",
+        "commander_plan",
+        (id) => ({
+          id,
+          system: item.system,
+          key: item.key,
+          customer: item.customer,
+          title: item.title,
+          url: item.url ?? "",
+          status: item.status ?? "",
+          priority: item.priority ?? "",
+        }),
+      );
+    },
     queue,
     error,
   };
