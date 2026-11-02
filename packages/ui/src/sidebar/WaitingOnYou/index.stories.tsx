@@ -100,3 +100,39 @@ export const SourceFailed: Story = {
     ).toBeInTheDocument();
   },
 };
+
+/**
+ * With Teach Commander: an icon takes the count's place and says the count
+ * in its name. An ask a rule would answer says so under it.
+ */
+export const WithTeach: Story = {
+  name: "With Teach",
+  args: {
+    onTeach: fn(),
+    rows: [
+      { item: waitingItems[0]!, client: colourOf("kestrel"), onOpen: openTask },
+      { item: waitingItems[1]!, client: colourOf("halcyon") },
+      {
+        item: {
+          kind: "commander",
+          worker: "Kestrel",
+          ask: "Dependabot patch bump is green; Alex to merge it",
+          since: "2026-03-12T09:40:00",
+        },
+        client: colourOf("kestrel"),
+        rule: "merge green Dependabot patches, and tell you",
+      },
+      { item: waitingItems[2]!, client: colourOf("other") },
+    ],
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Teach Commander, 4 waiting" }),
+    );
+    await expect(args.onTeach).toHaveBeenCalledOnce();
+    await expect(
+      canvas.getByText(/Commander's rule: merge green Dependabot/),
+    ).toBeVisible();
+  },
+};

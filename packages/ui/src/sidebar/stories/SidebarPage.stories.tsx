@@ -10,6 +10,7 @@ import { expect, userEvent, within } from "storybook/test";
 import { Agenda } from "../Agenda";
 import { agendaDays } from "../calendar/model";
 import { ClientPill } from "../ClientPill";
+import { DecisionsView } from "../DecisionsView";
 import { DetailsView } from "../DetailsView";
 import { pullCounts } from "../details/pulls";
 import { PullRequests } from "../PullRequests";
@@ -41,6 +42,7 @@ import {
 } from "./examples";
 import { clientOfHost, hostsDoc } from "./hosts";
 import { weekEvents } from "./calendar";
+import { guards, repeatedAsks, rules } from "./decisions";
 import { detailsPage } from "./details";
 import { pullsDoc } from "./pulls";
 import { githubExample } from "./github";
@@ -70,6 +72,7 @@ function SidebarPage({
   );
   const [sound, setSound] = useState<SoundSettings>(defaultSoundSettings);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [teachOpen, setTeachOpen] = useState(false);
   const resolved =
     lighting === "automatic" ? (theme === "dark" ? "night" : "day") : lighting;
   const [focus, setFocus] = useState(initialFocus);
@@ -101,6 +104,18 @@ function SidebarPage({
           ) : undefined
         }
       />
+      {teachOpen && (
+        <DecisionsView
+          asks={repeatedAsks}
+          rules={rules}
+          guards={guards}
+          onAdopt={() => {}}
+          onKeepAsking={() => {}}
+          onRuleMode={() => {}}
+          now={STORY_NOW}
+          onClose={() => setTeachOpen(false)}
+        />
+      )}
       {world && settingsOpen && (
         <SettingsView
           world={world}
@@ -178,6 +193,7 @@ function SidebarPage({
               notes={
                 <WaitingOnYou
                   operator={OPERATOR}
+                  onTeach={() => setTeachOpen(true)}
                   rows={waitingItems
                     .filter(
                       (i) =>
@@ -417,5 +433,26 @@ export const ChooseAWorld: Story = {
       "mariner",
     );
     await expect(settings).toHaveFocus();
+  },
+};
+
+/** The icon in Waiting on You opens Teach Commander; Back returns to it. */
+export const TeachCommander: Story = {
+  name: "Teach Commander",
+  args: { theme: "light" },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const teach = canvas.getByRole("button", {
+      name: /Teach Commander, \d+ waiting/,
+    });
+    await userEvent.click(teach);
+    await expect(
+      canvas.getByRole("dialog", { name: "Teach Commander" }),
+    ).toBeVisible();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Back to Atlas" }),
+    );
+    await expect(canvas.queryByRole("dialog")).toBeNull();
+    await expect(teach).toHaveFocus();
   },
 };
