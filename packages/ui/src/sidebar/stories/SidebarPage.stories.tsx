@@ -3,6 +3,8 @@ import { useState } from "react";
 import { expect, userEvent, within } from "storybook/test";
 
 import { ClientPill } from "../ClientPill";
+import { hostsTab } from "../hosts/model";
+import { HostsPanel } from "../HostsPanel";
 import { NextUp } from "../NextUp";
 import { Note } from "../Note";
 import { Panel } from "../Panel";
@@ -16,6 +18,7 @@ import {
   exampleViews,
   STORY_NOW,
 } from "./examples";
+import { clientOfHost, hostsDoc } from "./hosts";
 
 /**
  * The sidebar's frame with every view as an empty panel. The views fill in
@@ -53,7 +56,9 @@ function SidebarPage({
       <Tabs
         label="Views"
         idPrefix="page"
-        tabs={exampleTabs(shown.views)}
+        tabs={exampleTabs(shown.views).map((t) =>
+          t.id === "hosts" ? { ...t, ...hostsTab(hostsDoc.hosts) } : t,
+        )}
         selected={shown.selected}
         onSelect={setView}
       />
@@ -64,10 +69,21 @@ function SidebarPage({
           id={v.id}
           selected={shown.selected}
         >
-          <Panel
-            title={v.label}
-            notes={<Note>This view joins the sidebar in a later step.</Note>}
-          />
+          {v.id === "hosts" ? (
+            <HostsPanel
+              doc={hostsDoc}
+              hosts={hostsDoc.hosts}
+              live
+              allClients={focus === "all"}
+              clientOf={clientOfHost}
+              now={STORY_NOW}
+            />
+          ) : (
+            <Panel
+              title={v.label}
+              notes={<Note>This view joins the sidebar in a later step.</Note>}
+            />
+          )}
         </TabPanel>
       ))}
     </SidebarFrame>
@@ -124,4 +140,14 @@ export const OneClient: Story = {
 export const Dark: Story = {
   args: { theme: "dark" },
   globals: { lighting: "night" },
+};
+
+/** The hosts tab open, with one host warning. */
+export const Hosts: Story = {
+  args: { theme: "light" },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("tab", { name: /host alert/i }));
+    await expect(canvas.getByRole("region", { name: /hosts/i })).toBeVisible();
+  },
 };

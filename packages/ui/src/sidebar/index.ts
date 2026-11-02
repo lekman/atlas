@@ -32,3 +32,21 @@ export {
   type TabsProps,
 } from "./Tabs";
 export { visibleViews, type SidebarView, type VisibleViews } from "./views";
+export { HostCard, type HostCardProps } from "./HostCard";
+export { HostsPanel, type HostsPanelProps } from "./HostsPanel";
+export {
+  breachSummary,
+  HOST_LINES,
+  HOST_METRICS,
+  hostLevel,
+  hostsTab,
+  isHostsDoc,
+  seenText,
+  sparkline,
+  type HostBreach,
+  type HostLine,
+  type HostSample,
+  type HostStat,
+  type HostsDoc,
+  type Level,
+} from "./hosts/model";
