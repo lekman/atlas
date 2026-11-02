@@ -12,6 +12,8 @@ export interface AskOption {
   description?: string;
   /** The asker's recommendation; listed first. */
   recommended?: boolean;
+  /** The answer stands for all future asks like this one, not only this time. */
+  always?: boolean;
 }
 
 export interface WaitingItem {
@@ -136,4 +138,32 @@ export function askOptions(item: WaitingItem): AskOption[] {
 export function askKey(item: WaitingItem): string | null {
   if (item.kind === "task") return item.ref ?? null;
   return item.id ? `ask:${item.kind}:${item.id}` : null;
+}
+
+/**
+ * The yes and no answers for a closed question the asker gave no options
+ * for: once, or for all future asks like it.
+ */
+export const YES_NO_OPTIONS: readonly AskOption[] = [
+  { label: "Yes, and for all future requests", always: true },
+  { label: "Yes, once" },
+  { label: "No, and for all future requests", always: true },
+  { label: "No, once" },
+];
+
+const OPEN_QUESTION = /^\s*(which|what|who|whom|whose|when|where|why|how)\b/i;
+
+/**
+ * The options the answer form offers: the asker's own, or the yes and no
+ * answers when it asked a closed question ("Restart the waiter?") without
+ * any. An open question ("Which client…?") or a request for a name gets
+ * none, so it is answered in your own words.
+ */
+export function answerOptions(item: WaitingItem, ask: string): AskOption[] {
+  const own = askOptions(item);
+  if (own.length) return own;
+  const text = ask.trim();
+  return text.endsWith("?") && !OPEN_QUESTION.test(text)
+    ? [...YES_NO_OPTIONS]
+    : [];
 }

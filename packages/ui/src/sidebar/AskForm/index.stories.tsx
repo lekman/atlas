@@ -4,7 +4,7 @@ import { expect, fn, userEvent, within } from "storybook/test";
 import { AskForm } from ".";
 import { SidebarStoryFrame } from "../stories/SidebarStoryFrame";
 import { plainAsk, supportAsk } from "../stories/asks";
-import { askOptions } from "../waiting/model";
+import { askOptions, YES_NO_OPTIONS } from "../waiting/model";
 
 const meta = {
   title: "Sidebar/Details/Answer an Ask",
@@ -84,4 +84,30 @@ export const Sent: Story = {
 export const Dark: Story = {
   globals: { lighting: "night" },
   args: { status: { tone: "ok", text: "Halcyon has your answer." } },
+};
+
+/**
+ * A closed question without options of its own: yes or no, once or for all
+ * future requests, then Other. "For all future requests" is sent as always.
+ */
+export const YesOrNo: Story = {
+  name: "Yes or No",
+  args: {
+    ask: "Restart the Dashboard waiter?",
+    from: "Commander",
+    options: [...YES_NO_OPTIONS],
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      canvas.getByRole("radio", { name: /Yes, and for all future requests/ }),
+    );
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Send to Commander" }),
+    );
+    await expect(args.onSend).toHaveBeenCalledWith({
+      choice: "Yes, and for all future requests",
+      always: true,
+    });
+  },
 };

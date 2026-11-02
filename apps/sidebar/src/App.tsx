@@ -17,7 +17,7 @@ import {
   AskForm,
   askKey,
   askText,
-  askOptions,
+  answerOptions,
   AskView,
   DetailsView,
   HeaderButtons,
@@ -328,12 +328,13 @@ export function App({
     const last = sent?.action === "answer" ? sent : null;
     const from =
       item.kind === "commander" && item.worker ? item.worker : "Commander";
+    const ask = askText(item, config.operator ?? "you").ask;
     return (
       <AskForm
         key={askKey(item) ?? item.ask}
-        ask={askText(item, config.operator ?? "you").ask}
+        ask={ask}
         from={from}
-        options={askOptions(item)}
+        options={answerOptions(item, ask)}
         busy={last?.state === "sending"}
         status={
           !last || last.state === "sending"
