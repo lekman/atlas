@@ -33,6 +33,8 @@ export interface CommanderRequest {
   updatedAt?: string;
   /** Sent through the phone inbox rather than the local server. */
   via?: "inbox";
+  /** For an answer: what the operator chose or wrote, to show back to them. */
+  answer?: { choice?: string; text?: string; always?: boolean };
 }
 
 /** States in which a request is still open, and the task's actions wait for it. */

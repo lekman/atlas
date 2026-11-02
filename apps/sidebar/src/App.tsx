@@ -17,6 +17,7 @@ import {
   AskForm,
   askKey,
   askText,
+  answeredView,
   answerOptions,
   AskView,
   DetailsView,
@@ -336,6 +337,11 @@ export function App({
         from={from}
         options={answerOptions(item, ask)}
         busy={last?.state === "sending"}
+        sent={
+          last && last.state !== "sending" && last.state !== "failed"
+            ? { at: last.requestedAt, answer: last.answer ?? {} }
+            : null
+        }
         status={
           !last || last.state === "sending"
             ? null
@@ -693,18 +699,34 @@ export function App({
                       focus,
                       config,
                       clientOf,
-                    ).map((row) => {
-                      // A waiting task opens its details once the worklist has it.
-                      const task =
-                        row.item.kind === "task" && row.item.ref
-                          ? workItems?.find((t) => t.ref === row.item.ref)
-                          : undefined;
-                      if (task)
-                        return { ...row, onOpen: () => setOpened(task) };
-                      return row.item.kind !== "task" && askKey(row.item)
-                        ? { ...row, onOpen: () => setAsking(row.item) }
-                        : row;
-                    })}
+                    )
+                      .flatMap((row) => {
+                        // An answered ask hides for ten minutes, then shows again marked late.
+                        const key = askKey(row.item);
+                        const sent = key ? commander.latest(key) : null;
+                        const view = answeredView(
+                          sent?.action === "answer" ? sent : null,
+                          now,
+                        );
+                        if (view === "hide") return [];
+                        return [
+                          view === "late"
+                            ? { ...row, answeredAt: sent!.requestedAt }
+                            : row,
+                        ];
+                      })
+                      .map((row) => {
+                        // A waiting task opens its details once the worklist has it.
+                        const task =
+                          row.item.kind === "task" && row.item.ref
+                            ? workItems?.find((t) => t.ref === row.item.ref)
+                            : undefined;
+                        if (task)
+                          return { ...row, onOpen: () => setOpened(task) };
+                        return row.item.kind !== "task" && askKey(row.item)
+                          ? { ...row, onOpen: () => setAsking(row.item) }
+                          : row;
+                      })}
                   />
                   {workNote && (
                     <Note onClose={() => setWorkNote(null)}>{workNote}</Note>

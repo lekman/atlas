@@ -136,3 +136,22 @@ export const WithTeach: Story = {
     ).toBeVisible();
   },
 };
+
+/** Answered over ten minutes ago and still waiting: marked, with when it was answered. */
+export const AnsweredNoReply: Story = {
+  name: "Answered, No Reply",
+  args: {
+    rows: [
+      {
+        item: waitingItems[2]!,
+        client: colourOf("other"),
+        answeredAt: "2026-03-12T09:56:33",
+      },
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    await expect(
+      within(canvasElement).getByText(/Answered 09:56, no reply yet/),
+    ).toBeVisible();
+  },
+};
