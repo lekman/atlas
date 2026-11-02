@@ -215,6 +215,13 @@ describe("splitFrontMatter", () => {
     expect(body).toBe("# Title\n");
   });
 
+  it("reads a line with a long run of spaces quickly", () => {
+    const started = performance.now();
+    const { fields } = splitFrontMatter(`---\na:${" ".repeat(50000)}x\n---\n`);
+    expect(fields).toEqual([["a", "x"]]);
+    expect(performance.now() - started).toBeLessThan(100);
+  });
+
   it("returns a note without front matter whole", () => {
     expect(splitFrontMatter("# Title\n---\nx")).toEqual({
       fields: [],

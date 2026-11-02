@@ -508,13 +508,16 @@ export interface FrontMatter {
 export function splitFrontMatter(text: string): FrontMatter {
   const match = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/.exec(text);
   if (!match) return { fields: [], body: text };
-  const fields = match[1]!
-    .split(/\r?\n/)
-    .map((line) => /^(\w[\w .-]*):\s*(.*)$/.exec(line))
-    .filter((m): m is RegExpExecArray => m !== null)
-    .map((m): [string, string] => [
-      m[1]!.trim(),
-      m[2]!.replace(/^["']|["']$/g, ""),
-    ]);
+  const fields: Array<[string, string]> = [];
+  for (const line of match[1]!.split(/\r?\n/)) {
+    // Split at the first colon rather than with one pattern, which would
+    // backtrack on a long run of spaces after it.
+    const colon = line.indexOf(":");
+    if (colon < 1) continue;
+    const key = line.slice(0, colon);
+    if (!/^\w[\w .-]*$/.test(key)) continue;
+    const value = line.slice(colon + 1).trimStart();
+    fields.push([key.trim(), value.replace(/^["']|["']$/g, "")]);
+  }
   return { fields, body: text.slice(match[0].length) };
 }
