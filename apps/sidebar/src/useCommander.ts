@@ -451,6 +451,7 @@ export function useCommander(
           },
           answer: {
             ...(answer.choice ? { choice: answer.choice.slice(0, 80) } : {}),
+            ...(answer.always ? { always: true } : {}),
             ...(answer.text ? { text: answer.text.slice(0, 2000) } : {}),
           },
         }),

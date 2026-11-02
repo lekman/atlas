@@ -42,3 +42,38 @@ describe("askKey", () => {
     expect(askKey({ kind: "question" })).toBeNull();
   });
 });
+
+import { answerOptions, YES_NO_OPTIONS } from "../src/sidebar/waiting/model";
+
+describe("answerOptions", () => {
+  it("offers yes and no, once or always, for a closed question without options", () => {
+    const options = answerOptions(
+      { kind: "question" },
+      "Restart the Dashboard waiter?",
+    );
+    expect(options.map((o) => o.label)).toEqual([
+      "Yes, and for all future requests",
+      "Yes, once",
+      "No, and for all future requests",
+      "No, once",
+    ]);
+    expect(options.filter((o) => o.always).length).toBe(2);
+  });
+  it("offers none for an open question or a statement", () => {
+    expect(
+      answerOptions({ kind: "question" }, "Which client gets Friday?"),
+    ).toEqual([]);
+    expect(answerOptions({ kind: "task" }, "Name the support system")).toEqual(
+      [],
+    );
+  });
+  it("keeps the asker's own options", () => {
+    expect(
+      answerOptions(
+        { kind: "commander", options: [{ label: "Hold" }] },
+        "Go?",
+      ).map((o) => o.label),
+    ).toEqual(["Hold"]);
+    expect(YES_NO_OPTIONS.length).toBe(4);
+  });
+});

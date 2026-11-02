@@ -5,6 +5,8 @@ import type { AskOption } from "../waiting/model";
 export interface AskAnswer {
   /** The option chosen, by label; absent when the answer is the operator's own words. */
   choice?: string;
+  /** The answer stands for all future asks like this one. */
+  always?: boolean;
   /** The operator's own words: the Other answer, or a note with a choice. */
   text?: string;
 }
@@ -51,8 +53,10 @@ export function AskForm({
       onSubmit={(e) => {
         e.preventDefault();
         if (!ready || busy) return;
+        const picked = options.find((o) => o.label === choice);
         onSend({
           ...(other ? {} : { choice: choice! }),
+          ...(picked?.always ? { always: true } : {}),
           ...(text.trim() ? { text: text.trim().slice(0, 2000) } : {}),
         });
       }}

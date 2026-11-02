@@ -60,7 +60,9 @@ export function AskView({ item, clientName, children, onClose }: AskViewProps) {
           <div className="dt">
             <h2 id={title}>{who} asks</h2>
             <div className="sub">
-              {waitingSource(item, clientName).join(" · ")}
+              {waitingSource(item, clientName)
+                .filter((part) => part !== "Commander asks")
+                .join(" · ")}
             </div>
           </div>
         </div>
