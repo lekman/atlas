@@ -10,6 +10,11 @@ export interface SidebarClient {
   name: string;
   /** The theme's colour slot, `--client-<slot>`, 1 to 5. */
   slot: number;
+  /**
+   * Words that name this client in a Commander worker's name or an event's
+   * title, matched as whole words, ignoring case.
+   */
+  keywords?: string[];
 }
 
 /** A client's tracker tab: its name with every client shown is the client's. */
@@ -35,6 +40,8 @@ export interface HostFilter {
 }
 
 export interface SidebarConfig {
+  /** The operator's name, as asks addressed to them begin with it. */
+  operator?: string;
   clients: SidebarClient[];
   trackers: SidebarTracker[];
   hostFilters?: Record<string, HostFilter>;
@@ -53,4 +60,24 @@ export function clientColour(
   return slot && slot >= 1 && slot <= 5
     ? `var(--client-${slot})`
     : "var(--client-other)";
+}
+
+const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/**
+ * The client a piece of text names, by the clients' keywords in config
+ * order, or the fallback.
+ */
+export function classify(
+  text: string,
+  fallback: string | null,
+  from: SidebarConfig = config,
+): string | null {
+  for (const client of from.clients) {
+    const words = client.keywords ?? [];
+    if (!words.length) continue;
+    const pattern = new RegExp(`\\b(${words.map(escape).join("|")})\\b`, "i");
+    if (pattern.test(text)) return client.key;
+  }
+  return fallback;
 }
