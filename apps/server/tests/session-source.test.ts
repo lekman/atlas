@@ -79,6 +79,14 @@ describe("session files", () => {
     expect(JSON.stringify(parsed)).not.toContain("projects");
   });
 
+  test("read the newer states as the nearest of busy, waiting and idle", () => {
+    expect(parseSessionFile('{"status":"running"}', 1)?.status).toBe("busy");
+    expect(parseSessionFile('{"status":"requires_action"}', 1)?.status).toBe(
+      "waiting",
+    );
+    expect(parseSessionFile('{"status":"shell"}', 1)?.status).toBe("idle");
+  });
+
   test("take the process id from the file name when the file has none", () => {
     expect(parseSessionFile('{"status":"idle"}', 77)?.pid).toBe(77);
   });

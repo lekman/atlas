@@ -55,10 +55,34 @@ export const sessionStatuses = ["busy", "waiting", "idle"] as const;
 export type SessionStatus = (typeof sessionStatuses)[number];
 
 /** The fields Atlas reads from a session file. Everything else is dropped. */
+/**
+ * Newer Claude Code versions write more states than the three Atlas keeps:
+ * "running" while it works, "requires_action" while a permission prompt or
+ * question waits in the session, and "shell" at an idle prompt. Each maps to
+ * the nearest of the three, so those files are read instead of skipped.
+ */
+const STATUS_ALIASES: Readonly<Record<string, SessionStatus>> = {
+  busy: "busy",
+  running: "busy",
+  waiting: "waiting",
+  requires_action: "waiting",
+  idle: "idle",
+  shell: "idle",
+};
+
+const SessionStatusField = z.string().transform((value, context) => {
+  const status = STATUS_ALIASES[value];
+  if (!status) {
+    context.addIssue({ code: "custom", message: "not a session status" });
+    return z.NEVER;
+  }
+  return status;
+});
+
 const SessionFileShape = z.object({
   pid: z.number().int().positive().optional().catch(undefined),
   name: z.string().optional().catch(undefined),
-  status: z.enum(sessionStatuses),
+  status: SessionStatusField,
   sessionId: z.string().optional().catch(undefined),
   statusUpdatedAt: z.number().optional().catch(undefined),
   entrypoint: z.string().optional().catch(undefined),
