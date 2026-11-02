@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 
 import {
   activityOf,
+  matchAgent,
   nameFromArgs,
   readSessionRecord,
   readTail,
@@ -106,6 +107,7 @@ describe("transcript tail", () => {
       lastActivity: "git",
       lastWriteAt: "2026-03-12T09:58:00Z",
       contextTokens: 95_005,
+      openToolSince: null,
     });
   });
   it("lets no message text, tool input or path into the report", () => {
@@ -147,6 +149,7 @@ describe("status", () => {
     lastActivity: lastToolAt ? ("editing" as const) : null,
     lastWriteAt: lastToolAt,
     contextTokens: null,
+    openToolSince: null,
   });
   it("shows a session stuck on approval as waiting", () => {
     expect(
@@ -167,5 +170,50 @@ describe("status", () => {
       "idle",
     );
     expect(reportFor({ ...record, name: null }, tail(null), now)).toBeNull();
+  });
+});
+
+describe("sessions without a record", () => {
+  const open = [
+    assistant("2026-03-12T09:40:00Z", [
+      { type: "tool_use", id: "t1", name: "Read", input: {} },
+    ]),
+    line({
+      type: "user",
+      timestamp: "2026-03-12T09:40:01Z",
+      message: { content: [{ type: "tool_result", tool_use_id: "t1" }] },
+    }),
+    assistant("2026-03-12T09:45:00Z", [
+      { type: "tool_use", id: "t2", name: "Bash", input: { command: "ls" } },
+    ]),
+  ];
+  const record = {
+    pid: 1,
+    sessionId: "s",
+    name: "Gaps",
+    state: null,
+    cwd: null,
+  };
+  it("finds a tool call with no result", () => {
+    expect(readTail(open).openToolSince).toBe("2026-03-12T09:45:00Z");
+  });
+  it("calls a call open for ten minutes possibly waiting", () => {
+    expect(reportFor(record, readTail(open), now)).toMatchObject({
+      status: "waiting",
+      note: "Possibly waiting for approval in its session",
+    });
+    expect(
+      reportFor(record, readTail(open), new Date("2026-03-12T09:50:00Z"))
+        ?.status,
+    ).toBe("running");
+  });
+  it("matches a session to its Atlas agent by name or prefix", () => {
+    const agents = [
+      { id: "a1", name: "Halcyon" },
+      { id: "a2", name: "Ops Portal" },
+    ];
+    expect(matchAgent("halcyon-69", agents)?.id).toBe("a1");
+    expect(matchAgent("Ops Portal", agents)?.id).toBe("a2");
+    expect(matchAgent("Atlas", agents)).toBeUndefined();
   });
 });

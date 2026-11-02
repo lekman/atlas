@@ -11,6 +11,18 @@
         "typescript": "^6.0",
       },
     },
+    "apps/collector": {
+      "name": "@atlas/collector-app",
+      "version": "0.0.0",
+      "dependencies": {
+        "@atlas/collector": "workspace:*",
+        "@atlas/core": "workspace:*",
+      },
+      "devDependencies": {
+        "@types/bun": "^1.4",
+        "typescript": "^6.0",
+      },
+    },
     "apps/server": {
       "name": "@atlas/server",
       "version": "0.0.0",
@@ -194,6 +206,8 @@
     "@adobe/css-tools": ["@adobe/css-tools@4.5.0", "", {}, "sha512-6OzddxPio9UiWTCemp4N8cYLV2ZN1ncRnV1cVGtve7dhPOtRkleRyx32GQCYSwDYgaHU3USMm84tNsvKzRCa1Q=="],
 
     "@atlas/collector": ["@atlas/collector@workspace:packages/collector"],
+
+    "@atlas/collector-app": ["@atlas/collector-app@workspace:apps/collector"],
 
     "@atlas/core": ["@atlas/core@workspace:packages/core"],
 

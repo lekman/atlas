@@ -42,6 +42,11 @@ export interface TranscriptTail {
   lastWriteAt: string | null;
   /** Tokens in the context at the last assistant turn. */
   contextTokens: number | null;
+  /**
+   * When the newest tool call that has no result yet was made, ISO 8601.
+   * A call left open for minutes is a permission prompt or a long command.
+   */
+  openToolSince: string | null;
 }
 
 /** The safe report for one session. */
@@ -111,7 +116,9 @@ export function readTail(lines: readonly string[]): TranscriptTail {
     lastActivity: null,
     lastWriteAt: null,
     contextTokens: null,
+    openToolSince: null,
   };
+  const open = new Map<string, string>();
   for (const line of lines) {
     let d: Record<string, unknown>;
     try {
@@ -122,6 +129,17 @@ export function readTail(lines: readonly string[]): TranscriptTail {
     const at = typeof d.timestamp === "string" ? d.timestamp : null;
     if (at && (!tail.lastWriteAt || at > tail.lastWriteAt))
       tail.lastWriteAt = at;
+    if (d.type === "user") {
+      const content = (d.message as { content?: unknown } | undefined)?.content;
+      if (Array.isArray(content))
+        for (const part of content as Array<Record<string, unknown>>)
+          if (
+            part?.type === "tool_result" &&
+            typeof part.tool_use_id === "string"
+          )
+            open.delete(part.tool_use_id);
+      continue;
+    }
     if (d.type !== "assistant") continue;
     const m = d.message as
       { content?: unknown; usage?: Record<string, unknown> } | undefined;
@@ -139,6 +157,7 @@ export function readTail(lines: readonly string[]): TranscriptTail {
     if (!Array.isArray(m?.content) || !at) continue;
     for (const part of m.content as Array<Record<string, unknown>>) {
       if (part?.type === "tool_use" && typeof part.name === "string") {
+        if (typeof part.id === "string") open.set(part.id, at);
         if (!tail.lastToolAt || at >= tail.lastToolAt) {
           tail.lastToolAt = at;
           tail.lastActivity = activityOf(part.name, part.input);
@@ -146,8 +165,12 @@ export function readTail(lines: readonly string[]): TranscriptTail {
       }
     }
   }
+  tail.openToolSince = [...open.values()].sort()[0] ?? null;
   return tail;
 }
+
+/** Ten minutes with a tool call left open reads as possibly waiting for approval. */
+export const OPEN_TOOL_AFTER_MS = 10 * 60_000;
 
 /** Five minutes without a tool call makes a session idle, as in Agent-Quest. */
 export const IDLE_AFTER_MS = 5 * 60_000;
@@ -186,10 +209,25 @@ export function reportFor(
       status: "waiting",
       note: "Waiting for approval in its session",
     };
+  // Without a record's state, a tool call open for ten minutes is most often a
+  // permission prompt; a long command looks the same, so the note says possibly.
+  const openAge = tail.openToolSince
+    ? now.getTime() - Date.parse(tail.openToolSince)
+    : 0;
+  if (record.state === null && openAge >= OPEN_TOOL_AFTER_MS)
+    return {
+      ...base,
+      status: "waiting",
+      note: "Possibly waiting for approval in its session",
+    };
   const toolAge = tail.lastToolAt
     ? now.getTime() - Date.parse(tail.lastToolAt)
     : Infinity;
-  if (record.state === "running" || toolAge < IDLE_AFTER_MS) {
+  if (
+    record.state === "running" ||
+    tail.openToolSince !== null ||
+    toolAge < IDLE_AFTER_MS
+  ) {
     return {
       ...base,
       status: "running",
@@ -197,4 +235,20 @@ export function reportFor(
     };
   }
   return { ...base, status: "idle", note: "Idle" };
+}
+
+/**
+ * The Atlas agent a session name belongs to: the same name, without case,
+ * or a name the session's name starts with ("Halcyon" for "halcyon-69").
+ */
+export function matchAgent<A extends { id: string; name: string }>(
+  session: string,
+  agents: readonly A[],
+): A | undefined {
+  const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, "-");
+  const s = norm(session);
+  return (
+    agents.find((a) => norm(a.name) === s) ??
+    agents.find((a) => s.startsWith(`${norm(a.name)}-`))
+  );
 }
