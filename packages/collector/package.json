@@ -1,0 +1,23 @@
+{
+  "name": "@atlas/collector",
+  "version": "0.0.0",
+  "description": "Reads Claude Code sessions on a machine and turns them into safe status fields for Atlas: no message text or tool input",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "bun test tests/"
+  },
+  "dependencies": {
+    "@atlas/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4",
+    "typescript": "^6.0"
+  }
+}
