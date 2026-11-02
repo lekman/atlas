@@ -14,6 +14,11 @@ import {
   releaseCount,
   ReleaseStatus,
   WaitingOnYou,
+  ActionMenu,
+  isWaiting,
+  openCount,
+  Worklist,
+  type Band,
   Note,
   Panel,
   SidebarFrame,
@@ -36,6 +41,8 @@ import {
 import { hostsFor } from "./hosts";
 import { KEYS, load, loadSet, save, saveSet } from "./storage";
 import { useCalendar } from "./useCalendar";
+import { useWorklist } from "./useWorklist";
+import { foldAll, planFolds, worklistMeetings } from "./worklist";
 import { useGitHub } from "./useGitHub";
 import { useNow } from "./useNow";
 import { useStored } from "./useStored";
@@ -128,7 +135,50 @@ export function App({
       name: "Other",
       colour: "var(--client-other)",
     };
-  const calendar = useCalendar(runtime, config, events, now);
+  const worklist = useWorklist(runtime, now);
+  const workItems = worklist.doc?.items ?? null;
+  const meetings = useMemo(
+    () =>
+      worklistMeetings(
+        workItems ?? [],
+        config.calendar?.timeZone ?? "Europe/London",
+      ),
+    [workItems, config],
+  );
+  const calendar = useCalendar(runtime, config, events, now, meetings);
+  const [band, setBand] = useState<Band>(
+    () =>
+      (load(KEYS.band, (v) =>
+        ["today", "tomorrow", "backlog"].includes(v),
+      ) as Band | null) ?? "today",
+  );
+  const [workFolded, setWorkFolded] = useState(() =>
+    loadSet(KEYS.worklistFolded),
+  );
+  const [showDone, setShowDone] = useState(
+    () => load(KEYS.showDone, () => true) === "1",
+  );
+  const [showWaiting, setShowWaiting] = useState(
+    () => load(KEYS.showWaiting, () => true) !== "0",
+  );
+  const fold = (next: Set<string>) => {
+    setWorkFolded(next);
+    saveSet(KEYS.worklistFolded, next);
+  };
+  const chooseBand = (b: Band) => {
+    setBand(b);
+    save(KEYS.band, b);
+    // The first visit to the backlog opens its quadrants with each client closed.
+    if (b === "backlog" && load(KEYS.planInit, (v) => v === "1") !== "1") {
+      save(KEYS.planInit, "1");
+      fold(
+        planFolds(
+          workFolded,
+          config.clients.map((c) => c.key),
+        ),
+      );
+    }
+  };
   const inFocus = (key: string) => focus === "all" || key === focus;
   const shownEvents = calendar.events?.filter((e) => inFocus(e.client)) ?? null;
   const next = shownEvents ? nextEvent(shownEvents, now) : null;
@@ -150,8 +200,8 @@ export function App({
       <SidebarHeader
         now={now}
         sync={{
-          liveAt: null,
-          syncedAt: null,
+          liveAt: worklist.liveAt,
+          syncedAt: worklist.doc?.syncedAt ?? null,
           error: sync && "error" in sync ? sync.error : null,
         }}
       />
@@ -191,6 +241,19 @@ export function App({
           iconOnly: true,
           ...tabLook(config, v.id),
           ...(v.id === "hosts" ? hostsTab(shownHosts) : {}),
+          ...(v.id === "worklist" && workItems
+            ? {
+                count: String(
+                  openCount(
+                    workItems,
+                    band,
+                    dayKey(now),
+                    dayKey(tomorrow),
+                    inFocus,
+                  ),
+                ),
+              }
+            : {}),
           ...(v.id === "release" ? { count: releaseCount(release.data) } : {}),
           ...(v.id === "agenda" && shownEvents
             ? { count: String(upcomingCount(shownEvents, now)) }
@@ -217,20 +280,110 @@ export function App({
               now={now}
             />
           ) : v.id === "worklist" ? (
-            <Panel
-              title={v.label}
-              notes={
-                <WaitingOnYou
-                  operator={config.operator ?? "you"}
-                  rows={waitingRows(
-                    waiting.data?.items ?? [],
-                    focus,
-                    config,
-                    clientOf,
-                  )}
-                />
+            <Worklist
+              items={workItems}
+              loading={workItems === null && worklist.pending}
+              empty={
+                runtime.present
+                  ? "No worklist yet. Open this page in the Claude desktop app on your Mac, or wait for the scheduled sync."
+                  : "The worklist needs the page's data store or the local server, and neither is available in this view."
               }
-              loading
+              band={band}
+              onBand={chooseBand}
+              clients={clients}
+              focus={focus}
+              folded={workFolded}
+              onFold={(key) => {
+                const next = new Set(workFolded);
+                if (!next.delete(key)) next.add(key);
+                fold(next);
+              }}
+              showDone={showDone}
+              showWaiting={showWaiting}
+              today={dayKey(now)}
+              tomorrow={dayKey(tomorrow)}
+              notes={
+                <>
+                  <WaitingOnYou
+                    operator={config.operator ?? "you"}
+                    rows={waitingRows(
+                      waiting.data?.items ?? [],
+                      focus,
+                      config,
+                      clientOf,
+                    )}
+                  />
+                  {worklist.error && (
+                    <Note tone="err">{worklist.error.text}</Note>
+                  )}
+                  {worklist.doc?.database?.ok === false && (
+                    <Note tone="err">
+                      The task database didn't answer, so clients that live
+                      there are missing:{" "}
+                      {worklist.doc.database.error || "no answer"}.
+                    </Note>
+                  )}
+                </>
+              }
+              menu={
+                workItems && (
+                  <ActionMenu
+                    what="the worklist"
+                    actions={[
+                      {
+                        label: `${showDone ? "Hide" : "Show"} done (${
+                          workItems.filter(
+                            (t) => !t.meeting && t.done && inFocus(t.customer),
+                          ).length
+                        })`,
+                        onSelect: () => {
+                          setShowDone(!showDone);
+                          save(KEYS.showDone, showDone ? "0" : "1");
+                        },
+                      },
+                      {
+                        label: `${showWaiting ? "Hide" : "Show"} approved and merged (${
+                          workItems.filter(
+                            (t) =>
+                              !t.meeting &&
+                              !t.done &&
+                              inFocus(t.customer) &&
+                              isWaiting(t),
+                          ).length
+                        })`,
+                        hint: "Pull requests waiting for a merge or a release",
+                        onSelect: () => {
+                          setShowWaiting(!showWaiting);
+                          save(KEYS.showWaiting, showWaiting ? "0" : "1");
+                        },
+                      },
+                      {
+                        label: "Collapse to clients",
+                        hint: "In every view: each client closed; in Backlog, quadrants stay open",
+                        onSelect: () =>
+                          fold(
+                            foldAll(
+                              workFolded,
+                              config.clients.map((c) => c.key),
+                              true,
+                            ),
+                          ),
+                      },
+                      {
+                        label: "Expand all",
+                        onSelect: () =>
+                          fold(
+                            foldAll(
+                              workFolded,
+                              config.clients.map((c) => c.key),
+                              false,
+                            ),
+                          ),
+                      },
+                    ]}
+                  />
+                )
+              }
             />
           ) : v.id === "agenda" ? (
             <Agenda

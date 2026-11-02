@@ -12,6 +12,16 @@ export const KEYS = {
   githubFolded: "db.gCollapsed",
   /** The Jira groups folded, as a JSON list of categories prefixed `cat:`. */
   jiraFolded: "db.jCollapsed",
+  /** The worklist band: today, tomorrow or backlog. */
+  band: "db.band",
+  /** Worklist groups folded: client keys, `q:<quadrant>` and `<quadrant>|<client>`. */
+  worklistFolded: "db.collapsed",
+  /** "1" when done tasks show. */
+  showDone: "db.showDone",
+  /** "0" when approved and merged tasks are hidden. */
+  showWaiting: "db.showWaiting",
+  /** "1" once the backlog has been opened, so its first folds are set once. */
+  planInit: "db.planInit",
 } as const;
 
 export function load(

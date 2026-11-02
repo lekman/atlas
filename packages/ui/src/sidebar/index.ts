@@ -126,3 +126,38 @@ export {
   type FeedItem,
   type SourceOptions,
 } from "./calendar/model";
+export {
+  ActionMenu,
+  type ActionMenuProps,
+  type MenuAction,
+} from "./ActionMenu";
+export { WorkRow, type WorkRowProps } from "./WorkRow";
+export {
+  Worklist,
+  type WorklistClient,
+  type WorklistProps,
+} from "./WorklistPanel";
+export {
+  byDoneThenPriority,
+  byPriority,
+  byWhenThenPriority,
+  DAY_HOURS,
+  flagTag,
+  foldKeys,
+  formatHours,
+  HOURS,
+  hoursOf,
+  isWaiting,
+  isWorklistDoc,
+  itemsFor,
+  openCount,
+  QUADRANTS,
+  quadrantOf,
+  todaySummary,
+  VALUE_TEXT,
+  whenOf,
+  type Band,
+  type When,
+  type WorkItem,
+  type WorklistDoc,
+} from "./worklist/model";

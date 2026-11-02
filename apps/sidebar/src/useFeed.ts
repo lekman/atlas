@@ -18,6 +18,8 @@ export interface Feed<T> {
   failure: RuntimeError | null;
   /** When the live data was read, in epoch milliseconds. */
   liveAt?: number | null;
+  /** The stored copy alone, whatever the live data. */
+  stored?: T | null;
 }
 
 /**
@@ -53,5 +55,6 @@ export function useFeed<T>(
         : null,
     failure: error ?? null,
     liveAt: state?.liveAt ?? null,
+    stored: state?.stored ?? null,
   };
 }

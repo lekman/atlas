@@ -3,11 +3,15 @@ import type { CSSProperties } from "react";
 export interface GroupHeaderProps {
   label: string;
   count: number;
+  /** Shown instead of the bare count: "3 open · 1 done". */
+  countText?: string;
   /** The label's colour, a CSS value. */
   colour: string;
   /** With a toggle, the header folds its group; it remembers nothing itself. */
   open?: boolean;
   onToggle?: () => void;
+  /** The toggle's tooltip. */
+  title?: string;
 }
 
 /**
@@ -17,16 +21,19 @@ export interface GroupHeaderProps {
 export function GroupHeader({
   label,
   count,
+  countText,
   colour,
   open = true,
   onToggle,
+  title,
 }: GroupHeaderProps) {
   const style = { "--c": colour } as CSSProperties;
+  const counted = <span>{countText ?? count}</span>;
   if (!onToggle) {
     return (
       <div className="grp" style={style}>
         {label}
-        <span>{count}</span>
+        {counted}
       </div>
     );
   }
@@ -36,13 +43,14 @@ export function GroupHeader({
       className="grp"
       style={style}
       aria-expanded={open}
+      title={title}
       onClick={onToggle}
     >
       <span className="nm">
         <i className="chev" aria-hidden="true" />
         {label}
       </span>
-      <span>{count}</span>
+      {counted}
     </button>
   );
 }

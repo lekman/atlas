@@ -56,6 +56,8 @@ export function useCalendar(
   config: SidebarConfig,
   feeds: unknown,
   now: Date,
+  /** Meetings from other sources, as the worklist's. */
+  more: readonly CalendarEvent[] = [],
 ): Calendar {
   const calendar = config.calendar;
   const today = dayKey(now);
@@ -149,13 +151,13 @@ export function useCalendar(
     () =>
       ready
         ? mergeEvents(
-            [google.data ?? [], outlook.data ?? [], fromFeeds],
+            [google.data ?? [], outlook.data ?? [], fromFeeds, more],
             now,
             calendar?.samples?.client,
           )
         : null,
     // biome-ignore lint/correctness/useExhaustiveDependencies: placeholders follow the day, not each tick.
-    [ready, google.data, outlook.data, fromFeeds, today],
+    [ready, google.data, outlook.data, fromFeeds, more, today],
   );
 
   return {
