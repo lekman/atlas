@@ -1,4 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import {
+  defaultSoundSettings,
+  type LightingPreference,
+  type SoundSettings,
+} from "@atlas/worlds";
 import { useState } from "react";
 import { expect, userEvent, within } from "storybook/test";
 
@@ -10,6 +15,7 @@ import { pullCounts } from "../details/pulls";
 import { PullRequests } from "../PullRequests";
 import { hostsTab } from "../hosts/model";
 import { GitHubList } from "../GitHubList";
+import { HeaderButtons } from "../HeaderButtons";
 import { HostsPanel } from "../HostsPanel";
 import { JiraList } from "../JiraList";
 import { MondayList } from "../MondayList";
@@ -17,7 +23,9 @@ import { NextUp } from "../NextUp";
 import { Note } from "../Note";
 import { Panel } from "../Panel";
 import { SidebarFrame } from "../SidebarFrame";
+import { SettingsView } from "../SettingsView";
 import { SidebarHeader } from "../SidebarHeader";
+import type { SidebarWorldId } from "../theme/worlds";
 import { releaseCount } from "../release/model";
 import { ReleaseStatus } from "../ReleaseStatus";
 import { TabPanel, Tabs } from "../Tabs";
@@ -49,10 +57,21 @@ import { STORY_TODAY, STORY_TOMORROW, worklistItems } from "./worklist";
 function SidebarPage({
   initialFocus = "all",
   theme,
+  initialWorld,
 }: {
   initialFocus?: string;
   theme: "light" | "dark";
+  /** A world's look; without one the page keeps the neutral theme and the Live label. */
+  initialWorld?: SidebarWorldId;
 }) {
+  const [world, setWorld] = useState(initialWorld);
+  const [lighting, setLighting] = useState<LightingPreference>(
+    theme === "dark" ? "night" : "day",
+  );
+  const [sound, setSound] = useState<SoundSettings>(defaultSoundSettings);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const resolved =
+    lighting === "automatic" ? (theme === "dark" ? "night" : "day") : lighting;
   const [focus, setFocus] = useState(initialFocus);
   const [view, setView] = useState("worklist");
   const [band, setBand] = useState<Band>("today");
@@ -60,11 +79,42 @@ function SidebarPage({
   const [folded, setFolded] = useState<ReadonlySet<string>>(new Set());
   const shown = visibleViews(exampleViews, focus, view);
   return (
-    <SidebarFrame theme={theme} fill>
+    <SidebarFrame
+      theme={theme}
+      fill
+      world={
+        world
+          ? { id: world, lighting: world === "mariner" ? resolved : "day" }
+          : undefined
+      }
+    >
       <SidebarHeader
         now={STORY_NOW}
         sync={{ liveAt: STORY_NOW.getTime() - 20000, syncedAt: null }}
+        controls={
+          world ? (
+            <HeaderButtons
+              soundOn={sound.enabled}
+              onSound={() => setSound({ ...sound, enabled: !sound.enabled })}
+              onSettings={() => setSettingsOpen(true)}
+            />
+          ) : undefined
+        }
       />
+      {world && settingsOpen && (
+        <SettingsView
+          world={world}
+          onWorld={setWorld}
+          lighting={lighting}
+          onLighting={setLighting}
+          deviceIsDark={theme === "dark"}
+          sound={sound}
+          onSound={setSound}
+          onPreview={() => {}}
+          sync={{ text: "Live", title: "Read live from the Mac" }}
+          onClose={() => setSettingsOpen(false)}
+        />
+      )}
       <NextUp
         state="next"
         title="Halcyon Labs weekly with the data team"
@@ -321,5 +371,51 @@ export const Details: Story = {
     );
     await expect(canvas.queryByRole("dialog")).toBeNull();
     await expect(task).toHaveFocus();
+  },
+};
+
+/** The Astronomer world: the full page's star field and typefaces in the sidebar. */
+export const Astronomer: Story = {
+  args: { theme: "dark", initialWorld: "astronomer" },
+  globals: { lighting: "night" },
+};
+
+/** The Mariner world by day, on parchment. */
+export const MarinerDay: Story = {
+  name: "Mariner Day",
+  args: { theme: "light", initialWorld: "mariner" },
+};
+
+/** The Mariner world at night. */
+export const MarinerNight: Story = {
+  name: "Mariner Night",
+  args: { theme: "dark", initialWorld: "mariner" },
+  globals: { lighting: "night" },
+};
+
+/**
+ * The settings button opens the full page's settings over the sidebar.
+ * Choosing Mariner changes the world, and Escape returns to the worklist.
+ */
+export const ChooseAWorld: Story = {
+  name: "Choose a World",
+  args: { theme: "dark", initialWorld: "astronomer" },
+  globals: { lighting: "night" },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const settings = canvas.getByRole("button", { name: "Settings" });
+    await userEvent.click(settings);
+    const dialog = canvas.getByRole("dialog", { name: "Settings" });
+    await expect(within(dialog).getByText("Worklist: Live")).toBeVisible();
+    await userEvent.click(
+      within(dialog).getByRole("radio", { name: /mariner/i }),
+    );
+    await userEvent.keyboard("{Escape}");
+    await expect(canvas.queryByRole("dialog")).toBeNull();
+    await expect(canvasElement.querySelector(".atlas-sidebar")).toHaveAttribute(
+      "data-world",
+      "mariner",
+    );
+    await expect(settings).toHaveFocus();
   },
 };

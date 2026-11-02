@@ -193,8 +193,32 @@ try {
     if (!(await tab.getByText("Harness task for today").isVisible())) {
       problems.push(`${width}px: the worklist does not show today's task`);
     }
-    if ((await tab.locator(".sync").textContent()) !== "Live") {
-      problems.push(`${width}px: the header does not say Live`);
+    // Settings: the header's cog opens the screen, which says how fresh the
+    // worklist is, and a world chosen there restyles the sidebar.
+    if (
+      (await tab.locator(".atlas-sidebar").getAttribute("data-world")) !==
+      "astronomer"
+    ) {
+      problems.push(`${width}px: the sidebar does not start in Astronomer`);
+    }
+    await tab.getByRole("button", { name: "Settings" }).click();
+    if (!(await tab.getByText("Worklist: Live").isVisible())) {
+      problems.push(
+        `${width}px: the settings screen does not say the worklist is live`,
+      );
+    }
+    await tab.getByRole("radio", { name: /mariner/i }).check();
+    await tab.keyboard.press("Escape");
+    if (
+      (await tab.locator(".atlas-sidebar").getAttribute("data-world")) !==
+      "mariner"
+    ) {
+      problems.push(
+        `${width}px: choosing Mariner does not restyle the sidebar`,
+      );
+    }
+    if ((await tab.getByRole("dialog").count()) !== 0) {
+      problems.push(`${width}px: Escape does not close the settings`);
     }
     // Details: the task opens its page, drawn without HTML, and Escape returns to it.
     const taskTitle = tab.getByRole("button", {

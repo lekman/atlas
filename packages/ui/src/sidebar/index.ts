@@ -226,3 +226,12 @@ export {
   type TriageViewProps,
 } from "./TriageView";
 export { RowButton, type RowButtonProps } from "./RowButton";
+export { HeaderButtons, type HeaderButtonsProps } from "./HeaderButtons";
+export { SettingsView, type SettingsViewProps } from "./SettingsView";
+export {
+  isSidebarWorld,
+  SIDEBAR_WORLDS,
+  worldFrameStyle,
+  worldTokens,
+  type SidebarWorldId,
+} from "./theme/worlds";
