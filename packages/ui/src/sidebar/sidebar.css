@@ -1727,6 +1727,13 @@
   flex: 1;
 }
 
+/* An editor tab of its own: the tab's whole width, a little more air at the sides. */
+.atlas-sidebar .detail.page .inner {
+  max-width: none;
+  padding: 0 24px 48px;
+}
+
+.atlas-sidebar .dbar h1,
 .atlas-sidebar .dbar h2 {
   margin: 0;
   font-size: 16px;
@@ -1734,6 +1741,12 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* A tab has room for the whole title, so it wraps instead of being cut. */
+.atlas-sidebar .detail.page .dbar h1 {
+  font-size: 20px;
+  white-space: normal;
 }
 
 .atlas-sidebar .dbar .sub {

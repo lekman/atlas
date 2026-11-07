@@ -1,4 +1,4 @@
-import type { Runtime } from "@atlas/runtime";
+import { openTaskDetails, type Host, type Runtime } from "@atlas/runtime";
 import {
   Agenda,
   agendaDays,
@@ -14,19 +14,13 @@ import {
   releaseCount,
   ReleaseStatus,
   WaitingOnYou,
-  AskForm,
   askKey,
-  askText,
   answeredView,
-  answerOptions,
   AskView,
-  DetailsView,
   HeaderButtons,
   SettingsView,
   syncLabel,
-  ItemActions,
   RowButton,
-  AssessForm,
   movable,
   quadrantOf,
   TriageView,
@@ -35,10 +29,7 @@ import {
   type Sizing,
   referenceText,
   RequestLine,
-  type ItemAction,
   type MenuAction,
-  pullCounts,
-  PullRequests,
   type WaitingItem,
   type WorkItem,
   ActionMenu,
@@ -69,16 +60,12 @@ import { hostsFor } from "./hosts";
 import { KEYS, load, loadSet, save, saveSet } from "./storage";
 import { useCalendar } from "./useCalendar";
 import { useWorklist } from "./useWorklist";
-import { useDetails, useDetailsCopies, type DetailsIndex } from "./useDetails";
+import { readDetailsIndex, useDetailsCopies } from "./useDetails";
 import { useCommander } from "./useCommander";
 import { copyText, useTaskActions } from "./useTaskActions";
 import { usePlanning } from "./usePlanning";
 import { usePreferences } from "./usePreferences";
-import {
-  searchable,
-  usePullRequests,
-  usePullsRefresh,
-} from "./usePullRequests";
+import { usePullsRefresh } from "./usePullRequests";
 import { foldAll, planFolds, worklistMeetings } from "./worklist";
 import { useGitHub } from "./useGitHub";
 import { useNow } from "./useNow";
@@ -90,19 +77,52 @@ import { useRelease } from "./useRelease";
 import { useWaiting } from "./useWaiting";
 import { waitingRows } from "./waiting";
 import { sidebarViews, tabLook } from "./views";
+import { CommanderAnswer } from "./CommanderAnswer";
+import { dayKey } from "./day";
+import { DetailsTab } from "./DetailsTab";
+import { HERE, otherBands, PENDING_NOTE } from "./moves";
+import { TaskDetails } from "./TaskDetails";
 
 export interface AppProps {
   runtime: Runtime;
   config?: SidebarConfig;
   now?: Date;
+  /**
+   * The editor's own features, found before the first render. In VS Code
+   * the sidebar opens details in an editor tab through it, and a tab with a
+   * mode shows one task's details alone. Null everywhere else.
+   */
+  host?: Host | null;
+}
+
+/**
+ * The page: one task's details when the host made it a details tab, and
+ * the sidebar otherwise.
+ */
+export function App({
+  host = null,
+  config = defaultConfig,
+  ...props
+}: AppProps) {
+  return host?.mode?.view === "details" ? (
+    <DetailsTab
+      runtime={props.runtime}
+      config={config}
+      taskRef={host.mode.ref}
+      now={props.now}
+    />
+  ) : (
+    <Sidebar {...props} config={config} host={host} />
+  );
 }
 
 /** The sidebar. Each view's panel fills in as it reaches parity with the old page. */
-export function App({
+function Sidebar({
   runtime,
-  config = defaultConfig,
+  config,
   now: fixedNow,
-}: AppProps) {
+  host,
+}: AppProps & { config: SidebarConfig; host: Host | null }) {
   const now = useNow(fixedNow);
   const views = useMemo(() => sidebarViews(config), [config]);
   const clients = useMemo(
@@ -173,13 +193,7 @@ export function App({
       colour: "var(--client-other)",
     };
   const worklist = useWorklist(runtime, now);
-  const detailsIndex = useStored(runtime, "board/details", (d) =>
-    typeof d === "object" &&
-    d !== null &&
-    typeof (d as DetailsIndex).items === "object"
-      ? (d as DetailsIndex)
-      : null,
-  );
+  const detailsIndex = useStored(runtime, "board/details", readDetailsIndex);
   useDetailsCopies(
     runtime,
     worklist.doc?.items ?? null,
@@ -193,7 +207,6 @@ export function App({
   const openItem = opened
     ? (worklist.doc?.items.find((t) => t.ref && t.ref === opened.ref) ?? opened)
     : null;
-  const details = useDetails(runtime, openItem, detailsIndex?.items ?? {});
   const commander = useCommander(runtime, config.inbox);
   const prefs = usePreferences();
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -217,7 +230,6 @@ export function App({
   });
   // Triage: the ungraded tasks it was opened with, while it is open.
   const [triage, setTriage] = useState<readonly WorkItem[] | null>(null);
-  const [assessOpen, setAssessOpen] = useState<string | null>(null);
   // A task a tracker row's button went to: its row is scrolled to and flashed once rendered.
   const [flash, setFlash] = useState<string | null>(null);
   useEffect(() => {
@@ -258,25 +270,6 @@ export function App({
         : "Could not copy to the clipboard in this view.",
     );
   };
-  const HERE: Record<string, Band> = {
-    today: "today",
-    tomorrow: "tomorrow",
-    future: "backlog",
-    unscheduled: "backlog",
-  };
-  const MOVES: Record<
-    Band,
-    { icon: "today" | "right" | "doorout"; label: string }
-  > = {
-    today: { icon: "today", label: "Move to today" },
-    tomorrow: { icon: "right", label: "Move to tomorrow" },
-    backlog: { icon: "doorout", label: "Move to the backlog" },
-  };
-  const otherBands = (t: WorkItem) =>
-    (["today", "tomorrow", "backlog"] as Band[]).filter(
-      (b) => b !== (HERE[t.band ?? ""] ?? "today"),
-    );
-  const pendingNote = "A Commander request for this item is still open";
   const rowMenu = (t: WorkItem) => {
     if (t.done || !t.ref) return null;
     const open = Boolean(commander.open(t.ref));
@@ -314,7 +307,7 @@ export function App({
       <ActionMenu
         what={t.title}
         actions={items}
-        footer={open ? `${pendingNote}.` : undefined}
+        footer={open ? `${PENDING_NOTE}.` : undefined}
       />
     );
   };
@@ -323,120 +316,6 @@ export function App({
     t.claimedBy ? null : (
       <RequestLine request={commander.latest(t.ref)} now={now} />
     );
-  // The answer form for an ask, with what happened to the last answer sent.
-  const answerForm = (item: WaitingItem) => {
-    const sent = commander.latest(askKey(item) ?? undefined);
-    const last = sent?.action === "answer" ? sent : null;
-    const from =
-      item.kind === "commander" && item.worker ? item.worker : "Commander";
-    const ask = askText(item, config.operator ?? "you").ask;
-    return (
-      <AskForm
-        key={askKey(item) ?? item.ask}
-        ask={ask}
-        from={from}
-        options={answerOptions(item, ask)}
-        context={{ detail: item.detail, reason: item.reason }}
-        busy={last?.state === "sending"}
-        sent={
-          last && last.state !== "sending" && last.state !== "failed"
-            ? { at: last.requestedAt, answer: last.answer ?? {} }
-            : null
-        }
-        status={
-          !last || last.state === "sending"
-            ? null
-            : last.state === "failed"
-              ? { tone: "bad", text: last.summary || "Not sent." }
-              : last.state === "done" || last.state === "answered"
-                ? {
-                    tone: "ok",
-                    text: last.summary || `${from} has your answer.`,
-                  }
-                : {
-                    tone: "warn",
-                    text:
-                      last.summary || `Sent; Commander hands it to ${from}.`,
-                  }
-        }
-        onSend={(answer) => {
-          commander.answer(item, answer).catch(() => undefined);
-        }}
-      />
-    );
-  };
-
-  const detailActions = (t: WorkItem) => {
-    if (t.done) {
-      return (
-        <div className="dacts">
-          <span className="st done">done</span>
-        </div>
-      );
-    }
-    const open = Boolean(commander.open(t.ref));
-    const busy = actions.busyRef === t.ref;
-    const commanderGroup: ItemAction[] = [
-      ...(t.details
-        ? []
-        : [
-            {
-              icon: "send" as const,
-              label:
-                "Plan with Commander: a details page with a test plan, or a refusal with the reason",
-              primary: true,
-              disabled: open || busy,
-              why: pendingNote.toLowerCase(),
-              onSelect: () => commander.plan(t),
-            },
-          ]),
-      {
-        icon: "play",
-        label: "Execute: dispatch to the owner",
-        primary: Boolean(t.details),
-        disabled: open || busy,
-        why: pendingNote.toLowerCase(),
-        onSelect: () => commander.send(t, "execute"),
-      },
-      {
-        icon: "pulse",
-        label: "Status: ask the owner where this stands",
-        disabled: open || busy,
-        why: pendingNote.toLowerCase(),
-        onSelect: () => commander.send(t, "status"),
-      },
-    ];
-    const taskGroup: ItemAction[] = [
-      {
-        icon: "check",
-        label: "Done",
-        disabled: busy,
-        onSelect: async () => {
-          const fresh = await actions.act(t, "task_done");
-          // Close the details once the fresh worklist has it done, or no longer has it.
-          if (fresh && !fresh.items.some((x) => x.ref === t.ref && !x.done))
-            setOpened(null);
-        },
-      },
-      ...otherBands(t).map((b) => ({
-        icon: MOVES[b].icon,
-        label: MOVES[b].label,
-        disabled: busy,
-        onSelect: () => actions.act(t, "task_move", { to: b }),
-      })),
-    ];
-    return (
-      <>
-        <ItemActions groups={[commanderGroup, taskGroup]} />
-        {commander.latest(t.ref) && (
-          <div className="dstatus">
-            <RequestLine request={commander.latest(t.ref)} now={now} />
-          </div>
-        )}
-      </>
-    );
-  };
-  const pulls = usePullRequests(runtime, openItem);
   usePullsRefresh(runtime, worklist.doc?.items ?? null, worklist.liveAt);
   const workItems = worklist.doc?.items ?? null;
   const meetings = useMemo(
@@ -495,6 +374,10 @@ export function App({
   const open = (id: string) => {
     setView(id);
     save(KEYS.view, id);
+  };
+  // A task's details: in an editor tab when the host can open one, here otherwise.
+  const openDetails = (t: WorkItem) => {
+    openTaskDetails(host, t.ref, () => setOpened(t)).catch(() => undefined);
   };
 
   return (
@@ -620,7 +503,7 @@ export function App({
               showWaiting={showWaiting}
               today={dayKey(now)}
               tomorrow={dayKey(tomorrow)}
-              onOpen={setOpened}
+              onOpen={openDetails}
               quadrantActions={(q, rows) => {
                 const today = dayKey(now);
                 const todays = rows.filter(
@@ -723,7 +606,7 @@ export function App({
                             ? workItems?.find((t) => t.ref === row.item.ref)
                             : undefined;
                         if (task)
-                          return { ...row, onOpen: () => setOpened(task) };
+                          return { ...row, onOpen: () => openDetails(task) };
                         return row.item.kind !== "task" && askKey(row.item)
                           ? { ...row, onOpen: () => setAsking(row.item) }
                           : row;
@@ -1028,71 +911,28 @@ export function App({
           }
           onClose={() => setAsking(null)}
         >
-          {answerForm(asking)}
+          <CommanderAnswer
+            item={asking}
+            commander={commander}
+            operator={config.operator ?? "you"}
+          />
         </AskView>
       )}
       {openItem && (
-        <DetailsView
+        <TaskDetails
+          key={openItem.ref ?? openItem.title}
+          runtime={runtime}
+          config={config}
           item={openItem}
           clientName={clientOf(openItem.customer).name}
-          details={details}
-          githubOrg={
-            config.clients.find((c) => c.key === openItem.customer)?.githubOrg
-          }
-          mondayPrefix={
-            config.trackers.find((t) => t.monday)?.monday?.keyPrefix
-          }
-          weekEnd={dayKey(new Date(now.getTime() + 7 * 86400000))}
           now={now}
-          openPullRequests={pullCounts(pulls.doc).open}
-          draftPullRequests={pullCounts(pulls.doc).draft}
+          commander={commander}
+          actions={actions}
+          planning={planning}
+          waiting={waiting.data?.items ?? []}
+          detailsIndex={detailsIndex?.items ?? {}}
           onClose={() => setOpened(null)}
-          actions={detailActions(openItem)}
-          onAssess={
-            openItem.ref?.startsWith("db:")
-              ? () =>
-                  setAssessOpen(
-                    assessOpen === openItem.ref ? null : (openItem.ref ?? null),
-                  )
-              : undefined
-          }
-          assessOpen={assessOpen === openItem.ref}
-          assess={
-            assessOpen === openItem.ref ? (
-              <AssessForm
-                item={openItem}
-                canSave={runtime.present}
-                onCancel={() => setAssessOpen(null)}
-                onSave={(change) => {
-                  setAssessOpen(null);
-                  planning.assess(openItem, change).catch(() => undefined);
-                }}
-              />
-            ) : planning.assessNote?.ref === openItem.ref ? (
-              <div className="note" role="status">
-                {planning.assessNote?.text}
-              </div>
-            ) : null
-          }
-          ask={(() => {
-            const waits = waiting.data?.items.find(
-              (w) => w.kind === "task" && w.ref && w.ref === openItem.ref,
-            );
-            return waits ? answerForm(waits) : null;
-          })()}
-          pullRequests={
-            (openItem.key || searchable(openItem) || pulls.doc) && (
-              <PullRequests
-                doc={pulls.doc}
-                copy={pulls.copy}
-                trackerKey={openItem.key}
-                searchable={searchable(openItem)}
-                onRefresh={runtime.present ? () => pulls.refresh() : undefined}
-                busy={pulls.busy}
-                now={now}
-              />
-            )
-          }
+          onDone={() => setOpened(null)}
         />
       )}
       {settingsOpen && (
@@ -1132,9 +972,4 @@ export function App({
       )}
     </SidebarFrame>
   );
-}
-
-/** YYYY-MM-DD in local time. */
-function dayKey(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }

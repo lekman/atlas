@@ -15,6 +15,14 @@ export interface DetailsIndex {
   updatedAt?: string;
 }
 
+/** A stored `board/details` document, or null when it is not one. */
+export const readDetailsIndex = (d: unknown): DetailsIndex | null =>
+  typeof d === "object" &&
+  d !== null &&
+  typeof (d as DetailsIndex).items === "object"
+    ? (d as DetailsIndex)
+    : null;
+
 /**
  * Stores a page for devices without the local server, at `details/<key>`,
  * and notes it in the index, unless the index already has this change.

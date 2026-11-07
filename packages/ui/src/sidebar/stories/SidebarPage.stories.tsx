@@ -1,11 +1,19 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import {
+  createFakeRuntime,
+  openTaskDetails,
+  Runtime,
+  type FakeHostOptions,
+  type FakeRuntime,
+  type Host,
+} from "@atlas/runtime";
+import {
   defaultSoundSettings,
   type LightingPreference,
   type SoundSettings,
 } from "@atlas/worlds";
 import { useState } from "react";
-import { expect, userEvent, within } from "storybook/test";
+import { expect, userEvent, waitFor, within } from "storybook/test";
 
 import { Agenda } from "../Agenda";
 import { agendaDays } from "../calendar/model";
@@ -29,6 +37,7 @@ import { SidebarHeader } from "../SidebarHeader";
 import type { SidebarWorldId } from "../theme/worlds";
 import { releaseCount } from "../release/model";
 import { ReleaseStatus } from "../ReleaseStatus";
+import { ItemActions } from "../ItemActions";
 import { TabPanel, Tabs } from "../Tabs";
 import { WaitingOnYou } from "../WaitingOnYou";
 import type { Band, WorkItem } from "../worklist/model";
@@ -60,11 +69,14 @@ function SidebarPage({
   initialFocus = "all",
   theme,
   initialWorld,
+  host = null,
 }: {
   initialFocus?: string;
   theme: "light" | "dark";
   /** A world's look; without one the page keeps the neutral theme and the Live label. */
   initialWorld?: SidebarWorldId;
+  /** VS Code's host, which opens a task's details in an editor tab instead of here. */
+  host?: Host | null;
 }) {
   const [world, setWorld] = useState(initialWorld);
   const [lighting, setLighting] = useState<LightingPreference>(
@@ -189,7 +201,11 @@ function SidebarPage({
               showWaiting
               today={STORY_TODAY}
               tomorrow={STORY_TOMORROW}
-              onOpen={(item) => setOpened(item)}
+              onOpen={(item) => {
+                openTaskDetails(host, item.ref, () => setOpened(item)).catch(
+                  () => undefined,
+                );
+              }}
               notes={
                 <WaitingOnYou
                   operator={OPERATOR}
@@ -310,6 +326,72 @@ function SidebarPage({
   );
 }
 
+/**
+ * The page in a VS Code editor tab of its own: one task's details at the
+ * tab's full width, with no tabs, worklist or Back button.
+ */
+function DetailsTabPage({ theme }: { theme: "light" | "dark" }) {
+  const item = worklistItems[0]!;
+  return (
+    <SidebarFrame theme={theme} fill>
+      <DetailsView
+        item={item}
+        clientName={
+          exampleClients.find((c) => c.key === item.customer)?.name ?? "Other"
+        }
+        details={{ state: "ready", page: detailsPage }}
+        mondayPrefix="KF"
+        weekEnd="2026-03-19"
+        now={STORY_NOW}
+        openPullRequests={pullCounts(pullsDoc).open}
+        actions={
+          <ItemActions
+            groups={[
+              [
+                {
+                  icon: "play",
+                  label: "Execute: dispatch to the owner",
+                  primary: true,
+                  onSelect: () => undefined,
+                },
+                {
+                  icon: "pulse",
+                  label: "Status: ask the owner where this stands",
+                  onSelect: () => undefined,
+                },
+              ],
+              [
+                { icon: "check", label: "Done", onSelect: () => undefined },
+                {
+                  icon: "right",
+                  label: "Move to tomorrow",
+                  onSelect: () => undefined,
+                },
+              ],
+            ]}
+          />
+        }
+        pullRequests={
+          <PullRequests
+            doc={pullsDoc}
+            trackerKey={item.key}
+            searchable
+            now={STORY_NOW}
+          />
+        }
+      />
+    </SidebarFrame>
+  );
+}
+
+/** A stand-in for VS Code's host, and the page's view of it, for a story's loader. */
+async function fakeHost(
+  options: FakeHostOptions,
+): Promise<{ fake: FakeRuntime; host: Host | null }> {
+  const fake = createFakeRuntime({ host: options });
+  return { fake, host: await new Runtime(fake).host() };
+}
+
 const meta = {
   title: "Pages/Sidebar",
   component: SidebarPage,
@@ -387,6 +469,84 @@ export const Details: Story = {
     );
     await expect(canvas.queryByRole("dialog")).toBeNull();
     await expect(task).toHaveFocus();
+  },
+};
+
+/**
+ * In VS Code, a task opens in an editor tab, where there is room for its
+ * details, and the sidebar stays on the worklist.
+ */
+export const OpensInTheEditor: Story = {
+  name: "Opens in the Editor",
+  args: { theme: "light" },
+  loaders: [() => fakeHost({})],
+  render: (args, { globals, loaded }) => (
+    <SidebarPage
+      {...args}
+      host={(loaded as { host: Host | null }).host}
+      theme={globals.lighting === "night" ? "dark" : "light"}
+    />
+  ),
+  play: async ({ canvasElement, loaded }) => {
+    const { fake } = loaded as { fake: FakeRuntime };
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: /scanner api/i }));
+    await waitFor(() => expect(fake.opened).toEqual(["db:1"]));
+    await expect(canvas.queryByRole("dialog")).toBeNull();
+    await expect(
+      canvas.getByRole("tab", { name: /worklist/i }),
+    ).toHaveAttribute("aria-selected", "true");
+  },
+};
+
+/**
+ * When the editor cannot open the tab, the details open in the sidebar as
+ * they do everywhere else, so the click is not lost.
+ */
+export const EditorRefuses: Story = {
+  name: "Editor Refuses",
+  args: { theme: "light" },
+  loaders: [() => fakeHost({ refuse: "upstream_error" })],
+  render: (args, { globals, loaded }) => (
+    <SidebarPage
+      {...args}
+      host={(loaded as { host: Host | null }).host}
+      theme={globals.lighting === "night" ? "dark" : "light"}
+    />
+  ),
+  play: async ({ canvasElement, loaded }) => {
+    const { fake } = loaded as { fake: FakeRuntime };
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: /scanner api/i }));
+    await expect(
+      await canvas.findByRole("dialog", { name: /scanner api/i }),
+    ).toBeVisible();
+    await expect(fake.opened).toEqual(["db:1"]);
+  },
+};
+
+/**
+ * The editor tab a task opens in: its details alone, across the tab's
+ * width, with the title as the page's heading and no Back button.
+ */
+export const DetailsTab: Story = {
+  name: "Details Tab",
+  args: { theme: "light" },
+  globals: { viewport: { value: "laptopFullPage", isRotated: false } },
+  render: (_args, { globals }) => (
+    <DetailsTabPage theme={globals.lighting === "night" ? "dark" : "light"} />
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole("heading", { level: 1, name: /scanner api/i }),
+    ).toBeVisible();
+    await expect(canvas.getByRole("main")).toBeVisible();
+    await expect(canvas.queryByRole("tablist")).toBeNull();
+    await expect(
+      canvas.queryByRole("button", { name: "Back to Atlas" }),
+    ).toBeNull();
+    await expect(canvas.queryByRole("dialog")).toBeNull();
   },
 };
 

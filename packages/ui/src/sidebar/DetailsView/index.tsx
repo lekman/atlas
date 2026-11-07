@@ -46,7 +46,12 @@ export interface DetailsViewProps {
   /** A week from today, YYYY-MM-DD: a due date by then is near. */
   weekEnd: string;
   now: Date;
-  onClose: () => void;
+  /**
+   * Back and Escape call it. Without it the details are the whole page, as
+   * in an editor tab of their own: no Back button, and closing the tab is
+   * the way back.
+   */
+  onClose?: () => void;
   /** The item's actions, under the title. */
   actions?: ReactNode;
   /** The answer form, when the item waits on the operator: after the badges, before the pull requests. */
@@ -74,6 +79,10 @@ const httpsOnly = (href: string) => /^https:\/\//i.test(href);
  * quadrant, due date, repositories) and its page from the vault, drawn
  * from Markdown without any HTML. Back or Escape closes it and returns to
  * where it was opened from.
+ *
+ * Without `onClose` it is the page itself, as in a VS Code editor tab: the
+ * main landmark with the title as its first-level heading, the full width
+ * of the tab, and no Back button.
  */
 export function DetailsView({
   item,
@@ -97,15 +106,17 @@ export function DetailsView({
   const back = useRef<HTMLButtonElement>(null);
   const close = useRef(onClose);
   close.current = onClose;
+  const overlay = Boolean(onClose);
 
-  // Once, on opening: focus Back, close on Escape, and on closing return to where it was opened from.
+  // Once, on opening over the sidebar: focus Back, close on Escape, and on closing return to where it was opened from.
   useEffect(() => {
+    if (!close.current) return;
     const from = document.activeElement as HTMLElement | null;
     back.current?.focus();
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         e.preventDefault();
-        close.current();
+        close.current?.();
       }
     };
     document.addEventListener("keydown", onKey);
@@ -135,27 +146,30 @@ export function DetailsView({
   const graded = item.ref?.startsWith("db:");
   const near = Boolean(item.due && item.due <= weekEnd);
 
+  const Root = overlay ? "div" : "main";
+  const Heading = overlay ? "h2" : "h1";
   return (
-    <div
-      className="detail"
-      role="dialog"
-      aria-modal="true"
+    <Root
+      className={overlay ? "detail" : "detail page"}
+      {...(overlay ? { role: "dialog", "aria-modal": true } : {})}
       aria-labelledby={title}
     >
       <div className="inner">
         <div className="dbar">
-          <button
-            ref={back}
-            type="button"
-            className="dback"
-            aria-label="Back to Atlas"
-            onClick={onClose}
-          >
-            <Icon name="back" />
-            <span aria-hidden="true">Back</span>
-          </button>
+          {overlay && (
+            <button
+              ref={back}
+              type="button"
+              className="dback"
+              aria-label="Back to Atlas"
+              onClick={onClose}
+            >
+              <Icon name="back" />
+              <span aria-hidden="true">Back</span>
+            </button>
+          )}
           <div className="dt">
-            <h2 id={title}>{item.title}</h2>
+            <Heading id={title}>{item.title}</Heading>
             <div className="sub">
               {[clientName, item.key, item.details].filter(Boolean).join(" · ")}
             </div>
@@ -266,6 +280,6 @@ export function DetailsView({
           )}
         </div>
       </div>
-    </div>
+    </Root>
   );
 }

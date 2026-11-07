@@ -9,6 +9,9 @@ import type {
   ClaudeRuntime,
   DbApi,
   DocSnapshot,
+  ErrorCode,
+  HostApi,
+  HostMode,
   McpApi,
   ToolEvent,
   WatchOptions,
@@ -24,6 +27,18 @@ export interface FakeRuntimeOptions {
   tools?: Record<string, ToolHandler>;
   /** Stored documents keyed by path. */
   docs?: Record<string, unknown>;
+  /**
+   * Act as the VS Code extension, which offers `host`. Without it, `host`
+   * fails with `not_granted`, as in the artifact.
+   */
+  host?: FakeHostOptions;
+}
+
+export interface FakeHostOptions {
+  /** Set to make this page one task's details tab. */
+  mode?: HostMode;
+  /** `openDetails` fails with this code, as when the editor cannot open the tab. */
+  refuse?: ErrorCode;
 }
 
 export interface FakeRuntime extends ClaudeRuntime {
@@ -37,6 +52,8 @@ export interface FakeRuntime extends ClaudeRuntime {
   readonly docs: Map<string, unknown>;
   /** Replace or add a tool handler. */
   setTool(server: string, tool: string, handler: ToolHandler): void;
+  /** Every ref the page asked the host to open details for, in order. */
+  readonly opened: string[];
 }
 
 /** Codes after which a watch stops calling, as in the VS Code shim. */
@@ -134,17 +151,33 @@ export function createFakeRuntime(
     },
   };
 
+  const opened: string[] = [];
+  const hostOptions = options.host;
+  const host: HostApi | null = hostOptions
+    ? {
+        ...(hostOptions.mode ? { mode: { ...hostOptions.mode } } : {}),
+        async openDetails(ref) {
+          opened.push(ref);
+          if (hostOptions.refuse) throw { code: hostOptions.refuse };
+          return null;
+        },
+      }
+    : null;
+
   const use = ((name: string) =>
     name === "mcp"
       ? Promise.resolve(mcp)
       : name === "db"
         ? Promise.resolve(db)
-        : Promise.reject({ code: "not_granted" })) as ClaudeRuntime["use"];
+        : name === "host" && host
+          ? Promise.resolve(host)
+          : Promise.reject({ code: "not_granted" })) as ClaudeRuntime["use"];
 
   return {
     use,
     calls,
     docs,
+    opened,
     setTool(server, tool, handler) {
       tools.set(`${server}/${tool}`, handler);
     },

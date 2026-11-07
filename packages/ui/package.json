@@ -48,6 +48,7 @@
   },
   "devDependencies": {
     "@atlas/fixtures": "workspace:*",
+    "@atlas/runtime": "workspace:*",
     "@types/bun": "^1.4",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",

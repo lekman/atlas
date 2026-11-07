@@ -123,6 +123,33 @@ export const Loading: Story = {
   args: { details: { state: "loading" } },
 };
 
+/**
+ * Without `onClose` the details are the whole page, as in a VS Code editor
+ * tab: the main landmark, the title as its first heading, the tab's full
+ * width, and no Back button. Escape leaves it as it is.
+ */
+export const EditorTab: Story = {
+  name: "Editor Tab",
+  args: { onClose: undefined },
+  render: (args, { globals }) => (
+    <SidebarStoryFrame globals={globals} width={1280}>
+      <DetailsView {...args} />
+    </SidebarStoryFrame>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const main = canvas.getByRole("main", { name: detailsItem.title });
+    await expect(
+      within(main).getByRole("heading", { level: 1, name: detailsItem.title }),
+    ).toBeVisible();
+    await expect(
+      canvas.queryByRole("button", { name: "Back to Atlas" }),
+    ).toBeNull();
+    await userEvent.keyboard("{Escape}");
+    await expect(main).toBeVisible();
+  },
+};
+
 /** With its actions under the title, and the newest Commander request. */
 export const WithActions: Story = {
   name: "With Actions",

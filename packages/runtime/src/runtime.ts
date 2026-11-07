@@ -3,20 +3,21 @@
  * `Runtime` and never the host object, so stories and tests run against
  * `createFakeRuntime` instead.
  */
-import {
-  ERROR_CODES,
-  type CallOptions,
-  type ClaudeRuntime,
-  type DbApi,
-  type DocSnapshot,
-  type ErrorCode,
-  type McpApi,
-  type RuntimeError,
-  type ToolEvent,
-  type WatchOptions,
+import { toRuntimeError } from "./errors";
+import { readHost, type Host } from "./host";
+import type {
+  CallOptions,
+  ClaudeRuntime,
+  DbApi,
+  DocSnapshot,
+  ErrorCode,
+  McpApi,
+  RuntimeError,
+  ToolEvent,
+  WatchOptions,
 } from "./types";
 
-const KNOWN = new Set<string>(ERROR_CODES);
+export { toRuntimeError } from "./errors";
 
 /**
  * Codes that mean the connector is not usable here at all, as opposed to
@@ -33,23 +34,6 @@ export const UNAUTHORISED = new Set<ErrorCode>([
   "capability_disabled",
   "capability_removed",
 ]);
-
-/** Turns anything a runtime call rejected with into a `RuntimeError`. */
-export function toRuntimeError(error: unknown): RuntimeError {
-  if (typeof error === "object" && error !== null) {
-    const { code, message } = error as { code?: unknown; message?: unknown };
-    const text = typeof message === "string" && message ? message : undefined;
-    const known = typeof code === "string" && KNOWN.has(code);
-    return {
-      code: known ? (code as ErrorCode) : "upstream_error",
-      ...(text ? { message: text } : {}),
-    };
-  }
-  return {
-    code: "upstream_error",
-    ...(typeof error === "string" && error ? { message: error } : {}),
-  };
-}
 
 /** The sentence the sidebar shows for an error from `server`. */
 export function describeError(error: RuntimeError, server: string): string {
@@ -176,6 +160,30 @@ export class Runtime {
 
   get present(): boolean {
     return this.#host !== null;
+  }
+
+  /**
+   * The editor's own features, or null where there are none. The artifact
+   * rejects `host` with `not_granted`, and a host that does not answer
+   * within `timeout` milliseconds counts as none, so the page never waits
+   * on it to draw.
+   */
+  async host({
+    timeout = 1000,
+  }: { timeout?: number } = {}): Promise<Host | null> {
+    if (!this.#host) return null;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const late = new Promise<null>((resolve) => {
+      timer = setTimeout(() => resolve(null), timeout);
+    });
+    try {
+      const api = await Promise.race([this.#host.use("host"), late]);
+      return readHost(api);
+    } catch {
+      return null;
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   async #mcp(): Promise<McpApi> {
