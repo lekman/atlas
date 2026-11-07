@@ -183,6 +183,10 @@ export {
   type DetailsViewProps,
 } from "./DetailsView";
 export {
+  DetailsPlaceholder,
+  type DetailsPlaceholderProps,
+} from "./DetailsPlaceholder";
+export {
   detailsKey,
   field,
   isDetailsPage,

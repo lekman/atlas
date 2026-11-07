@@ -2,7 +2,8 @@
  * The artifact runtime as the sidebar sees it: `window.claude.use("mcp")`
  * and `window.claude.use("db")`. The claude.ai artifact host provides it,
  * and the VS Code extension provides a stand-in with the same shapes, so
- * these types describe both.
+ * these types describe both. The VS Code stand-in adds a third capability,
+ * `host`, which the artifact rejects.
  */
 
 /**
@@ -93,8 +94,28 @@ export interface DbApi {
   doc(path: string): DocRef;
 }
 
+/** The page is one task's details, in a tab of its own. */
+export interface HostMode {
+  view: "details";
+  /** The task's worklist ref. */
+  ref: string;
+}
+
+/**
+ * `window.claude.use("host")`: features of the editor the page runs in.
+ * Only the VS Code extension has it; the artifact rejects with
+ * `not_granted`.
+ */
+export interface HostApi {
+  /** Set when the page is a task's details tab rather than the sidebar. */
+  mode?: HostMode;
+  /** Opens a task's details in a tab of the editor; rejects when it cannot. */
+  openDetails(ref: string): Promise<null>;
+}
+
 /** `window.claude`. */
 export interface ClaudeRuntime {
   use(name: "mcp"): Promise<McpApi>;
   use(name: "db"): Promise<DbApi>;
+  use(name: "host"): Promise<HostApi>;
 }

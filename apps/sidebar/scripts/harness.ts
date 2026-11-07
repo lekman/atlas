@@ -12,7 +12,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { chromium } from "playwright";
+import { chromium, type Page } from "playwright";
 
 const dist = join(import.meta.dirname, "..", "dist");
 const files = readdirSync(dist);
@@ -138,22 +138,37 @@ const shim = `(() => {
       listeners.get(path).add(next); next(snap(path));
       return () => listeners.get(path).delete(next);
     } }) };
+  // window.__host, set before this runs, plays the VS Code extension's host:
+  // a mode makes the page a details tab, and openDetails records each ref,
+  // failing while window.__hostRefuses is set.
+  const host = window.__host && { ...window.__host, openDetails: async (ref) => {
+    (window.__opened = window.__opened || []).push(ref);
+    if (window.__hostRefuses) throw { code: "upstream_error" };
+    return null;
+  } };
   window.claude = { use: (name) => name === "mcp" ? Promise.resolve(mcp)
-    : name === "db" ? Promise.resolve(db) : Promise.reject({ code: "not_granted" }) };
+    : name === "db" ? Promise.resolve(db)
+    : name === "host" && host ? Promise.resolve(host) : Promise.reject({ code: "not_granted" }) };
   window.__docs = docs;
 })();`;
 const body = source
   .replace(/^\s*<!doctype html>/i, "")
   .replace(/<script(?![^>]*\bnonce=)/gi, `<script nonce="${nonce}"`);
-const page = [
-  "<!doctype html>",
-  '<html><head><meta charset="utf-8">',
-  `<meta http-equiv="Content-Security-Policy" content="${csp}">`,
-  `<script nonce="${nonce}">${shim}</script>`,
-  "</head><body>",
-  body,
-  "</body></html>",
-].join("\n");
+/** The page as the VS Code view wraps it, with `before` run ahead of the stand-in. */
+const pageWith = (before = "") =>
+  [
+    "<!doctype html>",
+    '<html><head><meta charset="utf-8">',
+    `<meta http-equiv="Content-Security-Policy" content="${csp}">`,
+    before && `<script nonce="${nonce}">${before}</script>`,
+    `<script nonce="${nonce}">${shim}</script>`,
+    "</head><body>",
+    body,
+    "</body></html>",
+  ]
+    .filter(Boolean)
+    .join("\n");
+const page = pageWith();
 
 const browser = await chromium.launch();
 try {
@@ -601,8 +616,189 @@ try {
     for (const e of errors) problems.push(`${width}px: ${e}`);
     await tab.close();
   }
+  for (const width of [390, 1280]) {
+    await hostChecks(width);
+  }
 } finally {
   await browser.close();
+}
+
+/**
+ * VS Code's host, at one width: the sidebar opens details in an editor tab
+ * and stays on the worklist, falls back to its own details when the editor
+ * refuses, and a details tab shows one task alone.
+ */
+async function hostChecks(width: number): Promise<void> {
+  const open = async (before: string) => {
+    const tab = await browser.newPage({
+      viewport: { width, height: 900 },
+      timezoneId: "Europe/London",
+    });
+    await tab.route("**/*", (route) => route.abort());
+    const errors: string[] = [];
+    tab.on("console", (m) => {
+      if (m.type() === "error") errors.push(m.text());
+    });
+    tab.on("pageerror", (e) => errors.push(e.message));
+    await tab.setContent(pageWith(before), { waitUntil: "load" });
+    return { tab, errors };
+  };
+  const opened = (tab: Page) =>
+    tab.evaluate(
+      () => (window as unknown as { __opened?: string[] }).__opened ?? [],
+    );
+
+  // The sidebar: a task opens in an editor tab, and the sidebar stays on the worklist.
+  {
+    const { tab, errors } = await open("window.__host = {};");
+    const task = tab.getByRole("button", {
+      name: "Harness task for today",
+      exact: true,
+    });
+    await task.click({ timeout: 5000 });
+    await tab
+      .waitForFunction(
+        () => (window as unknown as { __opened?: string[] }).__opened?.length,
+        undefined,
+        { timeout: 5000 },
+      )
+      .catch(() => undefined);
+    if (
+      JSON.stringify(await opened(tab)) !== JSON.stringify(["db:1"]) ||
+      (await tab.getByRole("dialog").count()) !== 0 ||
+      (await tab
+        .getByRole("tab", { name: "Worklist" })
+        .getAttribute("aria-selected")) !== "true"
+    ) {
+      problems.push(
+        `${width}px host: a task does not open in the editor with the sidebar left on the worklist`,
+      );
+    }
+    // The editor refuses: the details open in the sidebar after all.
+    await tab.evaluate(() => {
+      (window as unknown as { __hostRefuses: boolean }).__hostRefuses = true;
+    });
+    await task.click({ timeout: 5000 }).catch(() => undefined);
+    const dialog = tab.getByRole("dialog", { name: "Harness task for today" });
+    if (
+      !(await dialog
+        .waitFor({ timeout: 5000 })
+        .then(() => true)
+        .catch(() => false))
+    ) {
+      problems.push(
+        `${width}px host: a refused editor tab does not open the details in the sidebar`,
+      );
+    }
+    for (const e of errors) problems.push(`${width}px host: ${e}`);
+    await tab.close();
+  }
+
+  // A details tab: one task, its title as the page's, and nothing of the sidebar.
+  {
+    const { tab, errors } = await open(
+      'window.__host = { mode: { view: "details", ref: "db:1" } };',
+    );
+    const heading = tab.getByRole("heading", {
+      level: 1,
+      name: "Harness task for today",
+    });
+    if (
+      !(await heading
+        .waitFor({ timeout: 5000 })
+        .then(() => true)
+        .catch(() => false))
+    ) {
+      problems.push(`${width}px details tab: the task is not the page`);
+    }
+    if (
+      !(await tab
+        .getByRole("main")
+        .getByRole("heading", { name: "Harness heading" })
+        .isVisible())
+    ) {
+      problems.push(`${width}px details tab: the details page does not show`);
+    }
+    if ((await tab.title()) !== "Harness task for today") {
+      problems.push(
+        `${width}px details tab: the document title is "${await tab.title()}"`,
+      );
+    }
+    if (
+      (await tab.getByRole("tab").count()) !== 0 ||
+      (await tab.getByRole("button", { name: "Back to Atlas" }).count()) !==
+        0 ||
+      (await tab.getByText("Waiting on you").count()) !== 0
+    ) {
+      problems.push(
+        `${width}px details tab: it shows tabs, Back or the worklist`,
+      );
+    }
+    await tab.keyboard.press("Escape");
+    if (!(await heading.isVisible())) {
+      problems.push(`${width}px details tab: Escape closes the page`);
+    }
+    for (const e of errors) problems.push(`${width}px details tab: ${e}`);
+    await tab.close();
+  }
+
+  // A details tab for a task the worklist lacks says so, and shows it once the worklist has it.
+  {
+    const { tab, errors } = await open(
+      'window.__offline = true; window.__host = { mode: { view: "details", ref: "db:9" } };',
+    );
+    if (
+      !(await tab
+        .getByRole("heading", { level: 1, name: "Task not found" })
+        .waitFor({ timeout: 5000 })
+        .then(() => true)
+        .catch(() => false)) ||
+      (await tab.title()) !== "Atlas task"
+    ) {
+      problems.push(
+        `${width}px details tab: a missing task does not say it was not found`,
+      );
+    }
+    await tab.evaluate(async () => {
+      const claude = (
+        window as unknown as {
+          claude: {
+            use: (name: string) => Promise<{
+              doc: (path: string) => { set: (d: unknown) => Promise<void> };
+            }>;
+          };
+        }
+      ).claude;
+      const db = await claude.use("db");
+      await db.doc("board/tasks").set({
+        syncedAt: new Date().toISOString(),
+        items: [
+          {
+            ref: "db:9",
+            title: "Harness task that arrives later",
+            customer: "kestrel",
+            band: "backlog",
+          },
+        ],
+      });
+    });
+    if (
+      !(await tab
+        .getByRole("heading", {
+          level: 1,
+          name: "Harness task that arrives later",
+        })
+        .waitFor({ timeout: 5000 })
+        .then(() => true)
+        .catch(() => false))
+    ) {
+      problems.push(
+        `${width}px details tab: the task does not appear when the worklist brings it`,
+      );
+    }
+    for (const e of errors) problems.push(`${width}px details tab: ${e}`);
+    await tab.close();
+  }
 }
 
 if (problems.length) {
