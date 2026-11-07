@@ -1,5 +1,56 @@
 # Changelog
 
+## [0.14.0](https://github.com/lekman/atlas/compare/v0.13.0...v0.14.0) (2026-11-07)
+
+
+### Features
+
+* **collector:** read Claude Code sessions into safe status fields ([#100](https://github.com/lekman/atlas/issues/100)) ([5e88f9e](https://github.com/lekman/atlas/commit/5e88f9e2f109e938da704c674f0cd102de7c2fe8))
+* **collector:** the loop that reports sessions to Atlas ([#101](https://github.com/lekman/atlas/issues/101)) ([eb4838e](https://github.com/lekman/atlas/commit/eb4838e204507e40cb50c9b12be56bad194deb83))
+* **plugin:** hooks report subagents and permission prompts to Atlas ([#105](https://github.com/lekman/atlas/issues/105)) ([17714d9](https://github.com/lekman/atlas/commit/17714d9ce904e90dd59cd9414eb807d37bcd53ef))
+* **sidebar:** add bulk moves, Trim, assess and Triage ([#85](https://github.com/lekman/atlas/issues/85)) ([2f49588](https://github.com/lekman/atlas/commit/2f49588d66b2c0cfa45733076169afc0fd4efea8))
+* **sidebar:** add release status ([#76](https://github.com/lekman/atlas/issues/76)) ([7d0b188](https://github.com/lekman/atlas/commit/7d0b188596664795bf31dc6990a9f8fd70e057f5))
+* **sidebar:** add task actions and Commander requests ([#84](https://github.com/lekman/atlas/issues/84)) ([b4db0d3](https://github.com/lekman/atlas/commit/b4db0d3cfc53b827434b252236f37802f7c5f994))
+* **sidebar:** add the calendar and the next-up card ([#80](https://github.com/lekman/atlas/issues/80)) ([5f6de80](https://github.com/lekman/atlas/commit/5f6de80dde4cf42d224271695bb7e55f7600d353))
+* **sidebar:** add the details reader, without HTML ([#82](https://github.com/lekman/atlas/issues/82)) ([d60698b](https://github.com/lekman/atlas/commit/d60698bc5eb1ec23ea50aab2543dcbebcf2f79c1))
+* **sidebar:** add the GitHub list ([#78](https://github.com/lekman/atlas/issues/78)) ([9064958](https://github.com/lekman/atlas/commit/906495802dd41a3f058c263556a0f023d20abae8))
+* **sidebar:** add the hosts panel ([#74](https://github.com/lekman/atlas/issues/74)) ([69fd2bf](https://github.com/lekman/atlas/commit/69fd2bf4e7e53003322e9bbfe759db051ae57fb5))
+* **sidebar:** add the Jira list and the Mac sync ([#79](https://github.com/lekman/atlas/issues/79)) ([aa733f3](https://github.com/lekman/atlas/commit/aa733f3388203098a42fd440e7d5bdf4b3f57aa4))
+* **sidebar:** add the Monday list and the shared tracker rows ([#77](https://github.com/lekman/atlas/issues/77)) ([62bc3a9](https://github.com/lekman/atlas/commit/62bc3a9793870c8d220ebc8a15633f71b5560eab))
+* **sidebar:** add the Monday rows' task and plan buttons ([#86](https://github.com/lekman/atlas/issues/86)) ([d4965d3](https://github.com/lekman/atlas/commit/d4965d3f63c0eaf6ce310c2f1c75286cd353ae7d))
+* **sidebar:** add the pull request cards to the details ([#83](https://github.com/lekman/atlas/issues/83)) ([d1a49b4](https://github.com/lekman/atlas/commit/d1a49b45db591fb36c0271d8d3c86ef0acb1e872))
+* **sidebar:** add the sidebar design system to Storybook ([#73](https://github.com/lekman/atlas/issues/73)) ([6cceb8d](https://github.com/lekman/atlas/commit/6cceb8d1d1c583bcfe2f0cad925cb980e108699f))
+* **sidebar:** add the single-file sidebar build and the runtime adapter ([#72](https://github.com/lekman/atlas/issues/72)) ([7454622](https://github.com/lekman/atlas/commit/745462223c2cc77b270ae6749a4453181ff0b5ed))
+* **sidebar:** add the worklist ([#81](https://github.com/lekman/atlas/issues/81)) ([3138117](https://github.com/lekman/atlas/commit/3138117fb456edee2257ef872603a867b4f88f48))
+* **sidebar:** add Waiting on you ([#75](https://github.com/lekman/atlas/issues/75)) ([b95eb7a](https://github.com/lekman/atlas/commit/b95eb7af7883074ad1fa84df5e471cee07441b1f))
+* **sidebar:** answer asks that wait on you, with choices and Other ([#93](https://github.com/lekman/atlas/issues/93)) ([7de58f9](https://github.com/lekman/atlas/commit/7de58f91c1699059bc602a4f90c859a691b1b831))
+* **sidebar:** answered asks hide, then return marked late, and show the answer ([#98](https://github.com/lekman/atlas/issues/98)) ([1dbd94e](https://github.com/lekman/atlas/commit/1dbd94eaa41720e0ea66b90e4105150b95adfd4f))
+* **sidebar:** details open in the host's editor when it can ([#104](https://github.com/lekman/atlas/issues/104)) ([ec472e0](https://github.com/lekman/atlas/commit/ec472e07727e1369a83ac11683eaf5ce05b49e3e))
+* **sidebar:** say when Waiting on you couldn't check a source ([#87](https://github.com/lekman/atlas/issues/87)) ([ff832f2](https://github.com/lekman/atlas/commit/ff832f2d460edca6e4d76c4e6e41d5033042b0ff))
+* **sidebar:** settings screen with the Astronomer and Mariner worlds ([#89](https://github.com/lekman/atlas/issues/89)) ([4a5b010](https://github.com/lekman/atlas/commit/4a5b01030f9e748ae058cab805808c7296240947))
+* **sidebar:** Teach Commander prototype from Waiting on You ([#90](https://github.com/lekman/atlas/issues/90)) ([8f6662b](https://github.com/lekman/atlas/commit/8f6662b2ff67318885db4627dcdd9c4166261a9d))
+* **sidebar:** yes or no choices, once or for all future requests ([#96](https://github.com/lekman/atlas/issues/96)) ([5903792](https://github.com/lekman/atlas/commit/59037928a12084b5f9c3596559a65884f2bc7481))
+
+
+### Bug Fixes
+
+* **dependabot:** Bump @modelcontextprotocol/sdk from 1.32.1 to 1.32.2 ([#69](https://github.com/lekman/atlas/issues/69)) ([467dcbb](https://github.com/lekman/atlas/commit/467dcbb905f8c160796b306cc3fe9fc49d6755a7))
+* **dependabot:** Bump @types/bun from 1.4.3 to 1.4.4 ([#68](https://github.com/lekman/atlas/issues/68)) ([0e3d860](https://github.com/lekman/atlas/commit/0e3d8602170a373403de21d69095197d9adbe6c3))
+* **dependabot:** Bump the storybook group across 1 directory with 5 updates ([#67](https://github.com/lekman/atlas/issues/67)) ([e51b474](https://github.com/lekman/atlas/commit/e51b4747e6ddbbcd5d23284d7c4ca9dd47553c4c))
+* **deps:** override glob and minimatch to patched versions ([#71](https://github.com/lekman/atlas/issues/71)) ([1c09015](https://github.com/lekman/atlas/commit/1c090158de70f28238595001119b2046d649faf4))
+* **server:** read the newer Claude Code session states ([#102](https://github.com/lekman/atlas/issues/102)) ([0b2fdad](https://github.com/lekman/atlas/commit/0b2fdad375d4db67a8feeb176d252afc03c25c88))
+* **sidebar:** a refused answer says why in the form ([#94](https://github.com/lekman/atlas/issues/94)) ([6088810](https://github.com/lekman/atlas/commit/6088810226a4b08371186dc12634cce6b8b86fa8))
+* **sidebar:** accept an absolute SIDEBAR_CONFIG path ([#91](https://github.com/lekman/atlas/issues/91)) ([f787b93](https://github.com/lekman/atlas/commit/f787b930c183a08014bf8751ebf0ede97c21a31b))
+* **sidebar:** close buttons on action and Commander errors ([#97](https://github.com/lekman/atlas/issues/97)) ([fd2a72a](https://github.com/lekman/atlas/commit/fd2a72a1f6db9a404bb6874d657b07234b15f0fa))
+* **sidebar:** close the gaps the parity pass found ([#88](https://github.com/lekman/atlas/issues/88)) ([c14b340](https://github.com/lekman/atlas/commit/c14b340f51b127778a7a7d5cf10ed41f2e50e24f))
+* **sidebar:** context under each ask, "your go" asks, and their yes or no ([#99](https://github.com/lekman/atlas/issues/99)) ([ef59598](https://github.com/lekman/atlas/commit/ef595988ba950934e93272e8cc6385e6c37cde6d))
+* **sidebar:** one worklist row per task, so no stale row stays on screen ([#103](https://github.com/lekman/atlas/issues/103)) ([cc2537d](https://github.com/lekman/atlas/commit/cc2537d494fe963dedb94e3b6dd5a5883b559aa9))
+
+
+### Performance Improvements
+
+* **sidebar:** import world looks without painters or zod ([#92](https://github.com/lekman/atlas/issues/92)) ([a30b248](https://github.com/lekman/atlas/commit/a30b248484abd3efdef2e2646961dce90ef3f4ab))
+
 ## [0.13.0](https://github.com/lekman/atlas/compare/v0.12.0...v0.13.0) (2026-10-26)
 
 
