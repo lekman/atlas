@@ -218,9 +218,9 @@ function DayView({
             {!closed && (
               <>
                 <ul className="rows">
-                  {(full ? rows : rows.slice(0, CAP)).map((t) => (
+                  {(full ? rows : rows.slice(0, CAP)).map((t, i) => (
                     <WorkRow
-                      key={t.ref ?? t.title}
+                      key={t.ref ?? `title:${t.title}:${i}`}
                       item={t}
                       today={today}
                       showDay={band !== "today"}
@@ -349,9 +349,9 @@ function PlanView({
                       {!cclosed && (
                         <>
                           <ul className="rows">
-                            {(full ? cr : cr.slice(0, CAP)).map((t) => (
+                            {(full ? cr : cr.slice(0, CAP)).map((t, i) => (
                               <WorkRow
-                                key={t.ref ?? t.title}
+                                key={t.ref ?? `title:${t.title}:${i}`}
                                 item={t}
                                 today={today}
                                 plan

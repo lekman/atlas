@@ -40,6 +40,8 @@ export interface WorkItem {
   due?: string;
   /** The item's own pull requests, `owner/repo#12`. */
   pullRequests?: string[];
+  /** The task database's revision; higher is newer. */
+  revision?: number;
 }
 
 export interface WorklistDoc {
@@ -56,6 +58,31 @@ export function isWorklistDoc(value: unknown): value is WorklistDoc {
     value !== null &&
     Array.isArray((value as { items?: unknown }).items)
   );
+}
+
+/**
+ * One item per ref. The rows are keyed by ref, and React can leave a stale
+ * row on screen after two siblings share a key, with menus that no longer
+ * answer. A repeated ref keeps the copy with the higher revision, or the
+ * later copy when neither has one, in the place the ref first appeared.
+ * Items without a ref are kept as they are.
+ *
+ * @param items - The items as the source sent them.
+ * @returns The same array when no ref repeats, otherwise a new one.
+ */
+export function uniqueItems(items: readonly WorkItem[]): WorkItem[] {
+  const at = new Map<string, number>();
+  const out: WorkItem[] = [];
+  for (const item of items) {
+    const seen = item.ref === undefined ? undefined : at.get(item.ref);
+    if (seen === undefined) {
+      if (item.ref !== undefined) at.set(item.ref, out.length);
+      out.push(item);
+    } else if ((item.revision ?? 0) >= (out[seen]!.revision ?? 0)) {
+      out[seen] = item;
+    }
+  }
+  return out.length === items.length ? (items as WorkItem[]) : out;
 }
 
 /** Tasks only; meetings belong to the calendar. */
