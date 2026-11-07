@@ -44,7 +44,7 @@ name: `bun test -t 'substring'`.
 | `apps/server`       | Bun, SQLite, the task database reader, the API and MCP tools  |
 | `apps/web`          | The web app the server serves: the full view on live data     |
 | `apps/storybook`    | Storybook configuration, story tests, the Pages build         |
-| `apps/plugin`       | Claude Code plugin: hooks report subagents and permission asks |
+| `apps/plugin`       | Claude Code plugin: hooks report subagents and prompts        |
 | `docs/`             | Architecture, worlds, contributing, repository settings       |
 
 Planned next, not yet here: Litestream in `apps/server`, the
