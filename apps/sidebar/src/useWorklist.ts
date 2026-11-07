@@ -1,5 +1,9 @@
 import type { Runtime } from "@atlas/runtime";
-import { isWorklistDoc, type WorklistDoc } from "@atlas/ui/sidebar";
+import {
+  isWorklistDoc,
+  uniqueItems,
+  type WorklistDoc,
+} from "@atlas/ui/sidebar";
 
 import { useCallback, useState } from "react";
 
@@ -32,7 +36,7 @@ export function useWorklist(runtime: Runtime, now: Date): Worklist {
       server: "host:dashboard",
       tool: "worklist",
       path: "board/tasks",
-      accept: (d) => (isWorklistDoc(d) ? d : null),
+      accept: (d) => (isWorklistDoc(d) ? deduplicated(d) : null),
       signature: (d) => JSON.stringify(d.items),
       watch: {
         refetchInterval: 60000,
@@ -48,7 +52,7 @@ export function useWorklist(runtime: Runtime, now: Date): Worklist {
   } | null>(null);
   const apply = useCallback(
     (doc: WorklistDoc) => {
-      setApplied({ doc, at: Date.now() });
+      setApplied({ doc: deduplicated(doc), at: Date.now() });
       runtime.write("board/tasks", doc).catch(() => undefined);
     },
     [runtime],
@@ -65,4 +69,10 @@ export function useWorklist(runtime: Runtime, now: Date): Worklist {
     error: feed.error,
     pending: feed.data === null && feed.failure === null,
   };
+}
+
+/** The document with one item per ref, so no two rows share a key. */
+function deduplicated(doc: WorklistDoc): WorklistDoc {
+  const items = uniqueItems(doc.items);
+  return items === doc.items ? doc : { ...doc, items };
 }

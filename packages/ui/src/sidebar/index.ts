@@ -162,6 +162,7 @@ export {
   QUADRANTS,
   quadrantOf,
   todaySummary,
+  uniqueItems,
   EFFORTS,
   movable,
   skippedText,

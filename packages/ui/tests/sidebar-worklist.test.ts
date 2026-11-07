@@ -11,6 +11,7 @@ import {
   openCount,
   quadrantOf,
   todaySummary,
+  uniqueItems,
   whenOf,
   type WorkItem,
 } from "../src/sidebar";
@@ -147,6 +148,42 @@ describe("isWaiting, openCount and isWorklistDoc", () => {
   it("accepts the answer and the stored copy", () => {
     expect(isWorklistDoc({ items: [], syncedAt: "x" })).toBe(true);
     expect(isWorklistDoc({ hosts: [] })).toBe(false);
+  });
+});
+
+describe("uniqueItems", () => {
+  it("keeps one item per ref, the newest revision, in its first place", () => {
+    const old = w("Ship the report", {
+      ref: "db:a",
+      revision: 6,
+      flags: ["merged"],
+      claimedBy: "ops",
+    });
+    const newer = w("Ship the report", {
+      ref: "db:a",
+      revision: 8,
+      done: true,
+    });
+    const other = w("Plan the week", { ref: "db:b" });
+    expect(uniqueItems([old, other, newer])).toEqual([newer, other]);
+    expect(uniqueItems([newer, other, old])).toEqual([newer, other]);
+  });
+
+  it("keeps the later copy when neither has a revision", () => {
+    const first = w("Ship the report", { ref: "line:3" });
+    const second = w("Ship the report", { ref: "line:3", done: true });
+    expect(uniqueItems([first, second])).toEqual([second]);
+  });
+
+  it("leaves items without a ref alone", () => {
+    const a = w("Same title", {});
+    const b = w("Same title", {});
+    expect(uniqueItems([a, b])).toEqual([a, b]);
+  });
+
+  it("returns the same array when nothing repeats", () => {
+    const list = [w("a", { ref: "db:a" }), w("b", { ref: "db:b" })];
+    expect(uniqueItems(list)).toBe(list);
   });
 });
 
