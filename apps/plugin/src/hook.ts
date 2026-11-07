@@ -10,8 +10,9 @@
  * no atlas-token item, Atlas unreachable, or no agent for the session.
  * Atlas's address is ATLAS_MCP_URL (default the Mac mini's tailnet
  * address). The machine token is read from the Keychain item atlas-token
- * and never printed. Failures go to ~/.claude/atlas/plugin.log as one short
- * line each, with no session names.
+ * and never printed. Each failure is one line in ~/.claude/atlas/plugin.log:
+ * the event, the tool and a fixed reason, never text a server or a session
+ * wrote.
  */
 import { spawn } from "node:child_process";
 import {
@@ -42,12 +43,31 @@ const ATLAS_URL =
 const STATE = join(HOME, ".claude", "atlas");
 const INPUT_VARIABLE = "ATLAS_HOOK_INPUT";
 
-function log(message: string): void {
+/** Why a call failed, as a fixed word: the log never holds what a server or a session wrote. */
+type Failure = "http" | "refused" | "unreachable" | "unreadable";
+
+/** A failed Atlas call, with a fixed reason and, for HTTP, the status code. */
+class AtlasFailure extends Error {
+  constructor(
+    readonly reason: Failure,
+    readonly status: number | null = null,
+  ) {
+    super(reason);
+  }
+}
+
+const reasonOf = (error: unknown): string =>
+  error instanceof AtlasFailure
+    ? `${error.reason}${error.status === null ? "" : ` ${error.status}`}`
+    : "unexpected";
+
+/** One line in the plugin's log: the event, the tool and a fixed reason. */
+function log(event: string, tool: string, error: unknown): void {
   try {
     mkdirSync(STATE, { recursive: true });
     appendFileSync(
       join(STATE, "plugin.log"),
-      `${new Date().toISOString()} ${message.slice(0, 200)}\n`,
+      `${new Date().toISOString()} ${event} ${tool} ${reasonOf(error)}\n`,
     );
   } catch {
     // a log that cannot be written is not worth stopping for
@@ -91,8 +111,10 @@ async function callTool(
       params: { name: tool, arguments: args },
     }),
     signal: AbortSignal.timeout(10_000),
+  }).catch(() => {
+    throw new AtlasFailure("unreachable");
   });
-  if (!response.ok) throw new Error(`Atlas answered HTTP ${response.status}`);
+  if (!response.ok) throw new AtlasFailure("http", response.status);
   const raw = await response.text();
   const data =
     raw
@@ -100,15 +122,18 @@ async function callTool(
       .filter((line) => line.startsWith("data:"))
       .pop()
       ?.slice(5) ?? raw;
-  const message = JSON.parse(data) as {
-    error?: { message?: string };
+  let message: {
+    error?: unknown;
     result?: { content?: Array<{ text?: string }>; isError?: boolean };
   };
-  const reply = message.result?.content?.[0]?.text ?? "";
+  try {
+    message = JSON.parse(data);
+  } catch {
+    throw new AtlasFailure("unreadable");
+  }
   if (message.error || message.result?.isError)
-    throw new Error(
-      `${tool} refused: ${String(message.error?.message ?? reply).slice(0, 120)}`,
-    );
+    throw new AtlasFailure("refused");
+  const reply = message.result?.content?.[0]?.text ?? "";
   try {
     return JSON.parse(reply);
   } catch {
@@ -166,17 +191,24 @@ async function send(input: HookInput): Promise<void> {
   const name = sessionName(input.sessionId);
   if (!name && input.event !== "SessionEnd" && input.event !== "SubagentStop")
     return;
-  const listed = (await callTool(bearer, "list_agents", {})) as {
-    agents?: AtlasAgent[];
-  };
-  const steps = plan(input, name, listed.agents ?? [], vessels);
+  let agents: AtlasAgent[];
+  try {
+    const listed = (await callTool(bearer, "list_agents", {})) as {
+      agents?: AtlasAgent[];
+    };
+    agents = listed.agents ?? [];
+  } catch (error) {
+    log(input.event, "list_agents", error);
+    return;
+  }
+  const steps = plan(input, name, agents, vessels);
   const done: ToolCall[] = [];
   for (const call of steps.calls) {
     try {
       await callTool(bearer, call.tool, call.arguments);
       done.push(call);
     } catch (error) {
-      log(`${input.event}: ${String(error)}`);
+      log(input.event, call.tool, error);
     }
   }
   // Track a vessel only once Atlas has it; untrack whatever the plan let go.
@@ -197,7 +229,7 @@ if (import.meta.main) {
       const input = readHookInput(JSON.parse(handed));
       if (input) await send(input);
     } catch (error) {
-      log(String(error));
+      log("hook", "-", error);
     }
     process.exit(0);
   }

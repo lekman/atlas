@@ -53,8 +53,9 @@ hook keeps those fields out on parse, before anything else runs.
 Claude Code waits for a hook, so the command keeps the few fields it needs,
 hands them to a detached copy of itself and exits, in about 30 ms. The copy
 talks to Atlas. When it cannot (no token, Atlas unreachable, no matching
-agent) it does nothing. A failure is one line in `~/.claude/atlas/plugin.log`,
-with no session name. Each vessel a session has out is an empty file under
+agent) it does nothing. A failure is one line in `~/.claude/atlas/plugin.log`:
+the event, the tool and a fixed reason such as `unreachable` or `http 401`.
+Each vessel a session has out is an empty file under
 `~/.claude/atlas/vessels/<session id>/`, so subagents that start together
 never write the same file.
 
