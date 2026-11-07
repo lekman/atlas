@@ -23,6 +23,14 @@
         "typescript": "^6.0",
       },
     },
+    "apps/plugin": {
+      "name": "@atlas/plugin",
+      "version": "0.0.0",
+      "devDependencies": {
+        "@types/bun": "^1.4",
+        "typescript": "^6.0",
+      },
+    },
     "apps/server": {
       "name": "@atlas/server",
       "version": "0.0.0",
@@ -213,6 +221,8 @@
     "@atlas/core": ["@atlas/core@workspace:packages/core"],
 
     "@atlas/fixtures": ["@atlas/fixtures@workspace:packages/fixtures"],
+
+    "@atlas/plugin": ["@atlas/plugin@workspace:apps/plugin"],
 
     "@atlas/runtime": ["@atlas/runtime@workspace:packages/runtime"],
 

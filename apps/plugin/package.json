@@ -1,0 +1,16 @@
+{
+  "name": "@atlas/plugin",
+  "version": "0.0.0",
+  "description": "A thin Claude Code plugin: hooks report each session's subagents and permission prompts to Atlas",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "bun test tests/"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4",
+    "typescript": "^6.0"
+  }
+}
