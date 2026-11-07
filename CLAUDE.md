@@ -44,11 +44,12 @@ name: `bun test -t 'substring'`.
 | `apps/server`       | Bun, SQLite, the task database reader, the API and MCP tools  |
 | `apps/web`          | The web app the server serves: the full view on live data     |
 | `apps/storybook`    | Storybook configuration, story tests, the Pages build         |
+| `apps/plugin`       | Claude Code plugin: hooks report subagents and permission asks |
 | `docs/`             | Architecture, worlds, contributing, repository settings       |
 
 Planned next, not yet here: Litestream in `apps/server`, the
 installable iPhone app (a PWA) in `apps/web`, `apps/artifact` (the Claude
-desktop sidebar build) and `apps/plugin` (a thin Claude Code plugin). See [Architecture](docs/architecture.md).
+desktop sidebar build), and the still SVG map in `apps/plugin`. See [Architecture](docs/architecture.md).
 
 ## Skills Come From lekman/ai-toolkit
 

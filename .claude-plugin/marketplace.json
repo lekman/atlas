@@ -1,0 +1,11 @@
+{
+  "name": "atlas",
+  "owner": { "name": "Tobias Lekman", "url": "https://github.com/lekman" },
+  "plugins": [
+    {
+      "name": "atlas",
+      "source": "./apps/plugin",
+      "description": "Shows each session's subagents on the Atlas map, and marks a session waiting the moment it asks for permission."
+    }
+  ]
+}

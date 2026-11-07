@@ -42,7 +42,7 @@ flowchart LR
 | `apps/server`     | Started. SQLite, task source, API, stream and MCP      |
 | `apps/web`        | Started. The full view, kept live by the event stream  |
 | `apps/artifact`   | Next                                                   |
-| `apps/plugin`     | Later                                                  |
+| `apps/plugin`     | Started. Hooks report subagents and permission prompts |
 
 ## The Data Model
 
@@ -98,6 +98,12 @@ items it names. `agent-returned` removes it. A launch is refused when the
 parent is missing or is itself a vessel, when the new id is already taken
 by any record, or when an item it names is missing. A return is refused
 for an agent that is not a vessel.
+
+A Claude Code session with the plugin in `apps/plugin` launches and
+returns its subagents' vessels itself, from the `SubagentStart` and
+`SubagentStop` hooks, so a subagent shows without the agent reporting it.
+The plugin sends only ids, the subagent's type and fixed notes. See
+[the plugin's README](../apps/plugin/README.md).
 
 ## Boundaries
 
@@ -538,7 +544,7 @@ A backup that has never been restored does not count.
 | ---------------------- | --------------------------------- | ---------------------------------------------------------------- |
 | iPhone and Mac browser | `apps/web`, a PWA                 | The API over the tailnet                                         |
 | Claude desktop sidebar | `apps/artifact`, a one-file build | A local MCP server on the MacBook, then the API over the tailnet |
-| Claude Code plugin     | `apps/plugin`                     | The API; shows the still SVG map and the needs-you list          |
+| Claude Code plugin     | `apps/plugin`                     | The MCP endpoint, from hooks; the still SVG map comes later      |
 
 **Can the Claude Artifact talk to the database?** On the Mac, yes: the
 desktop app lets an artifact call a local MCP server, which forwards to the

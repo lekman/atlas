@@ -1,0 +1,11 @@
+{
+  "name": "atlas",
+  "displayName": "Atlas",
+  "version": "0.1.0",
+  "description": "Shows each session's subagents on the Atlas map, and marks a session waiting the moment it asks for permission. Sends ids and fixed notes only.",
+  "author": { "name": "Tobias Lekman", "url": "https://github.com/lekman" },
+  "homepage": "https://github.com/lekman/atlas",
+  "repository": "https://github.com/lekman/atlas",
+  "license": "MIT",
+  "keywords": ["atlas", "agents", "subagents", "observability"]
+}
