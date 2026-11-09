@@ -50,8 +50,10 @@ export interface Configuration {
    */
   sessions?: SessionsConfiguration;
   /**
-   * The dispatcher that acts on GitHub signals. It runs whenever GitHub
-   * state is on, unless `ATLAS_DISPATCHER=off`; see `dispatcher.ts`.
+   * The dispatcher: its rules on GitHub signals run whenever GitHub state
+   * is on, and its rule on idle agents whenever live agent status is on,
+   * unless `ATLAS_DISPATCHER=off`; see `dispatcher.ts` and
+   * `idle-with-work.ts`.
    */
   dispatcher?: DispatcherConfiguration;
 }
@@ -281,11 +283,12 @@ const MergeMethod = z.enum(mergeMethods);
  *
  * ```json
  * {
- *   "rules": { "merge-approved": "dry", "fix-failed-checks": "on", "alert-by-severity": "on" },
+ *   "rules": { "merge-approved": "dry", "fix-failed-checks": "on", "alert-by-severity": "on", "nudge-idle-with-work": "dry" },
  *   "mergeMethods": { "default": "squash", "example-org": "rebase", "example-org/ledger": "merge" },
  *   "maxAgeHours": 24,
  *   "sweepOpenAlerts": true,
- *   "by": "atlas-dispatcher"
+ *   "by": "atlas-dispatcher",
+ *   "idleWithWork": { "idleMinutes": 20, "goneMinutes": 10, "cooldownMinutes": 60 }
  * }
  * ```
  */
@@ -297,6 +300,15 @@ const DispatcherFile = z
     maxAgeHours: z.number().positive().optional(),
     sweepOpenAlerts: z.boolean().optional(),
     by: z.string().min(1).max(96).optional(),
+    /** The `nudge-idle-with-work` rule's thresholds, in minutes. */
+    idleWithWork: z
+      .object({
+        idleMinutes: z.number().positive().optional(),
+        goneMinutes: z.number().positive().optional(),
+        cooldownMinutes: z.number().positive().optional(),
+      })
+      .strict()
+      .optional(),
   })
   .strict();
 
@@ -334,6 +346,10 @@ export function parseDispatcherFile(text: string): {
       ),
       maxAgeHours:
         read.data.maxAgeHours ?? defaultDispatcherSettings.maxAgeHours,
+      idleWithWork: {
+        ...defaultDispatcherSettings.idleWithWork,
+        ...read.data.idleWithWork,
+      },
     },
     ...(read.data.by ? { by: read.data.by } : {}),
     ...(read.data.sweepOpenAlerts !== undefined
@@ -393,9 +409,8 @@ export function readConfiguration(
     throw new Error("ATLAS_PORT must be a port number");
   const sessions = readSessions(environment);
   const githubStateDirectory = environment.ATLAS_GITHUB_STATE_DIR?.trim();
-  const dispatcher = githubStateDirectory
-    ? readDispatcher(environment)
-    : undefined;
+  const dispatcher =
+    githubStateDirectory || sessions ? readDispatcher(environment) : undefined;
   return {
     databasePath:
       environment.ATLAS_DATABASE ??

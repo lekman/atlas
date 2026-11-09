@@ -114,7 +114,7 @@ hooks and the server.
 
 | Source            | Event                                                | Default outcome                                                                                             |
 | ----------------- | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| Sessions          | Waiting for approval, stuck, idle with an open task  | Ask you, or nudge the session                                                                               |
+| Sessions          | Waiting for approval, stuck, idle with an open task  | Ask you, or nudge the session. Idle or gone with an open task: see below                                    |
 | Release status    | An environment drifted from its branch               | Delegate, or digest when the drift is expected                                                              |
 | Budgets and usage | An orchestrator near its budget, a usage limit near  | Digest. Ask you when a limit would stop work                                                                |
 | Usage limits      | A Claude Code session hit a subscription usage limit | Show the agent blocked until the reset. Restart it under another account when the account-switch rule is on |
@@ -143,6 +143,46 @@ The account-switch rule acts on it, and is off unless switched on. Each
 decision is an `account-switch` event. See
 [Usage Limits](../architecture.md#usage-limits). To register the accounts
 and see each one's limit, use [Claude Accounts](claude-accounts.md).
+
+### Idle-With-Work Signals
+
+An agent should be working when both of these hold:
+
+- it holds a claimed task in `todo` or `doing` that is not blocked. A
+  task waiting on you is always blocked, so it never counts;
+- its Claude Code session has been idle for longer than `idleMinutes`
+  (20), or no live session has existed for it for longer than
+  `goneMinutes` (10).
+
+The server joins the task database's claims to the sessions on its
+machine once a minute. When an agent starts to qualify, it shows a fixed
+note, such as "Idle 34 min with 2 open tasks" or "No session for 12 min
+with 1 open task", it is listed on `GET /api/digest`, and Atlas records
+one `signal` event:
+
+| Field     | Value                                                        |
+| --------- | ------------------------------------------------------------ |
+| `source`  | `atlas`                                                      |
+| `kind`    | `agent`                                                      |
+| `event`   | `idle_with_work`; `cleared`, with the same key, when it ends |
+| `agentId` | The agent                                                    |
+| `session` | `idle` (a live session at its prompt) or `gone` (none)       |
+| `minutes` | How long the session has been idle or gone                   |
+| `taskIds` | The open tasks it holds, earliest claim first                |
+| `text`    | The note the agent shows                                     |
+
+The signal clears when the agent works again or no longer holds open
+work. A session under a usage limit is not idle: it is the usage-limit
+signal's case, and the agent's note adds how many open tasks wait for the
+reset. An agent whose session this machine has never seen, such as one on
+another machine or a script, is not judged.
+
+The dispatcher's `nudge-idle-with-work` rule acts on it, `dry` by default.
+An idle session is woken through Commander with a fixed message that names
+the task to continue. A gone session is never restarted: the decision asks
+you to run `cc-restart <name>`. Each agent is nudged at most once per
+`cooldownMinutes` (60), and each decision is a `dispatch` event. See
+[The Dispatcher](../architecture.md#the-dispatcher).
 
 ## Client Boundaries Apply to Sources
 

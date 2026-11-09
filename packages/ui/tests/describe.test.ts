@@ -200,3 +200,53 @@ describe("signals and dispatcher decisions", () => {
     expect(cueFor({ ...dispatch, needsYou: true })).toBe("needs");
   });
 });
+
+describe("an agent idle with open work", () => {
+  const signal = {
+    type: "signal",
+    source: "atlas",
+    key: "atlas:idle-with-work:tracking:2026-11-09T11:26:00.000Z",
+    kind: "agent",
+    event: "idle_with_work",
+    agentId: "tracking",
+    session: "idle",
+    minutes: 34,
+    taskIds: ["webhooks", "rate-limits"],
+    client: "kestrel",
+    recordIds: ["tracking", "webhooks", "rate-limits"],
+    at: "2026-11-09T12:00:00.000Z",
+    text: "Idle 34 min with 2 open tasks",
+  } satisfies SignalEvent;
+  const nudge = {
+    type: "dispatch",
+    signalKey: signal.key,
+    rule: "nudge-idle-with-work",
+    mode: "on",
+    outcome: "ask",
+    agentId: "tracking",
+    taskIds: ["webhooks", "rate-limits"],
+    client: "kestrel",
+    needsYou: true,
+    command: "cc-restart Tracking",
+    text: "Needs a restart: cc-restart Tracking",
+  } satisfies DispatchEvent;
+
+  it("names the agent in the signal and the decision", () => {
+    expect(describeEvent(worlds.mariner, sampleDataset, signal)).toBe(
+      "Telegram from Atlas, for Tracking: Idle 34 min with 2 open tasks",
+    );
+    expect(describeEvent(worlds.mariner, sampleDataset, nudge)).toBe(
+      "Telegram from Dispatcher, for Tracking: Needs a restart: cc-restart Tracking",
+    );
+  });
+
+  it("is about the agent and its tasks, and asks the reader only when it needs them", () => {
+    expect(isAbout(sampleDataset, signal, "tracking")).toBe(true);
+    expect(isAbout(sampleDataset, nudge, "tracking")).toBe(true);
+    expect(isAbout(sampleDataset, nudge, "rate-limits")).toBe(true);
+    expect(isAbout(sampleDataset, nudge, "send-invoices")).toBe(false);
+    expect(whoOf(sampleDataset, signal)).toBe("Atlas");
+    expect(cueFor(nudge)).toBe("needs");
+    expect(cueFor({ ...nudge, needsYou: false })).toBeNull();
+  });
+});

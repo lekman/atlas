@@ -10,6 +10,7 @@
  * | POST /api/events        | Adds one event, writes its effect and streams it      |
  * | GET  /api/stream        | Server-sent events after `?after=`, then each new one |
  * | GET  /api/items/:id/log | One item's log from the task database, newest first   |
+ * | GET  /api/digest        | Agents idle with open work, then alerts to digest     |
  * | POST /mcp               | The MCP tools agents call (see `mcp.ts`)              |
  *
  * With a task source, every read lays the task database's clients,
@@ -20,6 +21,8 @@
  * development tracking from gh-events replaces it on every item the reader
  * matches (see `github-reader.ts`). With a session reader, agents' statuses
  * follow the Claude Code sessions on this machine (see `session-source.ts`).
+ * With an idle watcher, an agent idle with open work shows a note saying
+ * so, and is listed on the digest (see `idle-with-work.ts`).
  */
 import { ZodError } from "zod/v4";
 
@@ -41,6 +44,7 @@ import {
 import { withFakeDevelopment } from "./fake-development";
 import type { Dispatcher } from "./dispatcher";
 import { noGithubSource, type GithubReader } from "./github-reader";
+import type { IdleWatcher } from "./idle-with-work";
 import { everyClient } from "./machines";
 import { handleMcp } from "./mcp";
 import { noSessionSource, type SessionReader } from "./session-source";
@@ -122,6 +126,8 @@ export interface ApiOptions {
   sessions?: SessionReader;
   /** The dispatcher, for its digest list. Leave out when it is off. */
   dispatcher?: Dispatcher;
+  /** Agents idle with open work. Leave out when live agent status is off. */
+  idle?: IdleWatcher;
 }
 
 export interface Api {
@@ -158,6 +164,7 @@ export function createApi({
   github,
   sessions,
   dispatcher,
+  idle,
 }: ApiOptions): Api {
   const streams = new Set<(text: string) => void>();
   const closers = new Set<() => void>();
@@ -205,10 +212,25 @@ export function createApi({
     for (const write of streams) write(frame);
   });
 
-  /** The dataset views read: real GitHub state first, then any fake tracking. */
+  // Idle agents are found on the same dataset; an agent flagged or
+  // cleared reloads open pages, so the note shows.
+  idle?.connect({
+    dataset: () => readDataset(database, overlay),
+    record,
+  });
+  const stopIdle = idle?.subscribe(() => {
+    const frame = refreshFrame(tasks?.health().lastRefresh ?? null);
+    for (const write of streams) write(frame);
+  });
+
+  /**
+   * The dataset views read: real GitHub state first, then any fake
+   * tracking, then the notes of agents idle with open work.
+   */
   function served(dataset: Dataset): Dataset {
     const real = github ? github.overlay(dataset) : dataset;
-    return fakeDevelopment ? withFakeDevelopment(real) : real;
+    const tracked = fakeDevelopment ? withFakeDevelopment(real) : real;
+    return idle ? idle.overlay(tracked) : tracked;
   }
 
   /** The merge as of now, for its counts, or `undefined` before a good read. */
@@ -433,8 +455,15 @@ export function createApi({
         case "POST /api/events":
           return postEvent(request);
         case "GET /api/digest":
-          // Alerts the dispatcher left for a digest, newest first.
-          return json(dispatcher?.digest() ?? []);
+          // Agents idle with open work, longest first, then the alerts the
+          // dispatcher left for a digest, newest first.
+          return json([
+            ...(idle?.digest() ?? []),
+            ...(dispatcher?.digest() ?? []).map((entry) => ({
+              kind: "alert" as const,
+              ...entry,
+            })),
+          ]);
         case "GET /api/stream":
           return stream(request);
         default:
@@ -446,6 +475,7 @@ export function createApi({
       stopRefreshes?.();
       stopGithub?.();
       stopSessions?.();
+      stopIdle?.();
       for (const finish of [...closers]) finish();
     },
   };

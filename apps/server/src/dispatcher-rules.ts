@@ -8,22 +8,38 @@
  * | `fix-failed-checks` | `ci_failed` on a PR the account authored    | Delegate a fix                          |
  * | `alert-by-severity` | `opened` or `swept` on an alert             | Delegate, delegate and ask, or digest   |
  *
+ * `nudge-idle-with-work` acts on agents, not on GitHub signals: an agent
+ * idle with open work is woken, or you are asked to restart its session
+ * (see `idle-with-work.ts` and `decideNudge`).
+ *
  * Each rule has a mode: `off` decides nothing, `dry` decides and records
  * the act without doing it, `on` does it.
  */
 import type {
   AlertSeverity,
   DispatchRule,
+  GithubDispatchRule,
   GithubSignalEvent,
 } from "@atlas/core";
 
 import type { RegistryItem } from "./github-contract";
+import type { ClaimedTask, IdleFinding } from "./idle-with-work";
 
 export const ruleModes = ["off", "dry", "on"] as const;
 export type RuleMode = (typeof ruleModes)[number];
 
 export const mergeMethods = ["squash", "merge", "rebase"] as const;
 export type MergeMethod = (typeof mergeMethods)[number];
+
+/** When an agent counts as idle with open work, and how often it is nudged. */
+export interface IdleWithWorkSettings {
+  /** A live session idle longer than this, in minutes. */
+  idleMinutes: number;
+  /** No live session for longer than this, in minutes. */
+  goneMinutes: number;
+  /** At most one nudge per agent in this many minutes. */
+  cooldownMinutes: number;
+}
 
 export interface DispatcherSettings {
   rules: Record<DispatchRule, RuleMode>;
@@ -33,6 +49,7 @@ export interface DispatcherSettings {
   mergeMethods: Readonly<Record<string, MergeMethod>>;
   /** A signal older than this is recorded but not acted on. */
   maxAgeHours: number;
+  idleWithWork: IdleWithWorkSettings;
 }
 
 export const defaultDispatcherSettings: DispatcherSettings = {
@@ -40,10 +57,12 @@ export const defaultDispatcherSettings: DispatcherSettings = {
     "merge-approved": "dry",
     "fix-failed-checks": "on",
     "alert-by-severity": "on",
+    "nudge-idle-with-work": "dry",
   },
   defaultMergeMethod: "squash",
   mergeMethods: {},
   maxAgeHours: 24,
+  idleWithWork: { idleMinutes: 20, goneMinutes: 10, cooldownMinutes: 60 },
 };
 
 /** What the dispatcher knows about a signal's subject when it decides. */
@@ -70,7 +89,7 @@ export interface TaskDraft {
 }
 
 interface PlanBase {
-  rule: DispatchRule;
+  rule: GithubDispatchRule;
   mode: Exclude<RuleMode, "off">;
   needsYou: boolean;
   text: string;
@@ -109,7 +128,7 @@ export function subjectOf(signal: GithubSignalEvent): string {
     : `${signal.kind}:${reference}`;
 }
 
-function ruleFor(signal: GithubSignalEvent): DispatchRule | undefined {
+function ruleFor(signal: GithubSignalEvent): GithubDispatchRule | undefined {
   if (
     signal.kind === "pr" &&
     ["approved", "checks_passed"].includes(signal.event)
@@ -281,4 +300,82 @@ export function decide(
       };
     }
   }
+}
+
+/** What the nudge rule decides about one agent idle with open work. */
+export type NudgePlan =
+  | {
+      outcome: "wake";
+      mode: Exclude<RuleMode, "off">;
+      needsYou: false;
+      /** The task the session is asked to continue: its earliest claim. */
+      task: ClaimedTask;
+      /** The fixed message the session is woken with. */
+      message: string;
+      text: string;
+    }
+  | {
+      outcome: "ask";
+      mode: Exclude<RuleMode, "off">;
+      needsYou: boolean;
+      /** The command that restarts the session, for you to run. */
+      command: string;
+      text: string;
+    };
+
+/** What the nudge rule knows when it decides. */
+export interface NudgeContext {
+  mode: RuleMode;
+  /** When the agent was last nudged, ISO 8601, or null. */
+  lastNudgedAt: string | null;
+  now: Date;
+}
+
+/**
+ * The nudge for an agent idle with open work, or `undefined` while the
+ * rule is off or the agent was nudged within `cooldownMinutes`.
+ *
+ * - An idle session is woken through Commander with a fixed message that
+ *   names the task to continue.
+ * - A gone session is never restarted. You are asked to, with the
+ *   `cc-restart` command for the agent's name. In mode `dry` the ask is
+ *   recorded without putting it on your list.
+ */
+export function decideNudge(
+  finding: Pick<IdleFinding, "agentName" | "session" | "tasks" | "minutes">,
+  context: NudgeContext,
+  settings: Pick<IdleWithWorkSettings, "cooldownMinutes">,
+): NudgePlan | undefined {
+  const mode = context.mode;
+  if (mode === "off") return undefined;
+  if (
+    context.lastNudgedAt &&
+    context.now.getTime() - Date.parse(context.lastNudgedAt) <
+      settings.cooldownMinutes * 60_000
+  )
+    return undefined;
+  const task = finding.tasks[0];
+  if (!task) return undefined;
+  if (finding.session === "idle") {
+    const message = `Continue ${task.title}: your session has been idle with it open`;
+    return {
+      outcome: "wake",
+      mode,
+      needsYou: false,
+      task,
+      message,
+      text: `${mode === "dry" ? "Would wake" : "Wake"} the session to continue ${task.title}`,
+    };
+  }
+  const command = `cc-restart ${finding.agentName}`;
+  return {
+    outcome: "ask",
+    mode,
+    needsYou: mode === "on",
+    command,
+    text:
+      mode === "dry"
+        ? `Would ask you for a restart: ${command}`
+        : `Needs a restart to continue ${task.title}: ${command}`,
+  };
 }

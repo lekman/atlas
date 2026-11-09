@@ -330,6 +330,46 @@ describe("the session reader", () => {
     expect(agentById("test-runner")?.note).toBe("Session offline");
   });
 
+  test("knows nothing of agent sessions until a read has worked", () => {
+    expect(reader.agentSessions()).toBeUndefined();
+  });
+
+  test("gives each agent's session state and since when, from Claude Code's change time", () => {
+    const changed = Date.parse("2026-10-24T08:20:00Z");
+    write(11, "schema", "idle", changed);
+    write(12, "portal", "busy", 0);
+    reader.poll();
+    expect(reader.agentSessions()?.get("schema")).toEqual({
+      state: "idle",
+      since: "2026-10-24T08:20:00.000Z",
+    });
+    // Without a change time, the state counts from when the reader first saw it.
+    expect(reader.agentSessions()?.get("portal")).toEqual({
+      state: "busy",
+      since: "2026-10-24T09:00:00.000Z",
+    });
+    clock = new Date("2026-10-24T09:05:00Z");
+    reader.poll();
+    expect(reader.agentSessions()?.get("portal")?.since).toBe(
+      "2026-10-24T09:00:00.000Z",
+    );
+    expect(reader.agentSessions()?.has("release")).toBe(false);
+  });
+
+  test("gives a gone session the time it was first seen gone", () => {
+    write(11, "schema", "busy", 1);
+    reader.poll();
+    alive.delete(11);
+    clock = new Date("2026-10-24T09:03:00Z");
+    reader.poll();
+    clock = new Date("2026-10-24T09:20:00Z");
+    reader.poll();
+    expect(reader.agentSessions()?.get("schema")).toEqual({
+      state: "offline",
+      since: "2026-10-24T09:03:00.000Z",
+    });
+  });
+
   test("leaves agents with no session alone", () => {
     write(11, "invoices", "idle");
     reader.poll();
@@ -468,9 +508,13 @@ describe("the session reader", () => {
     expect(logged).toHaveLength(1);
   });
 
-  test("reports a folder it cannot read", async () => {
+  test("reports a folder it cannot read, and knows no agent session then", async () => {
+    write(11, "schema", "idle");
+    reader.poll();
+    expect(reader.agentSessions()?.size).toBe(1);
     rmSync(directory, { recursive: true, force: true });
     reader.poll();
+    expect(reader.agentSessions()).toBeUndefined();
     expect(await health()).toMatchObject({
       source: "files",
       ok: false,
