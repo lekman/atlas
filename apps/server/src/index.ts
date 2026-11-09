@@ -59,6 +59,7 @@ export {
   githubCommandLineMerger,
   taskAddInput,
   tasksApi,
+  withoutTrailingSlashes,
   type CommandRunner,
   type HttpConnection,
 } from "./dispatcher-connections";

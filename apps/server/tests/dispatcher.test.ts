@@ -11,6 +11,7 @@ import {
   openDatabase,
   taskAddInput,
   tasksApi,
+  withoutTrailingSlashes,
   type AgentWaker,
   type AtlasDatabase,
   type DispatcherSettings,
@@ -545,6 +546,16 @@ describe("the connections", () => {
       ref: "db:task-1",
       requestedAt: "2026-11-09T12:00:00Z",
     });
+  });
+
+  test("trims the slashes an address ends with, and only those", () => {
+    expect(withoutTrailingSlashes("http://commander.test///")).toBe(
+      "http://commander.test",
+    );
+    expect(withoutTrailingSlashes("http://commander.test/a")).toBe(
+      "http://commander.test/a",
+    );
+    expect(withoutTrailingSlashes("/".repeat(100_000))).toBe("");
   });
 
   test("merges with the GitHub command line at the head commit", async () => {

@@ -155,6 +155,13 @@ export function commanderRequest(
   };
 }
 
+/** An address without the slashes it ends with, trimmed in one pass. */
+export function withoutTrailingSlashes(url: string): string {
+  let end = url.length;
+  while (end > 0 && url[end - 1] === "/") end -= 1;
+  return url.slice(0, end);
+}
+
 /**
  * Wakes an agent through the Commander bridge: `POST /requests` with the
  * bridge's shared token. Commander stores the request and dispatches the
@@ -170,7 +177,7 @@ export function commanderWaker(
         .toISOString()
         .replace(/\.\d{3}Z$/, "Z");
       const response = await send(
-        `${connection.url.replace(/\/+$/, "")}/requests`,
+        `${withoutTrailingSlashes(connection.url)}/requests`,
         {
           method: "POST",
           headers: {
