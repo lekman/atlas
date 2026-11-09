@@ -5,6 +5,7 @@
  * database never hands out a record the model would reject.
  */
 import type {
+  AgentQuestion,
   AgentStatus,
   AtlasEvent,
   BacklogItem,
@@ -293,6 +294,39 @@ export const accountLimits = sqliteTable("account_limits", {
   resetsAt: text("resets_at"),
   /** When a session on the account hit it, ISO 8601. */
   seenAt: text("seen_at").notNull(),
+});
+
+/**
+ * Questions agents asked the person, from the hook that converts
+ * `AskUserQuestion` or the ask skill. One row per question, by its own id.
+ * A card (a client whose boundary keeps the text in its own tools) has an
+ * empty `questions` list and no answers. See `agent-questions.ts`.
+ */
+export const agentQuestions = sqliteTable("agent_questions", {
+  id: text().primaryKey(),
+  classification: text().$type<Classification>().notNull(),
+  boundary: text().notNull(),
+  clientId: text("client_id").notNull(),
+  title: text().notNull(),
+  cardOnly: integer("card_only", { mode: "boolean" }).notNull(),
+  questions: text({ mode: "json" })
+    .$type<AgentQuestion["questions"]>()
+    .notNull(),
+  session: text({ mode: "json" }).$type<AgentQuestion["session"]>().notNull(),
+  /** The session's address, kept apart so a session's questions are found by it. */
+  sessionAddress: text("session_address").notNull(),
+  taskId: text("task_id"),
+  link: text(),
+  state: text().$type<AgentQuestion["state"]>().notNull(),
+  askedAt: text("asked_at").notNull(),
+  resolution: text().$type<AgentQuestion["resolution"]>(),
+  answers: text({ mode: "json" }).$type<AgentQuestion["answers"]>(),
+  note: text(),
+  answeredAt: text("answered_at"),
+  answeredBy: text("answered_by"),
+  messageId: text("message_id"),
+  messageSentAt: text("message_sent_at"),
+  deliveredAt: text("delivered_at"),
 });
 
 /**

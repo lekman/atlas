@@ -18,6 +18,7 @@ import {
   githubCommandLineMerger,
   tasksApi,
 } from "./dispatcher-connections";
+import { tasksMessages } from "./agent-questions";
 import { defaultDispatcherSettings } from "./dispatcher-rules";
 import { createGithubReader } from "./github-reader";
 import { createIdleWatcher } from "./idle-with-work";
@@ -195,8 +196,22 @@ const api = createApi({
   ...(github ? { github } : {}),
   ...(sessions ? { sessions } : {}),
   ...(signalDispatcher ? { dispatcher: signalDispatcher } : {}),
+  ...(configuration.messages
+    ? {
+        messages: tasksMessages({
+          url: configuration.messages.url,
+          token: passwordFromCommand(configuration.messages.tokenCommand),
+        }),
+      }
+    : {}),
   ...(idle ? { idle } : {}),
 });
+// Answers to agents' questions go out, and their delivery is read back,
+// every 30 seconds, besides straight after each answer.
+if (configuration.messages) {
+  void api.questions.deliver();
+  api.questions.start(30);
+}
 if (github) {
   github.poll();
   github.start();
@@ -230,7 +245,7 @@ const server = Bun.serve({
 });
 
 console.log(
-  `atlas ${rootPackage.version} listening on ${server.url}, tokens ${configuration.requireTokens ? "required" : "optional"}, tasks from ${tasks ? "the task database" : "SQLite"}${github ? ", GitHub state from gh-events" : ""}${signalDispatcher ? ", dispatcher on" : ""}${sessions ? ", agent status from Claude Code sessions" : ""}${idle ? `, idle-with-work nudges ${configuration.dispatcher?.settings.rules["nudge-idle-with-work"] ?? "off"}` : ""}${accounts ? `, ${accounts.settings.accounts.length} accounts, switch ${accounts.settings.mode}` : ""}${configuration.fakeDevelopment ? ", development tracking fake" : ""}`,
+  `atlas ${rootPackage.version} listening on ${server.url}, tokens ${configuration.requireTokens ? "required" : "optional"}, tasks from ${tasks ? "the task database" : "SQLite"}${github ? ", GitHub state from gh-events" : ""}${signalDispatcher ? ", dispatcher on" : ""}${sessions ? ", agent status from Claude Code sessions" : ""}${idle ? `, idle-with-work nudges ${configuration.dispatcher?.settings.rules["nudge-idle-with-work"] ?? "off"}` : ""}${configuration.messages ? ", answers to agents through the tasks server" : ""}${accounts ? `, ${accounts.settings.accounts.length} accounts, switch ${accounts.settings.mode}` : ""}${configuration.fakeDevelopment ? ", development tracking fake" : ""}`,
 );
 
 function shutdown() {

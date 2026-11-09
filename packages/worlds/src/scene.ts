@@ -339,6 +339,7 @@ export class Scene {
         break;
       case "signal":
       case "dispatch":
+      case "agent-question":
         // Shown in the log only. A matched signal also arrives as an
         // outside event, which draws.
         break;

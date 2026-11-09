@@ -1,0 +1,23 @@
+CREATE TABLE `agent_questions` (
+	`id` text PRIMARY KEY NOT NULL,
+	`classification` text NOT NULL,
+	`boundary` text NOT NULL,
+	`client_id` text NOT NULL,
+	`title` text NOT NULL,
+	`card_only` integer NOT NULL,
+	`questions` text NOT NULL,
+	`session` text NOT NULL,
+	`session_address` text NOT NULL,
+	`task_id` text,
+	`link` text,
+	`state` text NOT NULL,
+	`asked_at` text NOT NULL,
+	`resolution` text,
+	`answers` text,
+	`note` text,
+	`answered_at` text,
+	`answered_by` text,
+	`message_id` text,
+	`message_sent_at` text,
+	`delivered_at` text
+);

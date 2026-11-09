@@ -27,7 +27,7 @@ export interface HttpConnection {
  * and gh-events do: one JSON-RPC `tools/call`, answered as JSON or as one
  * server-sent event. Returns the tool's JSON answer.
  */
-async function callTool(
+export async function callTool(
   connection: HttpConnection,
   tool: string,
   input: Record<string, unknown>,

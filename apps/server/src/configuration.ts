@@ -56,6 +56,13 @@ export interface Configuration {
    * `idle-with-work.ts`.
    */
   dispatcher?: DispatcherConfiguration;
+  /**
+   * The tasks MCP server's HTTP endpoint, for sending each answer to an
+   * agent's question back to the asking session: `ATLAS_TASKS_API_URL` and
+   * `ATLAS_TASKS_API_TOKEN_COMMAND`, the same pair the dispatcher uses.
+   * Without it answers are kept and not sent.
+   */
+  messages?: EndpointConfiguration;
 }
 
 /** An HTTP endpoint and the command that prints its token. */
@@ -411,6 +418,11 @@ export function readConfiguration(
   const githubStateDirectory = environment.ATLAS_GITHUB_STATE_DIR?.trim();
   const dispatcher =
     githubStateDirectory || sessions ? readDispatcher(environment) : undefined;
+  const messages = readEndpoint(
+    environment,
+    "ATLAS_TASKS_API_URL",
+    "ATLAS_TASKS_API_TOKEN_COMMAND",
+  );
   return {
     databasePath:
       environment.ATLAS_DATABASE ??
@@ -424,5 +436,6 @@ export function readConfiguration(
     ...(githubStateDirectory ? { githubStateDirectory } : {}),
     ...(sessions ? { sessions } : {}),
     ...(dispatcher ? { dispatcher } : {}),
+    ...(messages ? { messages } : {}),
   };
 }

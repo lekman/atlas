@@ -7,19 +7,23 @@
  * so nothing is kept between calls and a restart loses nothing.
  */
 import {
+  AgentQuestionInput,
   agentStatuses,
   Identifier,
   priorities,
   YOU,
+  type AgentQuestion,
   type AtlasEvent,
   type BacklogItem,
   type Dataset,
+  type QuestionChange,
 } from "@atlas/core";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod/v4";
 
+import type { QuestionService } from "./agent-questions";
 import type { AtlasDatabase } from "./database";
 import { canSee, type Machine } from "./machines";
 import { summariseUnknownClaims, type UnknownClaim } from "./task-source";
@@ -41,6 +45,8 @@ export interface McpOptions {
   overlay?: Overlay;
   /** Claims in the task database that name no agent Atlas knows. */
   unknownClaims?: () => UnknownClaim[];
+  /** Questions agents ask the person. */
+  questions?: QuestionService;
 }
 
 /** The most items `list_my_work` returns, so a reply stays readable. */
@@ -80,6 +86,19 @@ function summary(item: BacklogItem) {
   };
 }
 
+/** A question change as a reply, or its refusal as a tool error. */
+function changed(
+  change: QuestionChange,
+  shape: (question: AgentQuestion) => unknown = (question) => ({
+    questionId: question.id,
+    state: question.state,
+  }),
+): CallToolResult {
+  return "refusal" in change
+    ? refuse(change.refusal.message)
+    : reply(shape(change.question));
+}
+
 /** Runs a write, turning a refused event into a tool error the agent can read. */
 function attempt(write: () => CallToolResult): CallToolResult {
   try {
@@ -97,15 +116,19 @@ export function createMcpServer({
   machine,
   overlay,
   unknownClaims = () => [],
+  questions,
 }: McpOptions): McpServer {
   const server = new McpServer(
     { name: "atlas", version },
     {
       instructions:
-        "Atlas is the shared map of agents, clients and work. Call report_status when you start, change what you are doing, wait on someone, or finish. Call launch_vessel when you start a background agent or subagent, and return_vessel when it finishes. Use your agent id from list_agents.",
+        "Atlas is the shared map of agents, clients and work. Call report_status when you start, change what you are doing, wait on someone, or finish. Call launch_vessel when you start a background agent or subagent, and return_vessel when it finishes. Use your agent id from list_agents. Ask the person with ask_question: it returns at once, and the answer comes back to your session as a message.",
     },
   );
   const read = (): Dataset => readDataset(database, overlay);
+  const visible = (clientId: string) => canSee(machine, clientId);
+  /** Who answers through this connection: the machine, or the local server. */
+  const answerer = machine ? `machine:${machine.id}` : "atlas";
   const clientOfAgent = (dataset: Dataset, agentId: string) => {
     const agent = dataset.agents.find((candidate) => candidate.id === agentId);
     return dataset.groups.find((group) => group.id === agent?.groupId)
@@ -340,8 +363,8 @@ export function createMcpServer({
       annotations: { readOnlyHint: true },
     },
     ({ clientId }) =>
-      reply(
-        read()
+      reply([
+        ...read()
           .questions.filter(
             (question) =>
               question.state === "open" &&
@@ -356,7 +379,23 @@ export function createMcpServer({
             asks,
             needsYou: asks === YOU,
           })),
-      ),
+        ...(questions?.list({ states: ["open"] }, visible) ?? [])
+          .filter((question) => !clientId || question.clientId === clientId)
+          .map((question) => ({
+            id: question.id,
+            kind: "agent",
+            clientId: question.clientId,
+            title: question.title,
+            session: question.session.address,
+            ...(question.taskId ? { blocks: question.taskId } : {}),
+            asks: YOU,
+            needsYou: true,
+            cardOnly: question.cardOnly,
+            ...(question.link ? { link: question.link } : {}),
+            questions: question.questions,
+            askedAt: question.askedAt,
+          })),
+      ]),
   );
 
   server.registerTool(
@@ -364,10 +403,30 @@ export function createMcpServer({
     {
       title: "Answer a question",
       description:
-        "Answer an open question. The answer becomes a decision on what the question held up.",
+        "Answer an open question. An agent's question closes on its first answer, and the answer goes to the asking session as a message; a second answer is refused with when and by whom it was answered. Any other question's answer becomes a decision on what it held up.",
       inputSchema: {
         questionId: Identifier,
-        answer: z.string().min(1).max(1000),
+        answer: z
+          .string()
+          .min(1)
+          .max(1000)
+          .optional()
+          .describe(
+            "The answer. For an agent's question that asks one thing, the chosen option or your own words",
+          ),
+        answers: z
+          .record(z.string(), z.string().max(1000))
+          .optional()
+          .describe(
+            "For an agent's question: the answer to each question, keyed by the question's text. Join several options with commas",
+          ),
+        note: z
+          .string()
+          .max(2000)
+          .optional()
+          .describe(
+            "For an agent's question: anything else the agent should know",
+          ),
         decision: z
           .string()
           .min(1)
@@ -378,7 +437,21 @@ export function createMcpServer({
           ),
       },
     },
-    ({ questionId, answer, decision }) => {
+    ({ questionId, answer, answers, note, decision }) => {
+      if (questions?.get(questionId))
+        return changed(
+          questions.answer(
+            questionId,
+            {
+              ...(answer !== undefined ? { answer } : {}),
+              ...(answers ? { answers } : {}),
+              ...(note !== undefined ? { note } : {}),
+              by: answerer,
+            },
+            visible,
+          ),
+        );
+      if (answer === undefined) return refuse("an answer is required");
       const question = read().questions.find(
         (candidate) =>
           candidate.id === questionId && canSee(machine, candidate.clientId),
@@ -401,6 +474,49 @@ export function createMcpServer({
             },
           }).sequence,
         }),
+      );
+    },
+  );
+
+  server.registerTool(
+    "ask_question",
+    {
+      title: "Ask the person",
+      description:
+        "Ask the person one to four questions, in the shape AskUserQuestion takes. Returns at once with the question id; do not wait. The answer comes back to your session as a message to session.address. For a client whose boundary keeps the text in its own tools, set cardOnly with a title written for outside use, the task id and no questions.",
+      inputSchema: AgentQuestionInput.shape,
+    },
+    (input) => {
+      if (!questions) return refuse("questions are off on this server");
+      return changed(questions.ask(input, read(), visible), (question) => ({
+        questionId: question.id,
+        state: question.state,
+        cardOnly: question.cardOnly,
+        ...(question.link ? { link: question.link } : {}),
+      }));
+    },
+  );
+
+  server.registerTool(
+    "close_question",
+    {
+      title: "Close a question",
+      description:
+        "Close an agent's question without answering it here: answered-elsewhere when a card was answered in the client's own tools, or withdrawn. The asking session is told.",
+      inputSchema: {
+        questionId: Identifier,
+        resolution: z.enum(["answered-elsewhere", "withdrawn"]),
+        note: z.string().max(2000).optional(),
+      },
+    },
+    ({ questionId, resolution, note }) => {
+      if (!questions) return refuse("questions are off on this server");
+      return changed(
+        questions.close(
+          questionId,
+          { resolution, ...(note !== undefined ? { note } : {}), by: answerer },
+          visible,
+        ),
       );
     },
   );
