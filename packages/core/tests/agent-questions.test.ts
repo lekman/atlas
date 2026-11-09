@@ -284,6 +284,13 @@ describe("session addresses", () => {
     expect(sessionAddress("  Builder_2 ")).toBe("builder-2");
     expect(sessionAddress("")).toBeNull();
   });
+
+  it("handle a long run of hyphens at once", () => {
+    const started = performance.now();
+    expect(sessionAddress("-".repeat(100_000))).toBeNull();
+    expect(sessionAddress(`a${"-".repeat(100_000)}b`)).toBe("a-b");
+    expect(performance.now() - started).toBeLessThan(100);
+  });
 });
 
 describe("question events", () => {
