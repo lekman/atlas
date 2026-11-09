@@ -108,6 +108,7 @@ describe("transcript tail", () => {
       lastWriteAt: "2026-03-12T09:58:00Z",
       contextTokens: 95_005,
       openToolSince: null,
+      usageLimit: null,
     });
   });
   it("lets no message text, tool input or path into the report", () => {
@@ -150,6 +151,7 @@ describe("status", () => {
     lastWriteAt: lastToolAt,
     contextTokens: null,
     openToolSince: null,
+    usageLimit: null,
   });
   it("shows a session stuck on approval as waiting", () => {
     expect(

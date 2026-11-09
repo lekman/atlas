@@ -1,4 +1,4 @@
-import type { SignalEvent } from "@atlas/core";
+import type { GithubSignalEvent } from "@atlas/core";
 import { describe, expect, test } from "bun:test";
 
 import {
@@ -18,7 +18,7 @@ const sha = "0123456789abcdef0123456789abcdef01234567";
 const repository = "example-org/sample-app";
 const now = new Date("2026-11-09T12:00:00.000Z");
 
-function signal(values: Partial<SignalEvent> = {}): SignalEvent {
+function signal(values: Partial<GithubSignalEvent> = {}): GithubSignalEvent {
   return {
     type: "signal",
     source: "github",
@@ -36,7 +36,7 @@ function signal(values: Partial<SignalEvent> = {}): SignalEvent {
   };
 }
 
-function alert(values: Partial<SignalEvent> = {}): SignalEvent {
+function alert(values: Partial<GithubSignalEvent> = {}): GithubSignalEvent {
   return signal({
     key: `${repository}#3:opened:-`,
     kind: "alert",

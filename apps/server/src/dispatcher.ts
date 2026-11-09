@@ -21,7 +21,7 @@ import type {
   AtlasEvent,
   Dataset,
   DispatchEvent,
-  SignalEvent,
+  GithubSignalEvent,
 } from "@atlas/core";
 import { desc, eq } from "drizzle-orm";
 
@@ -91,7 +91,7 @@ export interface DigestEntry {
 export interface Dispatcher {
   /** Decides about a new signal and acts on it in the background. Never throws. */
   handle(
-    signal: SignalEvent,
+    signal: GithubSignalEvent,
     context: Omit<SignalContext, "now">,
     connection: DispatchConnection,
   ): void;
@@ -138,7 +138,7 @@ export function createDispatcher({
   let queue: Promise<void> = Promise.resolve();
 
   /** Writes the decision row. Returns false when the signal was already decided. */
-  function claim(signal: SignalEvent, plan: Plan): boolean {
+  function claim(signal: GithubSignalEvent, plan: Plan): boolean {
     const rows = database
       .insert(schema.dispatchDecisions)
       .values({
@@ -159,7 +159,7 @@ export function createDispatcher({
     return rows.length > 0;
   }
 
-  function settle(signal: SignalEvent, event: DispatchEvent) {
+  function settle(signal: GithubSignalEvent, event: DispatchEvent) {
     database
       .update(schema.dispatchDecisions)
       .set({ mode: event.mode, outcome: event.outcome })
@@ -179,7 +179,7 @@ export function createDispatcher({
   }
 
   async function act(
-    signal: SignalEvent,
+    signal: GithubSignalEvent,
     plan: Plan,
     connection: DispatchConnection,
   ): Promise<DispatchEvent> {
@@ -303,7 +303,7 @@ export function createDispatcher({
   }
 
   async function run(
-    signal: SignalEvent,
+    signal: GithubSignalEvent,
     context: Omit<SignalContext, "now">,
     connection: DispatchConnection,
   ) {

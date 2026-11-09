@@ -11,7 +11,7 @@ import {
   Identifier,
   type AlertSeverity,
   type AlertType,
-  type SignalEvent,
+  type GithubSignalEvent,
 } from "@atlas/core";
 
 import type {
@@ -167,7 +167,7 @@ export function signalText(happening: Happening): string {
 export function signalOf(
   happening: Happening,
   recordIds: readonly string[],
-): SignalEvent {
+): GithubSignalEvent {
   const client = Identifier.safeParse(happening.client).success
     ? happening.client
     : null;

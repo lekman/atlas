@@ -75,8 +75,11 @@ describe("session files", () => {
       sessionId: "00000004321-aaaa-bbbb-cccc-000000000000",
       statusUpdatedAt: 1,
       entrypoint: "sdk-cli",
+      cwd: "/Users/example/projects/sample-app",
+      startedAt: 1,
     });
-    expect(JSON.stringify(parsed)).not.toContain("projects");
+    for (const dropped of ["version", "kind", "nameSource", "updatedAt"])
+      expect(parsed).not.toHaveProperty(dropped);
   });
 
   test("read the newer states as the nearest of busy, waiting and idle", () => {
@@ -441,6 +444,7 @@ describe("the session reader", () => {
       matched: 1,
       unknownDocked: 0,
       ambiguous: 0,
+      limited: 0,
       skipped: 1,
       lastReadAt: clock.toISOString(),
       error: null,

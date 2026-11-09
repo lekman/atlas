@@ -49,8 +49,8 @@ const logLimit = 100;
 
 /**
  * The cue an event plays, or null for none. A signal is silent, because a
- * matched one already plays as an outside event; a dispatcher decision
- * plays only when it needs the reader.
+ * matched one already plays as an outside event; a dispatcher or
+ * account-switch decision plays only when it needs the reader.
  */
 export function cueFor(event: AtlasEvent): SoundCue | null {
   switch (event.type) {
@@ -71,6 +71,7 @@ export function cueFor(event: AtlasEvent): SoundCue | null {
     case "signal":
       return null;
     case "dispatch":
+    case "account-switch":
       return event.needsYou ? "needs" : null;
   }
 }

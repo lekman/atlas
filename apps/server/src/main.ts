@@ -2,10 +2,13 @@
  * Starts the Atlas server. The log holds methods, paths, statuses and
  * counts only, never the text of a record or an event.
  */
+import { join } from "node:path";
+
 import { sampleDataset } from "@atlas/fixtures";
 import webApp from "@atlas/web/index.html";
 
 import rootPackage from "../../../package.json" with { type: "json" };
+import { commandLineLauncher, createAccountSwitcher } from "./account-switch";
 import { createApi } from "./api";
 import { readConfiguration } from "./configuration";
 import { openDatabase } from "./database";
@@ -109,13 +112,44 @@ const github = configuration.githubStateDirectory
     })
   : undefined;
 
-// Live agent status from Claude Code's session files, when configured.
+// The account-switch rule, when an accounts file is configured. It is off
+// unless the file switches it on; limits are noted either way.
+const accounts = configuration.sessions?.accounts;
+const switcher = accounts
+  ? createAccountSwitcher({
+      database,
+      settings: accounts.settings,
+      ...(accounts.launcher
+        ? { launcher: commandLineLauncher(accounts.launcher) }
+        : {}),
+    })
+  : undefined;
+
+// Live agent status from Claude Code's session files, when configured: one
+// folder, or one per account.
 const sessions = configuration.sessions
   ? createSessionReader({
-      directory: configuration.sessions.directory,
+      ...(configuration.sessions.directory
+        ? { directory: configuration.sessions.directory }
+        : {}),
+      ...(accounts
+        ? {
+            folders: accounts.settings.accounts.map((account) => ({
+              account: account.name,
+              sessions: join(account.directory, "sessions"),
+              projects: join(account.directory, "projects"),
+            })),
+          }
+        : {}),
       database,
       pollSeconds: configuration.sessions.pollSeconds,
       forgetHours: configuration.sessions.forgetHours,
+      ...(switcher
+        ? {
+            onUsageLimit: (session, connection) =>
+              switcher.handle(session, connection),
+          }
+        : {}),
     })
   : undefined;
 
@@ -162,7 +196,7 @@ const server = Bun.serve({
 });
 
 console.log(
-  `atlas ${rootPackage.version} listening on ${server.url}, tokens ${configuration.requireTokens ? "required" : "optional"}, tasks from ${tasks ? "the task database" : "SQLite"}${github ? ", GitHub state from gh-events" : ""}${signalDispatcher ? ", dispatcher on" : ""}${sessions ? ", agent status from Claude Code sessions" : ""}${configuration.fakeDevelopment ? ", development tracking fake" : ""}`,
+  `atlas ${rootPackage.version} listening on ${server.url}, tokens ${configuration.requireTokens ? "required" : "optional"}, tasks from ${tasks ? "the task database" : "SQLite"}${github ? ", GitHub state from gh-events" : ""}${signalDispatcher ? ", dispatcher on" : ""}${sessions ? ", agent status from Claude Code sessions" : ""}${accounts ? `, ${accounts.settings.accounts.length} accounts, switch ${accounts.settings.mode}` : ""}${configuration.fakeDevelopment ? ", development tracking fake" : ""}`,
 );
 
 function shutdown() {

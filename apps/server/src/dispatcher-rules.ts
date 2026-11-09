@@ -11,7 +11,11 @@
  * Each rule has a mode: `off` decides nothing, `dry` decides and records
  * the act without doing it, `on` does it.
  */
-import type { AlertSeverity, DispatchRule, SignalEvent } from "@atlas/core";
+import type {
+  AlertSeverity,
+  DispatchRule,
+  GithubSignalEvent,
+} from "@atlas/core";
 
 import type { RegistryItem } from "./github-contract";
 
@@ -98,14 +102,14 @@ export function mergeMethodFor(
 }
 
 /** The key a delegation's subject is remembered by. */
-export function subjectOf(signal: SignalEvent): string {
+export function subjectOf(signal: GithubSignalEvent): string {
   const reference = `${signal.repository.toLowerCase()}#${signal.number}`;
   return signal.kind === "alert"
     ? `alert:${signal.alertType ?? "dependabot"}:${reference}`
     : `${signal.kind}:${reference}`;
 }
 
-function ruleFor(signal: SignalEvent): DispatchRule | undefined {
+function ruleFor(signal: GithubSignalEvent): DispatchRule | undefined {
   if (
     signal.kind === "pr" &&
     ["approved", "checks_passed"].includes(signal.event)
@@ -123,7 +127,7 @@ function ruleFor(signal: SignalEvent): DispatchRule | undefined {
  * and a leaked secret is urgent, so it counts as high; any other alert
  * without one counts as medium.
  */
-export function effectiveSeverity(signal: SignalEvent): AlertSeverity {
+export function effectiveSeverity(signal: GithubSignalEvent): AlertSeverity {
   if (signal.severity) return signal.severity;
   return signal.alertType === "secret_scanning" ? "high" : "medium";
 }
@@ -135,7 +139,7 @@ const alertNames = {
 } as const;
 
 /** The task's tracker link. An alert's key names it as an alert, so it is never read as a pull request. */
-function trackerOf(signal: SignalEvent): TaskDraft["tracker"] {
+function trackerOf(signal: GithubSignalEvent): TaskDraft["tracker"] {
   const key =
     signal.kind === "alert"
       ? `${signal.repository}:alert-${signal.number}`
@@ -151,7 +155,7 @@ function trackerOf(signal: SignalEvent): TaskDraft["tracker"] {
  * a `skip`, with the reason, so every outcome reaches the log.
  */
 export function decide(
-  signal: SignalEvent,
+  signal: GithubSignalEvent,
   context: SignalContext,
   settings: DispatcherSettings,
 ): Plan | undefined {

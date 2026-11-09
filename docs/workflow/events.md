@@ -112,13 +112,36 @@ Mail is classified first, then routed.
 Atlas is also a source. These signals come from the collector, the plugin
 hooks and the server.
 
-| Source            | Event                                               | Default outcome                                |
-| ----------------- | --------------------------------------------------- | ---------------------------------------------- |
-| Sessions          | Waiting for approval, stuck, idle with an open task | Ask you, or nudge the session                  |
-| Release status    | An environment drifted from its branch              | Delegate, or digest when the drift is expected |
-| Budgets and usage | An orchestrator near its budget, a usage limit near | Digest. Ask you when a limit would stop work   |
-| Host statistics   | Disk, memory or CPU over a threshold                | Delegate a clean-up. Ask you when it repeats   |
-| Schedules         | Timesheet deadlines, month end, routines            | Auto-act or delegate by rule                   |
+| Source            | Event                                                | Default outcome                                                                                             |
+| ----------------- | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Sessions          | Waiting for approval, stuck, idle with an open task  | Ask you, or nudge the session                                                                               |
+| Release status    | An environment drifted from its branch               | Delegate, or digest when the drift is expected                                                              |
+| Budgets and usage | An orchestrator near its budget, a usage limit near  | Digest. Ask you when a limit would stop work                                                                |
+| Usage limits      | A Claude Code session hit a subscription usage limit | Show the agent blocked until the reset. Restart it under another account when the account-switch rule is on |
+| Host statistics   | Disk, memory or CPU over a threshold                 | Delegate a clean-up. Ask you when it repeats                                                                |
+| Schedules         | Timesheet deadlines, month end, routines             | Auto-act or delegate by rule                                                                                |
+
+### Usage-Limit Signals
+
+The server reads each live Claude Code session's transcript. When a
+session hits a subscription usage limit, its agent shows `blocked` with a
+fixed note, such as "Weekly usage limit reached, resets 25 Oct 18:00", and
+Atlas records one `signal` event:
+
+| Field       | Value                                                         |
+| ----------- | ------------------------------------------------------------- |
+| `source`    | `claude`                                                      |
+| `kind`      | `usage-limit`                                                 |
+| `event`     | `limit_reached`                                               |
+| `agentId`   | The agent the session belongs to                              |
+| `account`   | The account name from the accounts file, or null              |
+| `limitKind` | `session` (the five-hour limit), `weekly`, or `other`         |
+| `resetsAt`  | When the limit resets, or null when Claude Code gave no time  |
+| `text`      | The note the agent shows. Never the message Claude Code wrote |
+
+The account-switch rule acts on it, and is off unless switched on. Each
+decision is an `account-switch` event. See
+[Usage Limits](../architecture.md#usage-limits).
 
 ## Client Boundaries Apply to Sources
 

@@ -2,12 +2,16 @@ import { describe, expect, it } from "bun:test";
 
 import { decide } from "../src/decide";
 
-const report = (status: "running" | "idle" | "waiting", note: string) => ({
+const report = (
+  status: "running" | "idle" | "waiting" | "blocked",
+  note: string,
+) => ({
   name: "Halcyon",
   status,
   note,
   activity: null,
   contextTokens: null,
+  usageLimit: null,
 });
 const agent = (
   status: "running" | "idle" | "waiting" | "blocked",
@@ -66,5 +70,29 @@ describe("decide", () => {
     expect(
       decide(report("idle", "Idle"), agent("running"), 31 * 60_000),
     ).toEqual({ status: "idle", note: "Idle" });
+  });
+  it("reports a usage limit as blocked, once, over any other status", () => {
+    const r = report(
+      "blocked",
+      "Weekly usage limit reached, resets 13 Mar 18:00",
+    );
+    expect(decide(r, agent("running", "Deploying"), 0)).toEqual({
+      status: "blocked",
+      note: r.note,
+    });
+    expect(decide(r, agent("blocked", r.note), 0)).toBeNull();
+  });
+  it("clears its own usage-limit block once the limit is gone, not the agent's", () => {
+    const r = report("idle", "Idle");
+    expect(
+      decide(
+        r,
+        agent("blocked", "Session usage limit reached, resets 14:00"),
+        0,
+      ),
+    ).toEqual({ status: "idle", note: "Idle" });
+    expect(
+      decide(r, agent("blocked", "Waits on a risk sign-off"), 0),
+    ).toBeNull();
   });
 });

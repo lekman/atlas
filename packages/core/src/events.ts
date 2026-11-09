@@ -22,6 +22,7 @@ export const externalSources = [
   "jira",
   "mail",
   "monday",
+  "claude",
 ] as const;
 export const ExternalSource = z.enum(externalSources);
 export type ExternalSource = z.infer<typeof ExternalSource>;
@@ -33,12 +34,26 @@ export const externalSourceNames: Record<ExternalSource, string> = {
   jira: "Jira",
   mail: "Mail",
   monday: "monday.com",
+  claude: "Claude Code",
 };
 
-/** What a signal is about: a pull request, an issue, or a security alert. */
-export const signalKinds = ["pr", "issue", "alert"] as const;
+/** What a GitHub signal is about: a pull request, an issue, or a security alert. */
+export const githubSignalKinds = ["pr", "issue", "alert"] as const;
+export const GithubSignalKind = z.enum(githubSignalKinds);
+export type GithubSignalKind = z.infer<typeof GithubSignalKind>;
+
+/** What a signal is about: a GitHub subject, or a Claude Code session that hit a usage limit. */
+export const signalKinds = [...githubSignalKinds, "usage-limit"] as const;
 export const SignalKind = z.enum(signalKinds);
 export type SignalKind = z.infer<typeof SignalKind>;
+
+/**
+ * Which subscription limit a Claude Code session hit: the five-hour
+ * "session" limit, the "weekly" limit, or another kind Claude Code adds.
+ */
+export const usageLimitKinds = ["session", "weekly", "other"] as const;
+export const UsageLimitKind = z.enum(usageLimitKinds);
+export type UsageLimitKind = z.infer<typeof UsageLimitKind>;
 
 export const alertTypes = [
   "dependabot",
@@ -80,16 +95,16 @@ export type DispatchOutcome = z.infer<typeof DispatchOutcome>;
 const HttpsUrl = z.url({ protocol: /^https$/ });
 
 /**
- * One happening in an outside system, matched to a task or not. It holds
- * no text an author wrote: `text` is built by the server from the kind,
- * the event and the number.
+ * One happening on GitHub, matched to a task or not. It holds no text an
+ * author wrote: `text` is built by the server from the kind, the event and
+ * the number.
  */
-export const SignalEvent = z.object({
+export const GithubSignalEvent = z.object({
   type: z.literal("signal"),
   source: ExternalSource,
   /** The source's own id for the happening. One signal per key. */
   key: z.string().min(1).max(512),
-  kind: SignalKind,
+  kind: GithubSignalKind,
   /** The source's event name, such as `ci_failed` or `opened`. */
   event: z.string().regex(/^[a-z][a-z_]{0,39}$/),
   /** `owner/name`. */
@@ -106,6 +121,42 @@ export const SignalEvent = z.object({
   at: z.iso.datetime(),
   text: z.string().min(1),
 });
+export type GithubSignalEvent = z.infer<typeof GithubSignalEvent>;
+
+/**
+ * A Claude Code session that hit a subscription usage limit. Read from
+ * the session's transcript by the server; it holds the limit's kind and
+ * reset time only, never the message Claude Code showed. `text` is the
+ * fixed note the agent shows.
+ */
+export const UsageLimitSignalEvent = z.object({
+  type: z.literal("signal"),
+  source: z.literal("claude"),
+  /** One signal per session and limit. */
+  key: z.string().min(1).max(512),
+  kind: z.literal("usage-limit"),
+  event: z.literal("limit_reached"),
+  /** The agent the session belongs to. */
+  agentId: Identifier,
+  /** The configured account the session ran under, or null when none is configured. */
+  account: Identifier.nullable(),
+  limitKind: UsageLimitKind,
+  /** When the limit resets, ISO 8601, or null when Claude Code gave no time. */
+  resetsAt: z.iso.datetime().nullable(),
+  client: Identifier.nullable(),
+  /** The agent's id, so the agent's log shows the signal. */
+  recordIds: z.array(Identifier),
+  /** When the session hit the limit, ISO 8601. */
+  at: z.iso.datetime(),
+  text: z.string().min(1),
+});
+export type UsageLimitSignalEvent = z.infer<typeof UsageLimitSignalEvent>;
+
+/** A happening in an outside system: GitHub, or a Claude Code usage limit. */
+export const SignalEvent = z.discriminatedUnion("kind", [
+  GithubSignalEvent,
+  UsageLimitSignalEvent,
+]);
 export type SignalEvent = z.infer<typeof SignalEvent>;
 
 /** What the dispatcher decided about one signal, linked to it by `signalKey`. */
@@ -131,9 +182,37 @@ export const DispatchEvent = z.object({
 });
 export type DispatchEvent = z.infer<typeof DispatchEvent>;
 
+/**
+ * What the account-switch rule decided about a usage-limit signal. `switch`
+ * restarts the session under another account (with mode `dry` it is only
+ * recorded); `skip` is a signal the rule did not act on, with the reason;
+ * `fail` is a restart that was tried and did not work.
+ */
+export const accountSwitchOutcomes = ["switch", "skip", "fail"] as const;
+export const AccountSwitchOutcome = z.enum(accountSwitchOutcomes);
+export type AccountSwitchOutcome = z.infer<typeof AccountSwitchOutcome>;
+
+export const AccountSwitchEvent = z.object({
+  type: z.literal("account-switch"),
+  signalKey: z.string().min(1).max(512),
+  /** `dry` records the restart without doing it. */
+  mode: z.enum(["dry", "on"]),
+  outcome: AccountSwitchOutcome,
+  agentId: Identifier,
+  /** The account the session ran under. */
+  from: Identifier.nullable(),
+  /** The account it moves to; null when it does not move. */
+  to: Identifier.nullable(),
+  /** The decision also asks the reader to look. */
+  needsYou: z.boolean(),
+  text: z.string().min(1),
+});
+export type AccountSwitchEvent = z.infer<typeof AccountSwitchEvent>;
+
 export const AtlasEvent = z.discriminatedUnion("type", [
   SignalEvent,
   DispatchEvent,
+  AccountSwitchEvent,
   z.object({
     type: z.literal("agent-message"),
     from: Identifier,
@@ -241,7 +320,7 @@ export function planLaunch(
 
 /**
  * The dataset after an event, as a new value. Messages, external events,
- * signals and dispatcher decisions change nothing stored; they are recorded in the log and drawn. A launch
+ * signals, dispatcher and account-switch decisions change nothing stored; they are recorded in the log and drawn. A launch
  * adds a vessel and a return removes it. An event
  * that names something missing is returned unchanged rather than thrown, so
  * a late event about a deleted record cannot stop the stream.
@@ -292,6 +371,7 @@ export function applyEvent(dataset: Dataset, event: AtlasEvent): Dataset {
     case "external":
     case "signal":
     case "dispatch":
+    case "account-switch":
       return dataset;
   }
 }

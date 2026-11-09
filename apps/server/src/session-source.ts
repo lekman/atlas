@@ -6,9 +6,10 @@
  *
  * Claude Code writes `<pid>.json` for each session it runs. That file is
  * Claude Code's internal state, not a documented interface, so it is read
- * leniently: only `pid`, `name`, `status`, `sessionId`, `statusUpdatedAt`
- * and `entrypoint` are kept, every other field is dropped on parse, and a
- * file that is half written or has another shape is skipped for that poll.
+ * leniently: only `pid`, `name`, `status`, `sessionId`, `statusUpdatedAt`,
+ * `entrypoint`, `cwd` and `startedAt` are kept, every other field is
+ * dropped on parse, and a file that is half written or has another shape is
+ * skipped for that poll.
  * When files exist and none of them has the expected shape, health reports
  * it and nothing is changed. A file can outlive its process, so a session
  * counts only while its process is alive.
@@ -30,11 +31,41 @@
  *   home client's group, and is removed again once it has been offline for
  *   the forget window, or once its name matches a roster agent.
  *
+ * Usage limits: a session's file says `idle` after it hits a subscription
+ * usage limit, and only its transcript says why. Where a folder's
+ * `projects/` is known, each live session's transcript tail is read with
+ * `@atlas/collector`. A limit hit after the process started puts the
+ * session in the `limited` state: its agent shows `blocked` with a fixed
+ * note ("Weekly usage limit reached, resets 25 Oct 18:00"), and entering
+ * the state records one `signal` event (source `claude`, kind
+ * `usage-limit`) and calls `onUsageLimit`. A later reply, or the reset
+ * time passing, ends it. A limit from before the process started belongs
+ * to an earlier run, such as one under another account, and is ignored.
+ *
+ * Accounts: with `folders`, each Claude Code configuration folder (one per
+ * `CLAUDE_CONFIG_DIR`) is read, and a session belongs to the account whose
+ * folder holds its file. A process seen in two folders counts once, in the
+ * first.
+ *
  * The log holds counts and problems only, never a session's name or folder.
  */
-import { readdirSync, readFileSync } from "node:fs";
+import {
+  closeSync,
+  openSync,
+  readdirSync,
+  readFileSync,
+  readSync,
+  statSync,
+} from "node:fs";
 import { hostname } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+
+import {
+  readTail,
+  usageLimitIsActive,
+  usageLimitNote,
+  type UsageLimit,
+} from "@atlas/collector";
 
 import {
   isVessel,
@@ -42,6 +73,7 @@ import {
   type AgentStatus,
   type AtlasEvent,
   type Dataset,
+  type UsageLimitSignalEvent,
 } from "@atlas/core";
 import { eq } from "drizzle-orm";
 import { z } from "zod/v4";
@@ -86,6 +118,8 @@ const SessionFileShape = z.object({
   sessionId: z.string().optional().catch(undefined),
   statusUpdatedAt: z.number().optional().catch(undefined),
   entrypoint: z.string().optional().catch(undefined),
+  cwd: z.string().optional().catch(undefined),
+  startedAt: z.number().optional().catch(undefined),
 });
 
 /** One live Claude Code session, as Atlas keeps it. */
@@ -98,6 +132,10 @@ export interface Session {
   /** When the status last changed, in milliseconds since 1970; 0 when unknown. */
   statusUpdatedAt: number;
   entrypoint?: string;
+  /** The folder the session runs in. Used to find its transcript; never logged or reported. */
+  cwd?: string;
+  /** When the process started, in milliseconds since 1970. */
+  startedAt?: number;
 }
 
 /** The session file name: the process id, then `.json`. */
@@ -130,6 +168,10 @@ export function parseSessionFile(
     ...(parsed.data.sessionId ? { sessionId: parsed.data.sessionId } : {}),
     statusUpdatedAt: parsed.data.statusUpdatedAt ?? 0,
     ...(parsed.data.entrypoint ? { entrypoint: parsed.data.entrypoint } : {}),
+    ...(parsed.data.cwd ? { cwd: parsed.data.cwd } : {}),
+    ...(parsed.data.startedAt !== undefined
+      ? { startedAt: parsed.data.startedAt }
+      : {}),
   };
 }
 
@@ -241,15 +283,27 @@ export function matchSession(
   return { ambiguous: winners.size > 1 };
 }
 
-const activity: Record<SessionStatus, number> = {
-  busy: 3,
-  waiting: 2,
+/** A session and what its transcript says about a usage limit. */
+type RankedSession = Session & { usageLimit?: UsageLimit | null };
+
+/** A live session's state: `limited` while a usage limit holds, else Claude Code's own. */
+function stateOf(session: RankedSession): Exclude<SessionState, "offline"> {
+  return session.usageLimit ? "limited" : session.status;
+}
+
+const activity: Record<Exclude<SessionState, "offline">, number> = {
+  busy: 4,
+  waiting: 3,
+  limited: 2,
   idle: 1,
 };
 
-/** Whether `left` is more active than `right`: busy, then waiting, then idle, then the latest change. */
-export function moreActive(left: Session, right: Session): boolean {
-  const difference = activity[left.status] - activity[right.status];
+/**
+ * Whether `left` is more active than `right`: busy, then waiting, then
+ * limited, then idle, then the latest change.
+ */
+export function moreActive(left: RankedSession, right: RankedSession): boolean {
+  const difference = activity[stateOf(left)] - activity[stateOf(right)];
   if (difference !== 0) return difference > 0;
   return left.statusUpdatedAt > right.statusUpdatedAt;
 }
@@ -258,9 +312,105 @@ export function moreActive(left: Session, right: Session): boolean {
 const statusFor: Record<SessionState, { to: AgentStatus; text: string }> = {
   busy: { to: "running", text: "Session busy" },
   waiting: { to: "waiting", text: "Session waiting on you" },
+  limited: { to: "blocked", text: "Usage limit reached" },
   idle: { to: "idle", text: "Session idle" },
   offline: { to: "idle", text: "Session offline" },
 };
+
+/**
+ * One Claude Code configuration folder: its `sessions/`, its `projects/`
+ * (where the transcripts are, or null to read none), and the account name
+ * it signs in as (null when no accounts are configured).
+ */
+export interface SessionFolder {
+  account: string | null;
+  sessions: string;
+  projects: string | null;
+}
+
+/** A session that has just entered the `limited` state, for the account-switch rule. */
+export interface LimitedSession {
+  /** The key of the signal recorded for it. */
+  signalKey: string;
+  agentId: string;
+  account: string | null;
+  /** The session's name as Claude Code has it, for restarting it under the same name. */
+  sessionName: string;
+  sessionId?: string;
+  cwd?: string;
+  pid: number;
+  limit: UsageLimit;
+}
+
+/** The transcript of a session: `<projects>/<cwd with / and . as ->/<sessionId>.jsonl`. */
+export function transcriptPath(
+  projects: string,
+  cwd: string,
+  sessionId: string,
+): string {
+  return join(projects, cwd.replace(/[/.]/g, "-"), `${sessionId}.jsonl`);
+}
+
+/** The bytes read from the end of a transcript: enough for its last turns. */
+const TAIL_BYTES = 256 * 1024;
+
+/** The last whole lines of a file, or none when it cannot be read. */
+function lastLines(path: string, size: number): string[] {
+  const length = Math.min(size, TAIL_BYTES);
+  const buffer = Buffer.alloc(length);
+  const file = openSync(path, "r");
+  try {
+    readSync(file, buffer, 0, length, size - length);
+  } finally {
+    closeSync(file);
+  }
+  const lines = buffer.toString("utf8").split("\n");
+  // The first line is cut when the read starts inside the file.
+  return size > length ? lines.slice(1) : lines;
+}
+
+/**
+ * The usage limit a session's transcript ends in, hit after its process
+ * started, or null. Reads are cached by the file's size and change time.
+ */
+function createLimitReader() {
+  const cache = new Map<
+    string,
+    { size: number; changed: number; limit: UsageLimit | null }
+  >();
+  return (projects: string | null, session: Session): UsageLimit | null => {
+    if (!projects || !session.cwd || !session.sessionId) return null;
+    const path = transcriptPath(projects, session.cwd, session.sessionId);
+    let size: number;
+    let changed: number;
+    try {
+      const stat = statSync(path);
+      size = stat.size;
+      changed = stat.mtimeMs;
+    } catch {
+      return null;
+    }
+    const cached = cache.get(path);
+    let limit: UsageLimit | null;
+    if (cached && cached.size === size && cached.changed === changed)
+      limit = cached.limit;
+    else {
+      try {
+        limit = readTail(lastLines(path, size)).usageLimit;
+      } catch {
+        limit = null;
+      }
+      cache.set(path, { size, changed, limit });
+    }
+    if (
+      limit &&
+      session.startedAt !== undefined &&
+      Date.parse(limit.at) < session.startedAt
+    )
+      return null;
+    return limit;
+  };
+}
 
 /** The note a docked agent starts with. */
 export const dockedNote = "Not in the roster";
@@ -303,6 +453,8 @@ export interface SessionHealth {
   unknownDocked: number;
   /** Live sessions that matched two agents equally, and so changed nothing. */
   ambiguous: number;
+  /** Live sessions whose transcript shows a usage limit that still holds. */
+  limited: number;
   /** Session files left out at the latest read, because they did not parse. */
   skipped: number;
   /** When the folder was last read, or `null`. */
@@ -319,6 +471,7 @@ export const noSessionSource: SessionHealth = {
   matched: 0,
   unknownDocked: 0,
   ambiguous: 0,
+  limited: 0,
   skipped: 0,
   lastReadAt: null,
   error: null,
@@ -346,8 +499,13 @@ export interface SessionReader {
 }
 
 export interface SessionReaderOptions {
-  /** The folder that holds Claude Code's `<pid>.json` session files. */
-  directory: string;
+  /**
+   * The folder that holds Claude Code's `<pid>.json` session files. Its
+   * sibling `projects/` is read for transcripts. Ignored when `folders` is set.
+   */
+  directory?: string;
+  /** One entry per Claude Code configuration folder, for several accounts. */
+  folders?: readonly SessionFolder[];
   database: AtlasDatabase;
   /** Seconds between reads. 5 unless set. */
   pollSeconds?: number;
@@ -360,12 +518,26 @@ export interface SessionReaderOptions {
   /** Where one-line notices go. `console.log` by default. */
   log?: (line: string) => void;
   now?: () => Date;
+  /** The time zone of the reset time in a usage-limit note. This machine's unless set. */
+  timeZone?: string;
+  /** Called once when a session enters the `limited` state, after its signal is recorded. */
+  onUsageLimit?: (
+    session: LimitedSession,
+    connection: SessionConnection,
+  ) => void;
 }
+
+/** A live session, with the account whose folder holds it and its usage limit. */
+type LiveSession = Session & {
+  account: string | null;
+  usageLimit: UsageLimit | null;
+};
 
 type SessionRow = typeof schema.sessionAgents.$inferSelect;
 
 export function createSessionReader({
   directory,
+  folders: configuredFolders,
   database,
   pollSeconds = 5,
   forgetHours = 24,
@@ -373,7 +545,21 @@ export function createSessionReader({
   host = hostname(),
   log = console.log,
   now = () => new Date(),
+  timeZone,
+  onUsageLimit,
 }: SessionReaderOptions): SessionReader {
+  const folders: readonly SessionFolder[] =
+    configuredFolders ??
+    (directory
+      ? [
+          {
+            account: null,
+            sessions: directory,
+            projects: join(dirname(directory), "projects"),
+          },
+        ]
+      : []);
+  const limitOf = createLimitReader();
   let connection: SessionConnection | undefined;
   let health: SessionHealth = {
     ...noSessionSource,
@@ -413,14 +599,26 @@ export function createSessionReader({
     docked: boolean,
     sessionName: string,
     at: Date,
+    live?: LiveSession,
   ) {
-    if (row && row.lastState === state && row.sessionName === sessionName)
-      return;
-    const target = statusFor[state];
+    const limit = state === "limited" ? (live?.usageLimit ?? null) : null;
+    const target = {
+      to: statusFor[state].to,
+      text: limit ? usageLimitNote(limit, at, timeZone) : statusFor[state].text,
+    };
+    // A limited agent keeps its note current: the reset time can move.
     if (
-      (!row || row.lastState !== state) &&
-      (agent.status !== target.to ||
-        (state === "offline" && agent.note !== target.text))
+      row &&
+      row.lastState === state &&
+      row.sessionName === sessionName &&
+      (state !== "limited" || agent.note === target.text)
+    )
+      return;
+    const entering = !row || row.lastState !== state;
+    const noted = state === "offline" || state === "limited";
+    if (
+      (entering || state === "limited") &&
+      (agent.status !== target.to || (noted && agent.note !== target.text))
     )
       connection?.record({
         type: "status-change",
@@ -428,6 +626,7 @@ export function createSessionReader({
         to: target.to,
         text: target.text,
       });
+    if (entering && limit && live) reportLimit(agent, live, limit, target.text);
     const offlineSince =
       state === "offline" ? (row?.offlineSince ?? at.toISOString()) : null;
     database
@@ -444,6 +643,53 @@ export function createSessionReader({
         set: { sessionName, lastState: state, offlineSince },
       })
       .run();
+  }
+
+  /** Records the usage-limit signal for an agent's session, then tells the listener. */
+  function reportLimit(
+    agent: Agent,
+    live: LiveSession,
+    limit: UsageLimit,
+    text: string,
+  ) {
+    if (!connection) return;
+    const client =
+      connection.dataset().groups.find((group) => group.id === agent.groupId)
+        ?.clientId ?? null;
+    const signalKey = `claude:usage-limit:${live.sessionId ?? live.pid}:${limit.at}`;
+    const signal: UsageLimitSignalEvent = {
+      type: "signal",
+      source: "claude",
+      key: signalKey,
+      kind: "usage-limit",
+      event: "limit_reached",
+      agentId: agent.id,
+      account: live.account,
+      limitKind: limit.kind,
+      resetsAt: limit.resetsAt,
+      client,
+      recordIds: [agent.id],
+      at: limit.at,
+      text,
+    };
+    connection.record(signal);
+    try {
+      onUsageLimit?.(
+        {
+          signalKey,
+          agentId: agent.id,
+          account: live.account,
+          sessionName: live.name ?? agent.name,
+          ...(live.sessionId ? { sessionId: live.sessionId } : {}),
+          ...(live.cwd ? { cwd: live.cwd } : {}),
+          pid: live.pid,
+          limit,
+        },
+        connection,
+      );
+    } catch {
+      log("sessions: the usage-limit listener failed");
+    }
   }
 
   /** Removes a docked agent, and any vessel launched from it. */
@@ -492,7 +738,7 @@ export function createSessionReader({
           accountId: account.id,
           host,
           reach: "local",
-          status: statusFor[session.status].to,
+          status: statusFor[stateOf(session)].to,
           workingOn: [],
           note: dockedNote,
         })
@@ -503,7 +749,7 @@ export function createSessionReader({
           agentId: id,
           docked: true,
           sessionName: name.toLowerCase(),
-          lastState: session.status,
+          lastState: stateOf(session),
           offlineSince: null,
         })
         .run();
@@ -511,13 +757,38 @@ export function createSessionReader({
     return true;
   }
 
+  /** Every folder's live sessions, each process once, with its account and usage limit. */
+  function readFolders(at: Date) {
+    let files = 0;
+    let parsed = 0;
+    let error: string | null = null;
+    const live = new Map<number, LiveSession>();
+    for (const folder of folders) {
+      const read = readSessionDirectory(folder.sessions, isAlive);
+      files += read.files;
+      parsed += read.parsed;
+      error ??= read.error;
+      for (const session of read.live) {
+        if (live.has(session.pid)) continue;
+        const limit = limitOf(folder.projects, session);
+        live.set(session.pid, {
+          ...session,
+          account: folder.account,
+          usageLimit: limit && usageLimitIsActive(limit, at) ? limit : null,
+        });
+      }
+    }
+    return { files, parsed, error, live: [...live.values()] };
+  }
+
   function poll() {
     const at = now();
-    const read = readSessionDirectory(directory, isAlive);
+    const read = readFolders(at);
     const base = {
       source: "files" as const,
       files: read.files,
       live: read.live.length,
+      limited: read.live.filter((session) => session.usageLimit).length,
       skipped: read.files - read.parsed,
       lastReadAt: at.toISOString(),
     };
@@ -563,7 +834,7 @@ export function createSessionReader({
     }
   }
 
-  function applyRead(live: readonly Session[], at: Date) {
+  function applyRead(live: readonly LiveSession[], at: Date) {
     if (!connection) throw new Error("not connected");
     let dataset = connection.dataset();
     let stored = rows();
@@ -576,8 +847,8 @@ export function createSessionReader({
       (agent) => !isVessel(agent) && !dockedIds.has(agent.id),
     );
 
-    const byAgent = new Map<string, Session>();
-    const unknown = new Map<string, { session: Session; name: string }>();
+    const byAgent = new Map<string, LiveSession>();
+    const unknown = new Map<string, { session: LiveSession; name: string }>();
     let matched = 0;
     let ambiguous = 0;
     for (const session of live) {
@@ -645,10 +916,11 @@ export function createSessionReader({
         apply(
           agent,
           row,
-          session.status,
+          stateOf(session),
           false,
           (session.name ?? "").toLowerCase(),
           at,
+          session,
         );
       else if (row && !row.docked)
         apply(agent, row, "offline", false, row.sessionName, at);
@@ -664,10 +936,11 @@ export function createSessionReader({
       apply(
         agent,
         row,
-        entry ? entry.session.status : "offline",
+        entry ? stateOf(entry.session) : "offline",
         true,
         row.sessionName,
         at,
+        entry?.session,
       );
     }
 
