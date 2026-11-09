@@ -14,7 +14,7 @@ import {
 } from "@atlas/core";
 import type { World } from "@atlas/worlds";
 
-import { describeEvent, dispatcherName } from "./describe";
+import { accountSwitchName, describeEvent, dispatcherName } from "./describe";
 import type { LogEntry } from "./useAtlasMap";
 
 /** An event from the server's log, as `GET /api/events` returns it. */
@@ -81,6 +81,7 @@ export function isAbout(
   if (event.type === "external") return event.recordId === recordId;
   if (event.type === "signal") return event.recordIds.includes(recordId);
   if (event.type === "dispatch") return event.taskId === recordId;
+  if (event.type === "account-switch") return event.agentId === recordId;
   const kind = findRecord(before, recordId)?.kind;
   switch (event.type) {
     case "agent-message":
@@ -133,6 +134,8 @@ export function whoOf(before: Dataset, event: AtlasEvent): string {
       return externalSourceNames[event.source];
     case "dispatch":
       return dispatcherName;
+    case "account-switch":
+      return accountSwitchName;
     case "status-change":
     case "agent-returned":
       return agentName(before, event.agentId);

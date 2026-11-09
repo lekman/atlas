@@ -47,6 +47,24 @@ export interface TranscriptTail {
    * A call left open for minutes is a permission prompt or a long command.
    */
   openToolSince: string | null;
+  /** The usage limit the newest turn hit, or null when a later reply cleared it. */
+  usageLimit: UsageLimit | null;
+}
+
+/**
+ * Which subscription limit a session hit. Claude Code writes `five_hour`
+ * ("session limit") or `seven_day` ("weekly limit"); anything else is other.
+ */
+export const usageLimitKinds = ["session", "weekly", "other"] as const;
+export type UsageLimitKind = (typeof usageLimitKinds)[number];
+
+/** A usage limit as read from a transcript: no text, only the kind and times. */
+export interface UsageLimit {
+  kind: UsageLimitKind;
+  /** When the limit resets, ISO 8601, or null when Claude Code gave no time. */
+  resetsAt: string | null;
+  /** When the session hit it, ISO 8601. */
+  at: string;
 }
 
 /** The safe report for one session. */
@@ -57,6 +75,8 @@ export interface SessionReport {
   note: string;
   activity: Activity | null;
   contextTokens: number | null;
+  /** The active usage limit, or null. */
+  usageLimit: UsageLimit | null;
 }
 
 const NAME = /^[A-Za-z0-9][A-Za-z0-9 ._-]{0,63}$/;
@@ -109,7 +129,91 @@ export function activityOf(tool: string, input?: unknown): Activity {
   return "other";
 }
 
-/** The newest tool use, write and context size in a transcript's last lines. */
+function kindOf(rateLimitType: unknown): UsageLimitKind {
+  if (rateLimitType === "five_hour") return "session";
+  if (
+    typeof rateLimitType === "string" &&
+    rateLimitType.startsWith("seven_day")
+  )
+    return "weekly";
+  return "other";
+}
+
+/**
+ * The usage limit a transcript line reports, or null. Claude Code writes a
+ * synthetic assistant line with `isApiErrorMessage` instead of a reply.
+ * Since 2.1.295 it carries `apiError: "usage_limit_reached"`; older
+ * versions carry only `error: "rate_limit"` with `quotaLimits.status`
+ * `rejected`. The text is never read.
+ */
+export function usageLimitOf(
+  line: Record<string, unknown>,
+  at: string,
+): UsageLimit | null {
+  if (line.isApiErrorMessage !== true) return null;
+  const quota = (line.quotaLimits ?? null) as Record<string, unknown> | null;
+  const info = ((line.apiErrorParams as Record<string, unknown> | undefined)
+    ?.rate_limit_info ?? null) as Record<string, unknown> | null;
+  const limited =
+    line.apiError === "usage_limit_reached" ||
+    (line.error === "rate_limit" && quota?.status === "rejected");
+  if (!limited) return null;
+  const resets = quota?.resetsAt ?? info?.resetsAt;
+  const resetsAt =
+    typeof resets === "number" && Number.isFinite(resets) && resets > 0
+      ? new Date(resets * 1000).toISOString()
+      : null;
+  return {
+    kind: kindOf(quota?.rateLimitType ?? info?.rateLimitType),
+    resetsAt,
+    at,
+  };
+}
+
+/** Whether a usage limit still holds: until its reset time, or until a reply clears it. */
+export function usageLimitIsActive(limit: UsageLimit, now: Date): boolean {
+  return limit.resetsAt === null || Date.parse(limit.resetsAt) > now.getTime();
+}
+
+const LIMIT_NAMES: Record<UsageLimitKind, string> = {
+  session: "Session usage limit reached",
+  weekly: "Weekly usage limit reached",
+  other: "Usage limit reached",
+};
+
+/**
+ * The fixed note for a usage limit: the kind and the reset time in
+ * `timeZone` (the machine's own unless set), with the day only when the
+ * reset is not on the same day.
+ */
+export function usageLimitNote(
+  limit: UsageLimit,
+  now: Date,
+  timeZone?: string,
+): string {
+  const name = LIMIT_NAMES[limit.kind];
+  if (!limit.resetsAt) return name;
+  const resets = new Date(limit.resetsAt);
+  const zone = timeZone ? { timeZone } : {};
+  const day = (d: Date) =>
+    new Intl.DateTimeFormat("en-GB", {
+      ...zone,
+      day: "numeric",
+      month: "short",
+    }).format(d);
+  const time = new Intl.DateTimeFormat("en-GB", {
+    ...zone,
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).format(resets);
+  const sameDay =
+    new Intl.DateTimeFormat("en-CA", { ...zone }).format(resets) ===
+    new Intl.DateTimeFormat("en-CA", { ...zone }).format(now);
+  return `${name}, resets ${sameDay ? time : `${day(resets)} ${time}`}`;
+}
+
+/** The newest tool use, write, context size and usage limit in a transcript's last lines. */
 export function readTail(lines: readonly string[]): TranscriptTail {
   const tail: TranscriptTail = {
     lastToolAt: null,
@@ -117,6 +221,7 @@ export function readTail(lines: readonly string[]): TranscriptTail {
     lastWriteAt: null,
     contextTokens: null,
     openToolSince: null,
+    usageLimit: null,
   };
   const open = new Map<string, string>();
   for (const line of lines) {
@@ -141,6 +246,12 @@ export function readTail(lines: readonly string[]): TranscriptTail {
       continue;
     }
     if (d.type !== "assistant") continue;
+    // A limit line sets the limit; any other assistant line is a reply and clears it.
+    if (at) {
+      const limit = usageLimitOf(d, at);
+      if (limit) tail.usageLimit = limit;
+      else if (d.isApiErrorMessage !== true) tail.usageLimit = null;
+    }
     const m = d.message as
       { content?: unknown; usage?: Record<string, unknown> } | undefined;
     const u = m?.usage;
@@ -187,22 +298,36 @@ const NOTES: Record<Activity, string> = {
 };
 
 /**
- * The Atlas status and note for a session. A session waiting on a
- * permission prompt or a question in its own window is waiting on the
- * person, so it shows amber and lands in Waiting on you.
+ * The Atlas status and note for a session. A session that hit a usage
+ * limit can do nothing until it resets, so it shows blocked whatever else
+ * is open. A session waiting on a permission prompt or a question in its
+ * own window is waiting on the person, so it shows amber and lands in
+ * Waiting on you. `timeZone` sets the zone of the reset time in the note.
  */
 export function reportFor(
   record: SessionRecord,
   tail: TranscriptTail,
   now: Date,
+  timeZone?: string,
 ): SessionReport | null {
   const name = record.name;
   if (!name) return null;
+  const limit =
+    tail.usageLimit && usageLimitIsActive(tail.usageLimit, now)
+      ? tail.usageLimit
+      : null;
   const base = {
     name,
     activity: tail.lastActivity,
     contextTokens: tail.contextTokens,
+    usageLimit: limit,
   };
+  if (limit)
+    return {
+      ...base,
+      status: "blocked",
+      note: usageLimitNote(limit, now, timeZone),
+    };
   if (record.state === "requires_action")
     return {
       ...base,

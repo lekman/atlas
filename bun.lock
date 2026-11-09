@@ -35,6 +35,7 @@
       "name": "@atlas/server",
       "version": "0.0.0",
       "dependencies": {
+        "@atlas/collector": "workspace:*",
         "@atlas/core": "workspace:*",
         "@atlas/fixtures": "workspace:*",
         "@atlas/web": "workspace:*",

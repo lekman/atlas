@@ -1,4 +1,4 @@
-import type { AtlasEvent, DispatchEvent, SignalEvent } from "@atlas/core";
+import type { AtlasEvent, DispatchEvent, GithubSignalEvent } from "@atlas/core";
 import { sampleDataset } from "@atlas/fixtures";
 import { beforeEach, describe, expect, test } from "bun:test";
 
@@ -26,7 +26,7 @@ const sha = "0123456789abcdef0123456789abcdef01234567";
 const repository = "example-org/sample-app";
 const now = () => new Date("2026-11-09T12:00:00.000Z");
 
-const failed: SignalEvent = {
+const failed: GithubSignalEvent = {
   type: "signal",
   source: "github",
   key: `${repository}#12:ci_failed:${sha}`,

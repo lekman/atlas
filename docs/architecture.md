@@ -469,17 +469,19 @@ the Mac mini. `ATLAS_SESSIONS_DIR` names the folder where Claude Code keeps
 one `<pid>.json` file per live session, usually `~/.claude/sessions`.
 Without the variable, the server behaves as before.
 
-| Variable                      | What it sets                                      | Default |
-| ----------------------------- | ------------------------------------------------- | ------- |
-| `ATLAS_SESSIONS_DIR`          | The folder of session files; turns the reader on  | Off     |
-| `ATLAS_SESSIONS_POLL_SECONDS` | Seconds between reads                             | 5       |
-| `ATLAS_SESSIONS_FORGET_HOURS` | Hours a docked agent stays after its session ends | 24      |
+| Variable                      | What it sets                                                                                                           | Default |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ------- |
+| `ATLAS_SESSIONS_DIR`          | The folder of session files; turns the reader on                                                                       | Off     |
+| `ATLAS_CLAUDE_ACCOUNTS_FILE`  | One Claude Code folder per account, and the account-switch rule; turns the reader on and replaces `ATLAS_SESSIONS_DIR` | Off     |
+| `ATLAS_SESSIONS_POLL_SECONDS` | Seconds between reads                                                                                                  | 5       |
+| `ATLAS_SESSIONS_FORGET_HOURS` | Hours a docked agent stays after its session ends                                                                      | 24      |
 
 The session files are Claude Code's internal state, not a documented
 interface, and their shape can change in any release. Atlas keeps only
-`pid`, `name`, `status`, `sessionId`, `statusUpdatedAt` and `entrypoint`,
-and drops every other field (the working folder included) when it parses
-a file. A file that is half written or has another shape is skipped for
+`pid`, `name`, `status`, `sessionId`, `statusUpdatedAt`, `entrypoint`,
+`cwd` and `startedAt`, and drops every other field when it parses a file.
+The working folder is used only to find the session's transcript and to
+restart it; it is never logged, reported or sent. A file that is half written or has another shape is skipped for
 that poll. A file can outlive its process, so a session counts only while
 its process answers signal 0. Key and socket files beside them are ignored.
 
@@ -489,14 +491,15 @@ agent "Example" is session `example-69`. An exact match beats a prefix, and
 a longer prefix beats a shorter one. A session that matches two agents
 equally well is ambiguous: it is counted and changes nothing. When several
 live sessions match one agent, the most active speaks for it (busy, then
-waiting, then idle), then the one whose status changed last.
+waiting, then limited, then idle), then the one whose status changed last.
 
-| Session                  | Agent status | Note                     |
-| ------------------------ | ------------ | ------------------------ |
-| `busy`                   | running      | "Session busy"           |
-| `waiting`                | waiting      | "Session waiting on you" |
-| `idle`                   | idle         | "Session idle"           |
-| None, after one was seen | idle         | "Session offline"        |
+| Session                  | Agent status | Note                                              |
+| ------------------------ | ------------ | ------------------------------------------------- |
+| `busy`                   | running      | "Session busy"                                    |
+| `waiting`                | waiting      | "Session waiting on you"                          |
+| Limited (see below)      | blocked      | "Weekly usage limit reached, resets 25 Oct 18:00" |
+| `idle`                   | idle         | "Session idle"                                    |
+| None, after one was seen | idle         | "Session offline"                                 |
 
 A status changes only when the session's state changes, and then only
 when the agent's status differs (or, going offline, its note). It goes
@@ -522,14 +525,138 @@ offline whose session ended while the server was down.
 
 `GET /api/health` reports `sessions` as counts only: `source` (`files` or
 `none`), `ok`, `files`, `live`, `matched`, `unknownDocked`, `ambiguous`,
-`skipped`, `lastReadAt` and `error`. It never names a session. `ok` is false
+`limited`, `skipped`, `lastReadAt` and `error`. It never names a session. `ok` is false
 when the folder cannot be read, or when it holds session files and none of
 them has the expected shape, which is how a change in Claude Code's format
 shows. While `ok` is false, no agent is changed.
 
-The reader sees only the machine Atlas runs on. Sessions on other machines
-need a reporter of their own there, still to come; until then they report
-through MCP.
+The reader sees only the machine Atlas runs on. On other machines the
+collector (`apps/collector`) reads the same files and reports through MCP.
+
+#### Usage Limits
+
+A session that hits a subscription usage limit stops, and its session file
+still says `idle`. Only its transcript says why: Claude Code writes a
+synthetic assistant line instead of a reply, with `isApiErrorMessage`,
+`error: "rate_limit"`, `quotaLimits.status: "rejected"`, the limit's kind in
+`quotaLimits.rateLimitType` (`five_hour` or `seven_day`) and its reset time
+in `quotaLimits.resetsAt` (Unix seconds). Since 2.1.295 it also writes
+`apiError: "usage_limit_reached"`. The reader reads the end of each live
+session's transcript, `<projects>/<cwd with / and . as ->/<sessionId>.jsonl`,
+with `@atlas/collector`, and keeps the kind (`session`, `weekly` or `other`)
+and the times. The message text is never read.
+
+- A limit puts the session in the `limited` state until a later reply, or
+  until the reset time passes. Its agent shows `blocked` with a fixed note.
+- A limit hit before the process started is ignored. It belongs to an
+  earlier run, such as the same conversation under another account.
+- Entering the state records one `signal` event: source `claude`, kind
+  `usage-limit`, event `limit_reached`, the agent, the account, the limit's
+  kind and reset time, and the note as `text`. Its key is
+  `claude:usage-limit:<session id>:<when the limit was hit>`.
+
+With `ATLAS_SESSIONS_DIR` the transcripts are read from the sibling
+`projects/` folder. With the accounts file, each account's folder is read:
+its `sessions/` and its `projects/`, and a session belongs to the account
+whose folder holds its file.
+
+#### Accounts and the Account-Switch Rule
+
+Each Claude Code account gets its own configuration folder, chosen by
+`CLAUDE_CONFIG_DIR`. On macOS the login is kept in the Keychain under a
+name derived from the folder's path, so each folder signs in on its own.
+When the folders share `projects/` (by a symbolic link), `claude --resume
+<id>` in one folder continues a conversation started in the other.
+
+The account-switch rule restarts a limited session under another account.
+It is `off` unless the accounts file switches it on: `dry` records what it
+would do, `on` does it. On each usage-limit signal it decides once, by the
+signal's key, and records an `account-switch` event linked to the signal:
+
+| Outcome  | When                                                                                                      | Needs you |
+| -------- | --------------------------------------------------------------------------------------------------------- | --------- |
+| `switch` | Another account in the file has no limit that still holds                                                 | No        |
+| `skip`   | Every other account is limited                                                                            | Yes       |
+| `skip`   | The session has no id or folder to resume it by                                                           | Yes       |
+| `skip`   | The session's account is not in the file, or the limit is older than `maxAgeMinutes` (30) when it is seen | No        |
+| `fail`   | The launcher did not succeed                                                                              | Yes       |
+
+Atlas keeps each account's newest limit in `account_limits`, whatever the
+mode, so it never moves a session onto an account that is limited while no
+session runs on it. A limit without a reset time counts for five hours.
+
+Atlas does not stop or start Claude Code itself. In mode `on` it runs the
+launcher command from the file, with no shell:
+
+```bash
+<launcher> --name <session name> --session-id <id> --cwd <folder> --config-directory <account folder> --pid <old pid>
+```
+
+The launcher must stop the old process (or its terminal session), start
+`claude --resume <id> --name <session name>` with
+`CLAUDE_CONFIG_DIR=<account folder>` in `<folder>`, exit 0 only once the
+new process runs, and exit with another code otherwise. Atlas reads only
+the exit code. Without a launcher, a switch is recorded as `dry`.
+
+The accounts file stays outside the repository:
+
+```json
+{
+  "accounts": [
+    { "name": "ultra-a", "directory": "~/.claude-ultra-a" },
+    { "name": "ultra-b", "directory": "~/.claude-ultra-b" }
+  ],
+  "switch": "off",
+  "launcher": ["/usr/local/bin/claude-session-switch"],
+  "maxAgeMinutes": 30
+}
+```
+
+Account names are lower-case identifiers; they appear in events, so use
+invented names, not an address.
+
+#### Setting Up Two Accounts
+
+1. Create one folder per account, and link what the accounts share into
+   each, from the folder you use today. Share `projects/` (needed for
+   resume), `settings.json`, `CLAUDE.md` and the files it imports,
+   `plugins/`, `skills/`, `rules/` and `hooks/`. Do not share `sessions/`,
+   because the folder a session file is in is how Atlas knows its account,
+   and do not share `.claude.json`, because each login writes its own
+   account into it.
+
+   ```bash
+   for account in ultra-a ultra-b; do
+     mkdir -p ~/.claude-$account
+     for shared in projects settings.json CLAUDE.md plugins skills rules hooks; do
+       ln -s ~/.claude/$shared ~/.claude-$account/$shared
+     done
+   done
+   ```
+
+2. Sign each account in once, in a terminal on the machine:
+
+   ```bash
+   CLAUDE_CONFIG_DIR=~/.claude-ultra-a claude   # then /login with the first account
+   CLAUDE_CONFIG_DIR=~/.claude-ultra-b claude   # then /login with the second account
+   ```
+
+   User-scope MCP servers live in each folder's own `.claude.json`. Add
+   them in both, with `claude mcp add --scope user` under each folder.
+
+3. Start each session with its account's folder:
+   `CLAUDE_CONFIG_DIR=~/.claude-ultra-a claude --name <name> …`.
+4. Write the accounts file with `"switch": "off"` and set
+   `ATLAS_CLAUDE_ACCOUNTS_FILE` to its path in the server's environment.
+   Atlas now shows limits and records `account-switch` decisions as nothing.
+5. To switch the rule on, set `"switch": "dry"`, check the decisions in the
+   log, then set `"switch": "on"` with a `launcher`, and restart the server.
+
+Not verified yet: that a conversation resumed under a second, different
+account carries on as it did (the test used two folders signed in to one
+account), and whether a session started with `--remote-control` keeps the
+same Remote Control link after the restart. Tools that read
+`~/.claude/sessions` directly see only the sessions of that folder.
 
 ### Design
 

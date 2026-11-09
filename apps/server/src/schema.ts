@@ -21,7 +21,11 @@ import {
 } from "drizzle-orm/sqlite-core";
 
 /** A session's state as the session reader keeps it: its status, or gone. */
-export type SessionState = "busy" | "waiting" | "idle" | "offline";
+/**
+ * A session's state as Atlas keeps it: Claude Code's own three, `limited`
+ * for a session whose transcript shows a usage limit, and `offline`.
+ */
+export type SessionState = "busy" | "waiting" | "limited" | "idle" | "offline";
 
 const governed = {
   id: text().primaryKey(),
@@ -223,7 +227,7 @@ export const sessionAgents = sqliteTable("session_agents", {
   docked: integer({ mode: "boolean" }).notNull(),
   /** The session name the agent was matched or docked by, trimmed and in lower case. */
   sessionName: text("session_name").notNull(),
-  /** The session's state at the last poll: `busy`, `waiting`, `idle` or `offline`. */
+  /** The session's state at the last poll: `busy`, `waiting`, `limited`, `idle` or `offline`. */
   lastState: text("last_state").$type<SessionState>().notNull(),
   /** When the session was first seen gone, ISO 8601; empty while it is live. */
   offlineSince: text("offline_since"),
@@ -259,4 +263,34 @@ export const dispatchDelegations = sqliteTable("dispatch_delegations", {
   subject: text().primaryKey(),
   taskId: text("task_id").notNull(),
   delegatedAt: text("delegated_at").notNull(),
+});
+
+/**
+ * One row per usage-limit signal the account-switch rule decided about, by
+ * the signal's key, so a session is never restarted twice for one limit.
+ * Written before the act, as `pending`. See `account-switch.ts`.
+ */
+export const accountSwitchDecisions = sqliteTable("account_switch_decisions", {
+  signalKey: text("signal_key").primaryKey(),
+  agentId: text("agent_id").notNull(),
+  /** The account names from the accounts file; empty when there was none. */
+  fromAccount: text("from_account"),
+  toAccount: text("to_account"),
+  mode: text().notNull(),
+  outcome: text().notNull(),
+  decidedAt: text("decided_at").notNull(),
+});
+
+/**
+ * The newest usage limit seen on each configured account, so the rule does
+ * not move a session onto an account that is limited while no session runs
+ * under it. Only the account name, the kind and the times are kept.
+ */
+export const accountLimits = sqliteTable("account_limits", {
+  account: text().primaryKey(),
+  kind: text().notNull(),
+  /** When the limit resets, ISO 8601; empty when Claude Code gave no time. */
+  resetsAt: text("resets_at"),
+  /** When a session on the account hit it, ISO 8601. */
+  seenAt: text("seen_at").notNull(),
 });

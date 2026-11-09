@@ -16,6 +16,7 @@
     "test": "bun test tests/"
   },
   "dependencies": {
+    "@atlas/collector": "workspace:*",
     "@atlas/core": "workspace:*",
     "@atlas/fixtures": "workspace:*",
     "@atlas/web": "workspace:*",

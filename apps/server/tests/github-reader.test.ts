@@ -2,7 +2,7 @@ import {
   BacklogItem,
   Dataset,
   type AtlasEvent,
-  type SignalEvent,
+  type GithubSignalEvent,
 } from "@atlas/core";
 import { sampleDataset } from "@atlas/fixtures";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
@@ -231,7 +231,10 @@ async function read(api: Api, path: string) {
 function signals() {
   return listEvents(database)
     .map((stored) => stored.event)
-    .filter((event): event is SignalEvent => event.type === "signal");
+    .filter(
+      (event): event is GithubSignalEvent =>
+        event.type === "signal" && event.kind !== "usage-limit",
+    );
 }
 
 /** The GitHub events in the Atlas log, as their record and text. */
@@ -692,7 +695,7 @@ describe("signals", () => {
     reader.poll();
     reader.poll();
     const swept = recordedHere.filter(
-      (event): event is SignalEvent => event.type === "signal",
+      (event): event is GithubSignalEvent => event.type === "signal",
     );
     expect(swept.map((signal) => [signal.key, signal.text])).toEqual([
       [

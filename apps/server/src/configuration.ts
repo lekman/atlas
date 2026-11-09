@@ -7,9 +7,10 @@ import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-import { dispatchRules } from "@atlas/core";
+import { dispatchRules, Identifier } from "@atlas/core";
 import { z } from "zod/v4";
 
+import type { AccountSwitchSettings } from "./account-switch";
 import {
   defaultDispatcherSettings,
   mergeMethods,
@@ -90,10 +91,14 @@ export interface DispatcherConfiguration {
 
 /**
  * Claude Code's session files on this machine. Set `ATLAS_SESSIONS_DIR`
- * to the folder that holds them, usually `~/.claude/sessions`.
+ * to the folder that holds them, usually `~/.claude/sessions`, or
+ * `ATLAS_CLAUDE_ACCOUNTS_FILE` to read one folder per account.
  */
 export interface SessionsConfiguration {
-  directory: string;
+  /** From `ATLAS_SESSIONS_DIR`. Not read when `accounts` is set. */
+  directory?: string;
+  /** From `ATLAS_CLAUDE_ACCOUNTS_FILE`: the account folders and the switch rule. */
+  accounts?: AccountsConfiguration;
   /** Seconds between reads: `ATLAS_SESSIONS_POLL_SECONDS`, 5 unless set. */
   pollSeconds: number;
   /** Hours a docked agent stays after its session ends: `ATLAS_SESSIONS_FORGET_HOURS`, 24 unless set. */
@@ -166,18 +171,105 @@ function readTasks(
   };
 }
 
+/** The accounts file: one Claude Code folder per account, and the switch rule. */
+export interface AccountsConfiguration {
+  settings: AccountSwitchSettings;
+  /** The command that restarts a session under another account, as arguments. */
+  launcher?: string[];
+}
+
+/**
+ * The accounts file, kept outside the repository. Only `accounts` is
+ * required; the rule (`switch`) is `off` unless set.
+ *
+ * ```json
+ * {
+ *   "accounts": [
+ *     { "name": "ultra-a", "directory": "~/.claude-ultra-a" },
+ *     { "name": "ultra-b", "directory": "~/.claude-ultra-b" }
+ *   ],
+ *   "switch": "off",
+ *   "launcher": ["/usr/local/bin/claude-session-switch"],
+ *   "maxAgeMinutes": 30
+ * }
+ * ```
+ */
+const AccountsFile = z
+  .object({
+    accounts: z
+      .array(
+        z
+          .object({
+            name: Identifier,
+            directory: z.string().min(1).max(1024),
+          })
+          .strict(),
+      )
+      .min(1)
+      .max(10),
+    switch: z.enum(ruleModes).optional(),
+    launcher: z.array(z.string().min(1).max(1024)).min(1).max(20).optional(),
+    maxAgeMinutes: z.number().positive().optional(),
+  })
+  .strict();
+
+/** Reads the accounts file's text. A leading `~/` in a folder is the home folder. */
+export function parseAccountsFile(
+  text: string,
+  home: string = homedir(),
+): AccountsConfiguration {
+  let body: unknown;
+  try {
+    body = JSON.parse(text);
+  } catch {
+    throw new Error("ATLAS_CLAUDE_ACCOUNTS_FILE is not JSON");
+  }
+  const read = AccountsFile.safeParse(body);
+  if (!read.success)
+    throw new Error(
+      `ATLAS_CLAUDE_ACCOUNTS_FILE does not match its shape: ${read.error.issues
+        .map((issue) => issue.path.join(".") || issue.message)
+        .join(", ")}`,
+    );
+  const names = read.data.accounts.map((account) => account.name);
+  if (new Set(names).size !== names.length)
+    throw new Error("ATLAS_CLAUDE_ACCOUNTS_FILE names an account twice");
+  return {
+    settings: {
+      mode: read.data.switch ?? "off",
+      maxAgeMinutes: read.data.maxAgeMinutes ?? 30,
+      accounts: read.data.accounts.map(({ name, directory }) => ({
+        name,
+        directory: directory.startsWith("~/")
+          ? join(home, directory.slice(2))
+          : directory,
+      })),
+    },
+    ...(read.data.launcher ? { launcher: read.data.launcher } : {}),
+  };
+}
+
 function readSessions(
   environment: Record<string, string | undefined>,
 ): SessionsConfiguration | undefined {
   const directory = environment.ATLAS_SESSIONS_DIR?.trim();
-  if (!directory) return undefined;
+  const accountsPath = environment.ATLAS_CLAUDE_ACCOUNTS_FILE?.trim();
+  if (!directory && !accountsPath) return undefined;
   const pollSeconds = Number(environment.ATLAS_SESSIONS_POLL_SECONDS ?? 5);
   if (!Number.isFinite(pollSeconds) || pollSeconds < 1)
     throw new Error("ATLAS_SESSIONS_POLL_SECONDS must be 1 or more");
   const forgetHours = Number(environment.ATLAS_SESSIONS_FORGET_HOURS ?? 24);
   if (!Number.isFinite(forgetHours) || forgetHours <= 0)
     throw new Error("ATLAS_SESSIONS_FORGET_HOURS must be more than 0");
-  return { directory, pollSeconds, forgetHours };
+  const accounts = accountsPath
+    ? parseAccountsFile(readFileSync(accountsPath, "utf8"))
+    : undefined;
+  return {
+    ...(directory && !accounts ? { directory } : {}),
+    ...(accounts ? { accounts } : {}),
+    pollSeconds,
+    forgetHours,
+  };
 }
 
 const RuleMode = z.enum(ruleModes);
