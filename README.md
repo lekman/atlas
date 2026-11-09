@@ -48,7 +48,8 @@ In use. The pieces are:
   artifact, the phone and the VS Code view.
 
 Everything is built and tested in Storybook. See
-[Architecture](docs/architecture.md).
+[Architecture](docs/architecture.md). How Atlas is meant to judge signals
+and run work as experiments is in [The Standard Workflow](docs/workflow/README.md).
 
 ## Quick Start
 
