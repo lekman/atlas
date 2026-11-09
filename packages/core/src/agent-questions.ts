@@ -30,15 +30,23 @@ export const SessionAddress = z
   .regex(/^[a-z0-9][a-z0-9-]*$/, "use lower-case words joined by hyphens");
 export type SessionAddress = z.infer<typeof SessionAddress>;
 
+/** `text` without hyphens at either end, in one pass with no backtracking. */
+function trimHyphens(text: string): string {
+  let start = 0;
+  let end = text.length;
+  while (start < end && text[start] === "-") start += 1;
+  while (end > start && text[end - 1] === "-") end -= 1;
+  return text.slice(start, end);
+}
+
 /** A session name in the tasks server's form, or null when nothing is left. */
 export function sessionAddress(name: string): SessionAddress | null {
-  const address = name
-    .trim()
+  const words = name
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 96)
-    .replace(/-+$/, "");
+    .split(/[^a-z0-9]/)
+    .filter(Boolean)
+    .join("-");
+  const address = trimHyphens(words.slice(0, 96));
   return address || null;
 }
 
