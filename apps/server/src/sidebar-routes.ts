@@ -19,7 +19,7 @@
  * A document's path is in the query, not the route, so the request log,
  * which holds the path only, never names a page or a task.
  */
-import { readFileSync, statSync } from "node:fs";
+import { closeSync, fstatSync, openSync, readFileSync } from "node:fs";
 
 import { eq, sql } from "drizzle-orm";
 
@@ -63,19 +63,31 @@ export function markPage(html: string): string {
     : `${marker}\n${html}`;
 }
 
-/** The built page, read again only when the file changes. */
+/**
+ * The built page, read again only when the file changes. The file is
+ * opened once per request, and its time and text come from that one open
+ * file, so a rebuild between the two cannot mix them.
+ */
 export function sidebarPageFile(path: string): () => string | undefined {
   let cached: { modified: number; html: string } | undefined;
   return () => {
-    let modified: number;
+    let descriptor: number;
     try {
-      modified = statSync(path).mtimeMs;
+      descriptor = openSync(path, "r");
     } catch {
       return undefined;
     }
-    if (cached?.modified !== modified)
-      cached = { modified, html: markPage(readFileSync(path, "utf8")) };
-    return cached.html;
+    try {
+      const modified = fstatSync(descriptor).mtimeMs;
+      if (cached?.modified !== modified)
+        cached = {
+          modified,
+          html: markPage(readFileSync(descriptor, "utf8")),
+        };
+      return cached.html;
+    } finally {
+      closeSync(descriptor);
+    }
   };
 }
 

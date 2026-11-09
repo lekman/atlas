@@ -99,7 +99,8 @@ interface StoredAnswer {
 export function createServerRuntime(
   options: ServerRuntimeOptions,
 ): ClaudeRuntime {
-  const base = options.base.replace(/\/+$/, "");
+  let base = options.base;
+  while (base.endsWith("/")) base = base.slice(0, -1);
   const send = options.fetch ?? fetch;
   const openStream = options.openStream ?? defaultStream;
   const pollMilliseconds = options.pollMilliseconds ?? 30_000;
