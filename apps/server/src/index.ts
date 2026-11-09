@@ -1,6 +1,9 @@
 export { createApi, sequenceHeader, type Api, type ApiOptions } from "./api";
 export {
+  parseDispatcherFile,
   readConfiguration,
+  type DispatcherConfiguration,
+  type EndpointConfiguration,
   type Configuration,
   type Seed,
   type SessionsConfiguration,
@@ -39,6 +42,46 @@ export {
   type PullRequestMemory,
   type Resolution,
 } from "./github-matching";
+export {
+  createDispatcher,
+  type AgentWaker,
+  type DigestEntry,
+  type DispatchConnection,
+  type Dispatcher,
+  type DispatcherOptions,
+  type Merger,
+  type TaskApi,
+  type WakeRequest,
+} from "./dispatcher";
+export {
+  commanderRequest,
+  commanderWaker,
+  githubCommandLineMerger,
+  taskAddInput,
+  tasksApi,
+  type CommandRunner,
+  type HttpConnection,
+} from "./dispatcher-connections";
+export {
+  decide,
+  defaultDispatcherSettings,
+  effectiveSeverity,
+  mergeMethodFor,
+  subjectOf,
+  type DispatcherSettings,
+  type MergeMethod,
+  type Plan,
+  type RuleMode,
+  type SignalContext,
+  type TaskDraft,
+} from "./dispatcher-rules";
+export {
+  checksPassed,
+  happeningUrl,
+  signalOf,
+  signalText,
+  type Happening,
+} from "./github-signals";
 export {
   createGithubReader,
   noGithubSource,

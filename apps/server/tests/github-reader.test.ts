@@ -1,4 +1,9 @@
-import { BacklogItem, Dataset, type AtlasEvent } from "@atlas/core";
+import {
+  BacklogItem,
+  Dataset,
+  type AtlasEvent,
+  type SignalEvent,
+} from "@atlas/core";
 import { sampleDataset } from "@atlas/fixtures";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import {
@@ -13,7 +18,9 @@ import { join } from "node:path";
 
 import {
   createApi,
+  createDispatcher,
   createGithubReader,
+  defaultDispatcherSettings,
   inventDevelopment,
   listEvents,
   openDatabase,
@@ -96,6 +103,54 @@ const openPullRequest = {
   closes: [7],
 };
 
+/** One alert line of events.jsonl, in the shape gh-events adds alerts. */
+function alertLine(
+  event: string,
+  number: number,
+  values: Record<string, unknown> = {},
+): string {
+  return `${JSON.stringify({
+    v: 1,
+    key: `${repository}#alert-dependabot-${number}:${event}`,
+    event,
+    kind: "alert",
+    repo: repository,
+    number,
+    url: `https://github.com/${repository}/security/dependabot/${number}`,
+    account: "example-login",
+    client: "ashgrove",
+    alert_type: "dependabot",
+    severity: "high",
+    package: "left-pad",
+    sha: null,
+    at: "2026-10-24T10:00:00.000Z",
+    ...values,
+  })}\n`;
+}
+
+/** One open alert in registry.json, as gh-events writes it. */
+function openAlert(number: number, values: Record<string, unknown> = {}) {
+  return {
+    kind: "alert",
+    repo: repository,
+    number,
+    url: `https://github.com/${repository}/security/dependabot/${number}`,
+    account: "example-login",
+    client: "ashgrove",
+    alert_type: "dependabot",
+    severity: "high",
+    package: "left-pad",
+    state: "OPEN",
+    review: null,
+    ci: null,
+    mergeable: null,
+    sha: null,
+    closes: [],
+    since: "2026-10-24T09:00:00.000Z",
+    ...values,
+  };
+}
+
 /** One events.jsonl line, as gh-events writes it. */
 function line(
   event: string,
@@ -170,6 +225,13 @@ async function read(api: Api, path: string) {
   );
   if (!response) throw new Error(`no response for ${path}`);
   return response.json();
+}
+
+/** The signals in the Atlas log. */
+function signals() {
+  return listEvents(database)
+    .map((stored) => stored.event)
+    .filter((event): event is SignalEvent => event.type === "signal");
 }
 
 /** The GitHub events in the Atlas log, as their record and text. */
@@ -286,6 +348,7 @@ describe("development tracking from the registry", () => {
       unmatched: 1,
       unknownClients: 2,
       skipped: 1,
+      signals: 2,
       eventsApplied: 1,
       eventsUnmatched: 1,
       eventsSkipped: 1,
@@ -507,5 +570,248 @@ describe("tailing events.jsonl", () => {
         .query("select count(*) as count from github_events")
         .get(),
     ).toEqual({ count: 2 });
+  });
+});
+
+describe("signals", () => {
+  test("records every line as a signal, matched or not, once", () => {
+    writeFileSync(registryPath(), registryText([openIssue, openPullRequest]));
+    appendFileSync(eventsPath(), line("ci_failed", 12) + line("approved", 99));
+    const { reader } = start();
+    reader.poll();
+    appendFileSync(eventsPath(), line("approved", 99));
+    reader.poll();
+    expect(
+      signals().map(({ event, number, recordIds, text }) => ({
+        event,
+        number,
+        recordIds,
+        text,
+      })),
+    ).toEqual([
+      {
+        event: "ci_failed",
+        number: 12,
+        recordIds: ["retry-webhooks"],
+        text: "Pull request #12: checks failed",
+      },
+      {
+        event: "approved",
+        number: 99,
+        recordIds: [],
+        text: "Pull request #99 approved",
+      },
+    ]);
+    expect(signals()[1]).toMatchObject({
+      source: "github",
+      kind: "pr",
+      repository,
+      client: "ashgrove",
+      url: `https://github.com/${repository}/pull/99`,
+    });
+    // The matched line still reaches its item as before.
+    expect(githubEvents()).toEqual([
+      "retry-webhooks: Pull request #12: checks failed",
+    ]);
+  });
+
+  test("reads review requests, changes requested and releases", () => {
+    appendFileSync(
+      eventsPath(),
+      line("review_requested", 30) +
+        line("changes_requested", 31) +
+        line("released", 32),
+    );
+    const { reader } = start();
+    reader.poll();
+    expect(signals().map((signal) => signal.text)).toEqual([
+      "Pull request #30: your review requested",
+      "Pull request #31: changes requested",
+      "Pull request #32 released",
+    ]);
+  });
+
+  test("reads an alert with its type and severity, and nothing an author wrote", () => {
+    appendFileSync(eventsPath(), alertLine("opened", 3));
+    const { reader } = start();
+    reader.poll();
+    expect(signals()).toEqual([
+      expect.objectContaining({
+        kind: "alert",
+        event: "opened",
+        number: 3,
+        alertType: "dependabot",
+        severity: "high",
+        recordIds: [],
+        url: `https://github.com/${repository}/security/dependabot/3`,
+        text: "Dependabot alert #3 (high) opened",
+      }),
+    ]);
+  });
+
+  test("counts and skips an unknown kind, event or alert type", () => {
+    appendFileSync(
+      eventsPath(),
+      line("approved", 40, { kind: "discussion" }) +
+        alertLine("reopened", 4) +
+        alertLine("opened", 5, { alert_type: "licence" }),
+    );
+    const { reader } = start();
+    reader.poll();
+    expect(signals()).toEqual([]);
+  });
+
+  test("keeps an alert in the registry apart from the items, not skipped", async () => {
+    writeFileSync(registryPath(), registryText([openIssue, openAlert(3)]));
+    const { reader, api } = start();
+    reader.poll();
+    const health = (await read(api, "/api/health")).github;
+    expect(health).toMatchObject({ items: 1, skipped: 0 });
+    // Without the sweep, an open alert gives no signal.
+    expect(signals()).toEqual([]);
+  });
+
+  test("sweeps each alert already open once, unless its opened line was read", () => {
+    writeFileSync(
+      registryPath(),
+      registryText([openAlert(3), openAlert(4, { severity: null })]),
+    );
+    appendFileSync(eventsPath(), alertLine("opened", 4));
+    const reader = createGithubReader({
+      directory,
+      database,
+      sweepOpenAlerts: true,
+      log: () => {},
+    });
+    readers.push(reader);
+    const recordedHere: AtlasEvent[] = [];
+    reader.connect({
+      dataset: () => readDataset(database),
+      record: (event) => recordedHere.push(event),
+    });
+    reader.poll();
+    reader.poll();
+    const swept = recordedHere.filter(
+      (event): event is SignalEvent => event.type === "signal",
+    );
+    expect(swept.map((signal) => [signal.key, signal.text])).toEqual([
+      [
+        `${repository}#alert-dependabot-4:opened`,
+        "Dependabot alert #4 (high) opened",
+      ],
+      [
+        `${repository}#alert-dependabot-3:swept`,
+        "Dependabot alert #3 (high) already open",
+      ],
+    ]);
+  });
+
+  test("keeps a client that is not an Atlas id out of the signal", () => {
+    appendFileSync(eventsPath(), line("approved", 41, { client: "Not An Id" }));
+    const { reader } = start();
+    reader.poll();
+    expect(signals()[0]?.client).toBeNull();
+  });
+
+  test("derives a checks_passed signal when a pull request's checks turn green", () => {
+    writeFileSync(registryPath(), registryText([openPullRequest]));
+    const { reader } = start();
+    reader.poll();
+    expect(signals()).toEqual([]);
+    writeFileSync(
+      registryPath(),
+      registryText([{ ...openPullRequest, ci: "SUCCESS" }]),
+    );
+    reader.poll();
+    reader.poll();
+    expect(signals()).toEqual([
+      expect.objectContaining({
+        key: `${repository}#12:checks_passed:${sha}`,
+        event: "checks_passed",
+        number: 12,
+        text: "Pull request #12: checks passed",
+      }),
+    ]);
+  });
+
+  test("hands each new signal to the dispatcher, with the pull request's state", async () => {
+    writeFileSync(
+      registryPath(),
+      registryText([{ ...openPullRequest, review: "APPROVED", ci: "SUCCESS" }]),
+    );
+    appendFileSync(
+      eventsPath(),
+      line("approved", 12, { at: new Date().toISOString() }),
+    );
+    const dispatcher = createDispatcher({
+      database,
+      settings: defaultDispatcherSettings,
+      log: () => {},
+    });
+    const reader = createGithubReader({
+      directory,
+      database,
+      dispatcher,
+      log: () => {},
+    });
+    readers.push(reader);
+    const api = createApi({
+      database,
+      version: "0.0.0-test",
+      github: reader,
+      dispatcher,
+      lookupNode: async () => undefined,
+    });
+    apis.push(api);
+    reader.poll();
+    await dispatcher.settled();
+    const decision = listEvents(database)
+      .map((stored) => stored.event)
+      .find((event) => event.type === "dispatch");
+    expect(decision).toMatchObject({
+      signalKey: `${repository}#12:approved:${sha}`,
+      rule: "merge-approved",
+      mode: "dry",
+      outcome: "merge",
+      text: "Would merge pull request #12 by squash",
+    });
+    expect(await read(api, "/api/digest")).toEqual([]);
+  });
+
+  test("tells the dispatcher a pull request is one the account reviews", async () => {
+    writeFileSync(registryPath(), registryText([openPullRequest]));
+    const now = new Date().toISOString();
+    appendFileSync(
+      eventsPath(),
+      line("review_requested", 12, { at: now }) +
+        line("ci_failed", 12, { at: now }),
+    );
+    const dispatcher = createDispatcher({
+      database,
+      settings: defaultDispatcherSettings,
+      log: () => {},
+    });
+    const reader = createGithubReader({
+      directory,
+      database,
+      dispatcher,
+      log: () => {},
+    });
+    readers.push(reader);
+    reader.connect({
+      dataset: () => readDataset(database),
+      record: () => {},
+    });
+    const decided: AtlasEvent[] = [];
+    reader.connect({
+      dataset: () => readDataset(database),
+      record: (event) => decided.push(event),
+    });
+    reader.poll();
+    await dispatcher.settled();
+    expect(decided.find((event) => event.type === "dispatch")).toMatchObject({
+      rule: "fix-failed-checks",
+      outcome: "skip",
+    });
   });
 });

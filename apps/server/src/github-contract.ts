@@ -9,7 +9,12 @@
  * does not know makes that item or line skipped and counted. Nothing here
  * keeps a login, a title or a branch name, because the contract never
  * carries them and the schemas do not read the `account` field.
+ *
+ * Alerts (kind `alert`) are read from `events.jsonl` with their type and
+ * severity, and from `registry.json` into `alerts`, apart from the pull
+ * requests and issues in `items`.
  */
+import { AlertSeverity, AlertType } from "@atlas/core";
 import { z } from "zod/v4";
 
 /** The `registry.json` version and the `events.jsonl` line version Atlas reads. */
@@ -80,6 +85,8 @@ export interface Registry {
   /** Accounts whose latest poll failed or is older than three intervals. */
   accountsStale: number;
   items: RegistryItem[];
+  /** The open security alerts. */
+  alerts: RegistryAlert[];
   /** Items left out because a value did not match the contract. */
   skipped: number;
 }
@@ -124,15 +131,29 @@ export function parseRegistry(text: string, now: Date): RegistryRead {
       accountsStale += 1;
   }
   const items: RegistryItem[] = [];
+  const alerts: RegistryAlert[] = [];
   let skipped = 0;
   for (const value of frame.data.items) {
+    if (isObject(value) && value.kind === "alert") {
+      const alert = RegistryAlert.safeParse(value);
+      if (alert.success) alerts.push(alert.data);
+      else skipped += 1;
+      continue;
+    }
     const item = RegistryItem.safeParse(value);
     if (item.success) items.push(item.data);
     else skipped += 1;
   }
   return {
     kind: "read",
-    registry: { generatedAt, intervalSeconds, accountsStale, items, skipped },
+    registry: {
+      generatedAt,
+      intervalSeconds,
+      accountsStale,
+      items,
+      alerts,
+      skipped,
+    },
   };
 }
 
@@ -150,8 +171,15 @@ export const pullRequestEvents = [
   "conflict",
   "merged",
   "closed",
+  "released",
+  "review_requested",
+  "changes_requested",
 ] as const;
 export const issueEvents = ["issue_assigned", "issue_closed"] as const;
+export const alertEvents = ["opened", "fixed", "dismissed"] as const;
+
+/** A package name, by the contract's own pattern, such as `left-pad` or `@scope/name`. */
+const PackageName = z.string().regex(/^[A-Za-z0-9@][A-Za-z0-9@/._:+-]{0,213}$/);
 
 /** One line of `events.jsonl`. */
 export const EventLine = z
@@ -175,8 +203,44 @@ export const EventLine = z
   );
 export type EventLine = z.infer<typeof EventLine>;
 
+/**
+ * One alert line of `events.jsonl`: a Dependabot, code scanning or secret
+ * scanning alert opened, fixed or dismissed. `number` is the alert's
+ * number in its repository. A package name that does not look like one is
+ * dropped rather than kept.
+ */
+export const AlertLine = z.object({
+  v: z.literal(contractVersion),
+  key: z.string().min(1).max(512),
+  event: z.enum(alertEvents),
+  kind: z.literal("alert"),
+  repo: RepositoryName,
+  number: ItemNumber,
+  client: z.string().nullable(),
+  alert_type: AlertType,
+  severity: AlertSeverity.nullable(),
+  package: PackageName.nullable().optional().catch(null),
+  at: Timestamp,
+});
+export type AlertLine = z.infer<typeof AlertLine>;
+
+/** One open alert in `registry.json`. A fixed or dismissed alert is not in it. */
+export const RegistryAlert = z.object({
+  kind: z.literal("alert"),
+  repo: RepositoryName,
+  number: ItemNumber,
+  client: z.string().nullable(),
+  alert_type: AlertType,
+  severity: AlertSeverity.nullable(),
+  since: Timestamp,
+});
+export type RegistryAlert = z.infer<typeof RegistryAlert>;
+
 export type EventLineRead =
-  { kind: "read"; line: EventLine } | { kind: "refused" } | { kind: "skipped" };
+  | { kind: "read"; line: EventLine }
+  | { kind: "alert"; line: AlertLine }
+  | { kind: "refused" }
+  | { kind: "skipped" };
 
 /**
  * Reads one line of `events.jsonl`. A line without `v`, or with a `v`
@@ -192,6 +256,12 @@ export function parseEventLine(text: string): EventLineRead {
   }
   if (!isObject(body)) return { kind: "skipped" };
   if (body.v !== contractVersion) return { kind: "refused" };
+  if (body.kind === "alert") {
+    const alert = AlertLine.safeParse(body);
+    return alert.success
+      ? { kind: "alert", line: alert.data }
+      : { kind: "skipped" };
+  }
   const line = EventLine.safeParse(body);
   return line.success ? { kind: "read", line: line.data } : { kind: "skipped" };
 }

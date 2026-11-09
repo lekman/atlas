@@ -320,7 +320,7 @@ export function withGithubDevelopment(
 /** The ids of the backlog items an `events.jsonl` line is about. */
 export function itemsForEvent(
   dataset: Dataset,
-  line: EventLine,
+  line: Pick<EventLine, "kind" | "repo" | "number" | "client">,
   facts: GithubFacts,
 ): string[] {
   const match = matcher(dataset);
@@ -340,21 +340,31 @@ export function itemsForEvent(
  * The Atlas event text for a line, built from its event and number alone,
  * so no text anyone wrote on GitHub can reach the log.
  */
-export function eventText(line: Pick<EventLine, "event" | "number">): string {
+export function eventText(line: { event: string; number: number }): string {
   switch (line.event) {
     case "approved":
       return `Pull request #${line.number} approved`;
     case "ci_failed":
       return `Pull request #${line.number}: checks failed`;
+    case "checks_passed":
+      return `Pull request #${line.number}: checks passed`;
     case "conflict":
       return `Pull request #${line.number}: merge conflict`;
     case "merged":
       return `Pull request #${line.number} merged`;
     case "closed":
       return `Pull request #${line.number} closed without merging`;
+    case "released":
+      return `Pull request #${line.number} released`;
+    case "review_requested":
+      return `Pull request #${line.number}: your review requested`;
+    case "changes_requested":
+      return `Pull request #${line.number}: changes requested`;
     case "issue_assigned":
       return `Issue #${line.number} assigned`;
     case "issue_closed":
       return `Issue #${line.number} closed`;
+    default:
+      return `#${line.number}: ${line.event.replaceAll("_", " ")}`;
   }
 }

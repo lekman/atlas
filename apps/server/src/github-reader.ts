@@ -6,9 +6,14 @@
  * - `registry.json` is read every 30 seconds, and when the folder changes.
  * - `events.jsonl` is tailed by the contract's rule: whole lines only,
  *   following the file's inode, from offset 0 when a new file appears, and
- *   de-duplicated by `key`. Each new line that matches a backlog item is
- *   recorded as an Atlas `external` event, so it reaches the log, the
- *   animation and the sound once.
+ *   de-duplicated by `key`. Every new line is recorded as an Atlas
+ *   `signal` event, matched or not, so it reaches the log. A line that
+ *   matches a backlog item is also recorded as an `external` event on each
+ *   item, so it reaches the animation and the sound once.
+ * - A pull request whose checks turned green in `registry.json` becomes a
+ *   `checks_passed` signal too (see `github-signals.ts`).
+ * - With a dispatcher, each new signal is handed to it with the pull
+ *   request's current state (see `dispatcher.ts`).
  * - The cursor (inode, offset) and the keys already read are kept in
  *   SQLite, so a restart neither replays a line nor skips one.
  *
@@ -27,17 +32,18 @@ import {
 import { join } from "node:path";
 
 import type { AtlasEvent, Dataset } from "@atlas/core";
-import { desc, eq, inArray, lte, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, lte, sql } from "drizzle-orm";
 
 import type { AtlasDatabase } from "./database";
+import type { Dispatcher } from "./dispatcher";
 import {
   contractVersion,
   isStale,
   parseEventLine,
   parseRegistry,
   type CiState,
-  type EventLine,
   type Registry,
+  type RegistryItem,
 } from "./github-contract";
 import {
   eventText,
@@ -49,6 +55,15 @@ import {
   type GithubFacts,
   type PullRequestMemory,
 } from "./github-matching";
+import {
+  alertKeyPrefix,
+  checksPassed,
+  fromAlertLine,
+  fromEventLine,
+  signalOf,
+  sweptAlert,
+  type Happening,
+} from "./github-signals";
 import * as schema from "./schema";
 import { failureName } from "./task-cache";
 
@@ -68,6 +83,8 @@ export interface GithubHealth {
   unknownClients: number;
   /** Registry items left out in the latest read because a value did not match the contract. */
   skipped: number;
+  /** Lines and registry changes recorded as signals since the server started, matched or not. */
+  signals: number;
   /** `events.jsonl` lines recorded as Atlas events since the server started. */
   eventsApplied: number;
   /** Lines since the server started that matched no backlog item, or named no Atlas client. */
@@ -91,6 +108,7 @@ export const noGithubSource: GithubHealth = {
   unmatched: 0,
   unknownClients: 0,
   skipped: 0,
+  signals: 0,
   eventsApplied: 0,
   eventsUnmatched: 0,
   eventsSkipped: 0,
@@ -129,6 +147,13 @@ export interface GithubReaderOptions {
   pollSeconds?: number;
   /** How many read keys to keep in SQLite. 5,000 unless set. */
   keptKeys?: number;
+  /** Acts on each new signal. Leave out to record signals only. */
+  dispatcher?: Dispatcher;
+  /**
+   * Record each alert already open in `registry.json` once, as a `swept`
+   * signal, unless an `opened` line was read for it. Off unless set.
+   */
+  sweepOpenAlerts?: boolean;
   /** Where one-line notices go. `console.log` by default. */
   log?: (line: string) => void;
   now?: () => Date;
@@ -143,17 +168,15 @@ interface Cursor {
   offset: number;
 }
 
-const finishedEvents = new Set<EventLine["event"]>([
-  "merged",
-  "closed",
-  "issue_closed",
-]);
+const finishedEvents = new Set<string>(["merged", "closed", "issue_closed"]);
 
 export function createGithubReader({
   directory,
   database,
   pollSeconds = 30,
   keptKeys = 5000,
+  dispatcher,
+  sweepOpenAlerts = false,
   log = console.log,
   now = () => new Date(),
 }: GithubReaderOptions): GithubReader {
@@ -170,7 +193,15 @@ export function createGithubReader({
   const closedPullRequests = new Map<string, FinishedItem>();
   const closedIssues = new Map<string, FinishedItem>();
   const pullRequests = new Map<string, PullRequestMemory>();
-  const counts = { applied: 0, unmatched: 0, skipped: 0, refused: 0 };
+  const counts = {
+    signals: 0,
+    applied: 0,
+    unmatched: 0,
+    skipped: 0,
+    refused: 0,
+  };
+  // Registry changes that become signals once the reader is connected.
+  let derived: Happening[] = [];
   const listeners = new Set<() => void>();
   let timer: ReturnType<typeof setInterval> | undefined;
   let watcher: FSWatcher | undefined;
@@ -249,6 +280,11 @@ export function createGithubReader({
       );
     });
     if (!changed.length) return;
+    for (const item of changed) {
+      const before = pullRequests.get(referenceKey(item.repo, item.number));
+      const passed = checksPassed(item, before, current.generatedAt);
+      if (passed) derived.push(passed);
+    }
     database.transaction((transaction) => {
       for (const item of changed) {
         const row = {
@@ -348,11 +384,107 @@ export function createGithubReader({
       .run();
   }
 
+  /** The pull request as the latest registry shows it, if it is open. */
+  function openPullRequest(
+    repository: string,
+    number: number,
+  ): RegistryItem | undefined {
+    const key = referenceKey(repository, number);
+    return registry?.items.find(
+      (item) =>
+        item.kind === "pr" && referenceKey(item.repo, item.number) === key,
+    );
+  }
+
+  /** Whether a `review_requested` line was read for this pull request. */
+  function reviewRequested(repository: string, number: number): boolean {
+    return (
+      database
+        .select({ key: schema.githubEvents.key })
+        .from(schema.githubEvents)
+        .where(
+          and(
+            eq(schema.githubEvents.event, "review_requested"),
+            eq(
+              sql`lower(${schema.githubEvents.repository})`,
+              repository.toLowerCase(),
+            ),
+            eq(schema.githubEvents.number, number),
+          ),
+        )
+        .get() !== undefined
+    );
+  }
+
   /**
-   * Handles one whole line. Returns the line when it was new, so the
+   * Records one happening as a signal, and as an `external` event on each
+   * item it matches, then hands the signal to the dispatcher. Returns
+   * whether it was new.
+   */
+  function handle(happening: Happening, dataset: Dataset): boolean {
+    if (keyKnown(happening.key)) return false;
+    const items =
+      happening.kind === "alert"
+        ? []
+        : itemsForEvent(
+            dataset,
+            {
+              kind: happening.kind,
+              repo: happening.repo,
+              number: happening.number,
+              client: happening.client,
+            },
+            facts(),
+          );
+    const row = {
+      key: happening.key,
+      event: happening.event,
+      kind: happening.kind,
+      repository: happening.repo,
+      number: happening.number,
+      client: happening.client,
+      at: happening.at,
+      applied: items.length > 0,
+    };
+    const signal = signalOf(happening, items);
+    // The key and the events it becomes are stored together, so a line is
+    // never half applied.
+    database.transaction((transaction) => {
+      transaction.insert(schema.githubEvents).values(row).run();
+      for (const recordId of items)
+        connection?.record({
+          type: "external",
+          source: "github",
+          recordId,
+          text: eventText(happening),
+        });
+      connection?.record(signal);
+    });
+    counts.signals += 1;
+    if (items.length) counts.applied += 1;
+    else counts.unmatched += 1;
+    if (finishedEvents.has(happening.event)) remember(row);
+    if (connection && dispatcher)
+      dispatcher.handle(
+        signal,
+        {
+          ...(happening.kind === "pr"
+            ? { pullRequest: openPullRequest(happening.repo, happening.number) }
+            : {}),
+          reviewRequested:
+            happening.kind === "pr" &&
+            reviewRequested(happening.repo, happening.number),
+        },
+        connection,
+      );
+    return true;
+  }
+
+  /**
+   * Handles one whole line. Returns the happening when it was new, so the
    * caller can tell whether a merge or a close changed what the reader knows.
    */
-  function readLine(text: string, dataset: Dataset): EventLine | undefined {
+  function readLine(text: string, dataset: Dataset): Happening | undefined {
     if (!text.trim()) return undefined;
     const read = parseEventLine(text);
     if (read.kind === "refused") {
@@ -363,40 +495,11 @@ export function createGithubReader({
       counts.skipped += 1;
       return undefined;
     }
-    const { line } = read;
-    const known = database
-      .select({ key: schema.githubEvents.key })
-      .from(schema.githubEvents)
-      .where(eq(schema.githubEvents.key, line.key))
-      .get();
-    if (known) return undefined;
-    const items = itemsForEvent(dataset, line, facts());
-    const row = {
-      key: line.key,
-      event: line.event,
-      kind: line.kind,
-      repository: line.repo,
-      number: line.number,
-      client: line.client,
-      at: line.at,
-      applied: items.length > 0,
-    };
-    // The key and the events it becomes are stored together, so a line is
-    // never half applied.
-    database.transaction((transaction) => {
-      transaction.insert(schema.githubEvents).values(row).run();
-      for (const recordId of items)
-        connection?.record({
-          type: "external",
-          source: "github",
-          recordId,
-          text: eventText(line),
-        });
-    });
-    if (items.length) counts.applied += 1;
-    else counts.unmatched += 1;
-    if (finishedEvents.has(line.event)) remember(row);
-    return line;
+    const happening =
+      read.kind === "alert"
+        ? fromAlertLine(read.line)
+        : fromEventLine(read.line);
+    return handle(happening, dataset) ? happening : undefined;
   }
 
   /** Reads whole lines from the open file, from the cursor to the end. */
@@ -493,6 +596,9 @@ export function createGithubReader({
     if (!connection) return false;
     const dataset = connection.dataset();
     let changed = false;
+    const waiting = derived;
+    derived = [];
+    for (const happening of waiting) handle(happening, dataset);
     // Open the path and identify the file by its descriptor, so the file
     // read is the file checked.
     let opened: { descriptor: number; inode: string } | undefined;
@@ -544,6 +650,31 @@ export function createGithubReader({
     return changed;
   }
 
+  function keyKnown(key: string): boolean {
+    return (
+      database
+        .select({ key: schema.githubEvents.key })
+        .from(schema.githubEvents)
+        .where(eq(schema.githubEvents.key, key))
+        .get() !== undefined
+    );
+  }
+
+  /**
+   * Records each open alert once as a `swept` signal, unless its `opened`
+   * line was read. Runs after the events, so an alert opened in the same
+   * poll is not swept as well.
+   */
+  function sweepAlerts() {
+    if (!sweepOpenAlerts || !connection || !registry) return;
+    const dataset = connection.dataset();
+    for (const alert of registry.alerts) {
+      const prefix = alertKeyPrefix(alert.repo, alert.alert_type, alert.number);
+      if (keyKnown(`${prefix}:opened`)) continue;
+      handle(sweptAlert(alert, registry.generatedAt), dataset);
+    }
+  }
+
   /** Keeps the newest `keptKeys` keys. */
   function pruneKeys() {
     const boundary = database
@@ -574,6 +705,7 @@ export function createGithubReader({
     try {
       changed = readRegistry();
       changed = readEvents() || changed;
+      sweepAlerts();
     } catch (error) {
       log(
         `GitHub reader failed (${failureName(error)}); trying again on the next poll`,
@@ -606,6 +738,7 @@ export function createGithubReader({
         error: registryError,
         ...matches,
         skipped: registry?.skipped ?? 0,
+        signals: counts.signals,
         eventsApplied: counts.applied,
         eventsUnmatched: counts.unmatched,
         eventsSkipped: counts.skipped,
