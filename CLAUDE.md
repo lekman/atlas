@@ -35,17 +35,18 @@ name: `bun test -t 'substring'`.
 
 ## Layout
 
-| Path                | What it holds                                                 |
-| ------------------- | ------------------------------------------------------------- |
-| `packages/core`     | Data model, events, needs-you, boundary rules. Zod, no React  |
-| `packages/fixtures` | The invented dataset and a scripted day of events             |
-| `packages/worlds`   | Layout, scene, canvas and SVG renderers and sounds, per world |
-| `packages/ui`       | React components and their stories                            |
-| `apps/server`       | Bun, SQLite, the task database reader, the API and MCP tools  |
-| `apps/web`          | The web app the server serves: the full view on live data     |
-| `apps/storybook`    | Storybook configuration, story tests, the Pages build         |
-| `apps/plugin`       | Claude Code plugin: hooks report subagents and prompts        |
-| `docs/`             | Architecture, worlds, contributing, repository settings       |
+| Path                   | What it holds                                                 |
+| ---------------------- | ------------------------------------------------------------- |
+| `packages/core`        | Data model, events, needs-you, boundary rules. Zod, no React  |
+| `packages/fixtures`    | The invented dataset and a scripted day of events             |
+| `packages/worlds`      | Layout, scene, canvas and SVG renderers and sounds, per world |
+| `packages/ui`          | React components and their stories                            |
+| `apps/server`          | Bun, SQLite, the task database reader, the API and MCP tools  |
+| `apps/web`             | The web app the server serves: the full view on live data     |
+| `apps/storybook`       | Storybook configuration, story tests, the Pages build         |
+| `apps/plugin`          | Claude Code plugin: hooks report subagents and prompts        |
+| `apps/claude-accounts` | A command to register each Claude account in its own folder   |
+| `docs/`                | Architecture, worlds, contributing, repository settings       |
 
 Planned next, not yet here: Litestream in `apps/server`, the
 installable iPhone app (a PWA) in `apps/web`, `apps/artifact` (the Claude

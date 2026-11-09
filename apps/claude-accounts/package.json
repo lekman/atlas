@@ -1,0 +1,25 @@
+{
+  "name": "@atlas/claude-accounts",
+  "version": "0.0.0",
+  "description": "A command the owner runs to register each Claude subscription in its own CLAUDE_CONFIG_DIR folder and write the Atlas accounts file",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "bin": {
+    "claude-accounts": "./dist/claude-accounts.js"
+  },
+  "scripts": {
+    "build": "bun build src/main.ts --target=bun --outfile=dist/claude-accounts.js",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test tests/"
+  },
+  "dependencies": {
+    "@atlas/collector": "workspace:*",
+    "@atlas/core": "workspace:*",
+    "@atlas/server": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4",
+    "typescript": "^6.0"
+  }
+}

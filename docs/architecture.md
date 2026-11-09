@@ -32,17 +32,18 @@ flowchart LR
 
 ## What Exists Today
 
-| Package           | Status                                                 |
-| ----------------- | ------------------------------------------------------ |
-| `@atlas/core`     | Built. Model, events, needs-you, boundary rules, tests |
-| `@atlas/fixtures` | Built. Invented dataset and a scripted day             |
-| `@atlas/worlds`   | Built. Six worlds: layout, canvas, SVG, sounds         |
-| `@atlas/ui`       | Built. Shell, live map, panels, stories                |
-| `apps/storybook`  | Built. Story tests with axe; published to GitHub Pages |
-| `apps/server`     | Started. SQLite, task source, API, stream and MCP      |
-| `apps/web`        | Started. The full view, kept live by the event stream  |
-| `apps/artifact`   | Next                                                   |
-| `apps/plugin`     | Started. Hooks report subagents and permission prompts |
+| Package                | Status                                                 |
+| ---------------------- | ------------------------------------------------------ |
+| `@atlas/core`          | Built. Model, events, needs-you, boundary rules, tests |
+| `@atlas/fixtures`      | Built. Invented dataset and a scripted day             |
+| `@atlas/worlds`        | Built. Six worlds: layout, canvas, SVG, sounds         |
+| `@atlas/ui`            | Built. Shell, live map, panels, stories                |
+| `apps/storybook`       | Built. Story tests with axe; published to GitHub Pages |
+| `apps/server`          | Started. SQLite, task source, API, stream and MCP      |
+| `apps/web`             | Started. The full view, kept live by the event stream  |
+| `apps/artifact`        | Next                                                   |
+| `apps/plugin`          | Started. Hooks report subagents and permission prompts |
+| `apps/claude-accounts` | Built. Registers each Claude account in its own folder |
 
 ## The Data Model
 
@@ -617,39 +618,30 @@ invented names, not an address.
 
 #### Setting Up Two Accounts
 
-1. Create one folder per account, and link what the accounts share into
-   each, from the folder you use today. Share `projects/` (needed for
-   resume), `settings.json`, `CLAUDE.md` and the files it imports,
-   `plugins/`, `skills/`, `rules/` and `hooks/`. Do not share `sessions/`,
-   because the folder a session file is in is how Atlas knows its account,
-   and do not share `.claude.json`, because each login writes its own
-   account into it.
+1. Register each account with
+   [`claude-accounts`](workflow/claude-accounts.md), in a terminal on the
+   machine. It creates the account's folder and links what the accounts
+   share from `~/.claude` (`projects/`, needed for resume, `settings.json`,
+   `CLAUDE.md` and the files it imports, `plugins/`, `skills/`, `rules/`,
+   `hooks/` and more). It keeps `sessions/` per folder, because the folder
+   a session file is in is how Atlas knows its account, and `.claude.json`,
+   because each login writes its own account into it. It signs the folder
+   in, checks the address and that no other folder is on the same account,
+   copies the user-scope MCP servers, and writes the accounts file with
+   `"switch": "off"`.
 
    ```bash
-   for account in ultra-a ultra-b; do
-     mkdir -p ~/.claude-$account
-     for shared in projects settings.json CLAUDE.md plugins skills rules hooks; do
-       ln -s ~/.claude/$shared ~/.claude-$account/$shared
-     done
-   done
+   claude-accounts add ultra-a --email you@example.com
+   claude-accounts add ultra-b --email you+b@example.com
+   claude-accounts status
    ```
 
-2. Sign each account in once, in a terminal on the machine:
-
-   ```bash
-   CLAUDE_CONFIG_DIR=~/.claude-ultra-a claude   # then /login with the first account
-   CLAUDE_CONFIG_DIR=~/.claude-ultra-b claude   # then /login with the second account
-   ```
-
-   User-scope MCP servers live in each folder's own `.claude.json`. Add
-   them in both, with `claude mcp add --scope user` under each folder.
-
+2. Set `ATLAS_CLAUDE_ACCOUNTS_FILE` to the accounts file's path in the
+   server's environment, and restart the server. Atlas now shows limits and
+   records `account-switch` decisions as nothing.
 3. Start each session with its account's folder:
    `CLAUDE_CONFIG_DIR=~/.claude-ultra-a claude --name <name> …`.
-4. Write the accounts file with `"switch": "off"` and set
-   `ATLAS_CLAUDE_ACCOUNTS_FILE` to its path in the server's environment.
-   Atlas now shows limits and records `account-switch` decisions as nothing.
-5. To switch the rule on, set `"switch": "dry"`, check the decisions in the
+4. To switch the rule on, set `"switch": "dry"`, check the decisions in the
    log, then set `"switch": "on"` with a `launcher`, and restart the server.
 
 Not verified yet: that a conversation resumed under a second, different
