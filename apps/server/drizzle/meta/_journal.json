@@ -57,6 +57,13 @@
       "when": 1794224746068,
       "tag": "0007_account_switch",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1794227050816,
+      "tag": "0008_idle_with_work",
+      "breakpoints": true
     }
   ]
 }

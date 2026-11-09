@@ -485,12 +485,30 @@ export interface SessionConnection {
   record(event: AtlasEvent): void;
 }
 
+/** An agent's session state as the reader last applied it, and since when. */
+export interface AgentSessionState {
+  state: SessionState;
+  /**
+   * When the session entered the state, ISO 8601: Claude Code's own change
+   * time for a live session when it gives one, the time the session was
+   * first seen gone for `offline`, and otherwise the poll that first saw it.
+   */
+  since: string;
+}
+
 export interface SessionReader {
   /** Gives the reader the dataset and the record path. Nothing is applied until then. */
   connect(connection: SessionConnection): void;
   /** Reads the folder and applies what changed. Never throws. */
   poll(): void;
   health(): SessionHealth;
+  /**
+   * Each agent with a session on this machine, by agent id, as of the last
+   * read; `undefined` before the first read and while reads fail, since
+   * nothing is known then. An agent this machine has never seen a session
+   * for is not in it.
+   */
+  agentSessions(): ReadonlyMap<string, AgentSessionState> | undefined;
   /** Calls `listener` when a docked agent was added or removed. Returns a way to stop. */
   subscribe(listener: () => void): () => void;
   /** Polls on a timer until `stop`. */
@@ -568,6 +586,7 @@ export function createSessionReader({
     error: "the sessions folder has not been read yet",
   };
   let reported: string | null = null;
+  let agentStates: Map<string, AgentSessionState> | undefined;
   const listeners = new Set<() => void>();
   let timer: ReturnType<typeof setInterval> | undefined;
 
@@ -601,6 +620,7 @@ export function createSessionReader({
     at: Date,
     live?: LiveSession,
   ) {
+    note(agent.id, row, state, at, live);
     const limit = state === "limited" ? (live?.usageLimit ?? null) : null;
     const target = {
       to: statusFor[state].to,
@@ -643,6 +663,26 @@ export function createSessionReader({
         set: { sessionName, lastState: state, offlineSince },
       })
       .run();
+  }
+
+  /** Keeps the agent's state and since when for `agentSessions`. */
+  function note(
+    agentId: string,
+    row: SessionRow | undefined,
+    state: SessionState,
+    at: Date,
+    live?: LiveSession,
+  ) {
+    const previous = agentStates?.get(agentId);
+    let since: string;
+    if (state === "offline")
+      since =
+        (row?.lastState === "offline" ? row.offlineSince : null) ??
+        at.toISOString();
+    else if (live && live.status === state && live.statusUpdatedAt > 0)
+      since = new Date(live.statusUpdatedAt).toISOString();
+    else since = previous?.state === state ? previous.since : at.toISOString();
+    pending.set(agentId, { state, since });
   }
 
   /** Records the usage-limit signal for an agent's session, then tells the listener. */
@@ -794,6 +834,7 @@ export function createSessionReader({
     };
     if (read.error) {
       // Without a usable read nothing is known, so no agent is changed.
+      agentStates = undefined;
       health = {
         ...base,
         ok: false,
@@ -821,6 +862,7 @@ export function createSessionReader({
       health = { ...base, ok: true, ...counts, error: counts.error };
       report(counts.error);
     } catch {
+      agentStates = undefined;
       const error = "the sessions could not be applied";
       health = {
         ...base,
@@ -834,8 +876,12 @@ export function createSessionReader({
     }
   }
 
+  /** The states the read in progress has applied, kept once it finishes. */
+  let pending = new Map<string, AgentSessionState>();
+
   function applyRead(live: readonly LiveSession[], at: Date) {
     if (!connection) throw new Error("not connected");
+    pending = new Map();
     let dataset = connection.dataset();
     let stored = rows();
     const dockedIds = new Set(
@@ -944,6 +990,7 @@ export function createSessionReader({
       );
     }
 
+    agentStates = pending;
     if (changed) for (const listener of listeners) listener();
     return { matched, unknownDocked, ambiguous, error };
   }
@@ -960,6 +1007,7 @@ export function createSessionReader({
       }
     },
     health: () => health,
+    agentSessions: () => agentStates,
     subscribe(listener) {
       listeners.add(listener);
       return () => listeners.delete(listener);

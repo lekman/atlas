@@ -18,7 +18,9 @@ import {
   githubCommandLineMerger,
   tasksApi,
 } from "./dispatcher-connections";
+import { defaultDispatcherSettings } from "./dispatcher-rules";
 import { createGithubReader } from "./github-reader";
+import { createIdleWatcher } from "./idle-with-work";
 import { createSessionReader } from "./session-source";
 import { isEmpty, readSeedFile, seedDataset } from "./store";
 import { createTaskCache } from "./task-cache";
@@ -100,7 +102,9 @@ function dispatcher() {
     merger: githubCommandLineMerger(settings.githubCommand),
   });
 }
-const signalDispatcher = dispatcher();
+const signalDispatcher = configuration.githubStateDirectory
+  ? dispatcher()
+  : undefined;
 
 // Pull request and issue state from gh-events' files, when configured.
 const github = configuration.githubStateDirectory
@@ -153,6 +157,31 @@ const sessions = configuration.sessions
     })
   : undefined;
 
+// Agents idle with open work, whenever live agent status is on. The nudge
+// rule follows the dispatcher file, and is off with the dispatcher.
+const idle = sessions
+  ? createIdleWatcher({
+      database,
+      sessions,
+      settings: (
+        configuration.dispatcher?.settings ?? defaultDispatcherSettings
+      ).idleWithWork,
+      mode:
+        configuration.dispatcher?.settings.rules["nudge-idle-with-work"] ??
+        "off",
+      ...(configuration.dispatcher?.commander
+        ? {
+            waker: commanderWaker({
+              url: configuration.dispatcher.commander.url,
+              token: passwordFromCommand(
+                configuration.dispatcher.commander.tokenCommand,
+              ),
+            }),
+          }
+        : {}),
+    })
+  : undefined;
+
 // Every start is a new build as far as open pages are concerned: a deploy
 // restarts the server, and the pages reload when they reconnect.
 const build = `${rootPackage.version}-${Date.now().toString(36)}`;
@@ -166,6 +195,7 @@ const api = createApi({
   ...(github ? { github } : {}),
   ...(sessions ? { sessions } : {}),
   ...(signalDispatcher ? { dispatcher: signalDispatcher } : {}),
+  ...(idle ? { idle } : {}),
 });
 if (github) {
   github.poll();
@@ -174,6 +204,10 @@ if (github) {
 if (sessions) {
   sessions.poll();
   sessions.start();
+}
+if (idle) {
+  idle.check();
+  idle.start();
 }
 
 const server = Bun.serve({
@@ -196,13 +230,14 @@ const server = Bun.serve({
 });
 
 console.log(
-  `atlas ${rootPackage.version} listening on ${server.url}, tokens ${configuration.requireTokens ? "required" : "optional"}, tasks from ${tasks ? "the task database" : "SQLite"}${github ? ", GitHub state from gh-events" : ""}${signalDispatcher ? ", dispatcher on" : ""}${sessions ? ", agent status from Claude Code sessions" : ""}${accounts ? `, ${accounts.settings.accounts.length} accounts, switch ${accounts.settings.mode}` : ""}${configuration.fakeDevelopment ? ", development tracking fake" : ""}`,
+  `atlas ${rootPackage.version} listening on ${server.url}, tokens ${configuration.requireTokens ? "required" : "optional"}, tasks from ${tasks ? "the task database" : "SQLite"}${github ? ", GitHub state from gh-events" : ""}${signalDispatcher ? ", dispatcher on" : ""}${sessions ? ", agent status from Claude Code sessions" : ""}${idle ? `, idle-with-work nudges ${configuration.dispatcher?.settings.rules["nudge-idle-with-work"] ?? "off"}` : ""}${accounts ? `, ${accounts.settings.accounts.length} accounts, switch ${accounts.settings.mode}` : ""}${configuration.fakeDevelopment ? ", development tracking fake" : ""}`,
 );
 
 function shutdown() {
   tasks?.stop();
   github?.stop();
   sessions?.stop();
+  idle?.stop();
   api.close();
   server.stop();
   database.$client.close();

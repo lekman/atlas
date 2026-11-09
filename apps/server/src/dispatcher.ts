@@ -20,7 +20,7 @@
 import type {
   AtlasEvent,
   Dataset,
-  DispatchEvent,
+  GithubDispatchEvent as DispatchEvent,
   GithubSignalEvent,
 } from "@atlas/core";
 import { desc, eq } from "drizzle-orm";
@@ -53,7 +53,8 @@ export interface WakeRequest {
   /** The client's name, as the task database holds it. */
   clientName: string;
   title: string;
-  url: string;
+  /** The subject's address, or null when there is none, as for a nudge. */
+  url: string | null;
   key: string | null;
   day: string;
 }
