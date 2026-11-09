@@ -328,3 +328,24 @@ export const agentQuestions = sqliteTable("agent_questions", {
   messageSentAt: text("message_sent_at"),
   deliveredAt: text("delivered_at"),
 });
+
+/**
+ * One row per agent the idle-with-work watcher has flagged (see
+ * `idle-with-work.ts`). `signalKey` is the open spell's key, empty once it
+ * is cleared; the spell's fields are kept so the clearing signal can name
+ * them after a restart. `nudgedAt` is the last nudge, kept across spells,
+ * so the rule's cool-down holds.
+ */
+export const idleWithWork = sqliteTable("idle_with_work", {
+  agentId: text("agent_id").primaryKey(),
+  signalKey: text("signal_key"),
+  /** `idle` or `gone`. */
+  session: text(),
+  /** When the spell began, ISO 8601. */
+  since: text(),
+  clientId: text("client_id"),
+  /** The open task ids at the start of the spell. */
+  taskIds: text("task_ids", { mode: "json" }).$type<string[]>(),
+  /** When the rule last nudged the agent, ISO 8601, in any mode. */
+  nudgedAt: text("nudged_at"),
+});

@@ -24,6 +24,7 @@ export const externalSources = [
   "mail",
   "monday",
   "claude",
+  "atlas",
 ] as const;
 export const ExternalSource = z.enum(externalSources);
 export type ExternalSource = z.infer<typeof ExternalSource>;
@@ -36,6 +37,7 @@ export const externalSourceNames: Record<ExternalSource, string> = {
   mail: "Mail",
   monday: "monday.com",
   claude: "Claude Code",
+  atlas: "Atlas",
 };
 
 /** What a GitHub signal is about: a pull request, an issue, or a security alert. */
@@ -44,13 +46,15 @@ export const GithubSignalKind = z.enum(githubSignalKinds);
 export type GithubSignalKind = z.infer<typeof GithubSignalKind>;
 
 /**
- * What a signal is about: a GitHub subject, a Claude Code session that hit a
- * usage limit, or a question a session asked the person.
+ * What a signal is about: a GitHub subject, a Claude Code session that hit
+ * a usage limit, an agent that holds open work and is not working, or a
+ * question a session asked the person.
  */
 export const signalKinds = [
   ...githubSignalKinds,
   "usage-limit",
   "question",
+  "agent",
 ] as const;
 export const SignalKind = z.enum(signalKinds);
 export type SignalKind = z.infer<typeof SignalKind>;
@@ -75,11 +79,24 @@ export const alertSeverities = ["critical", "high", "medium", "low"] as const;
 export const AlertSeverity = z.enum(alertSeverities);
 export type AlertSeverity = z.infer<typeof AlertSeverity>;
 
-/** The dispatcher's rules. Each has its own mode in the server's configuration. */
-export const dispatchRules = [
+/** The dispatcher's rules on GitHub signals. */
+export const githubDispatchRules = [
   "merge-approved",
   "fix-failed-checks",
   "alert-by-severity",
+] as const;
+export const GithubDispatchRule = z.enum(githubDispatchRules);
+export type GithubDispatchRule = z.infer<typeof GithubDispatchRule>;
+
+/** The dispatcher's rules on agents. */
+export const agentDispatchRules = ["nudge-idle-with-work"] as const;
+export const AgentDispatchRule = z.enum(agentDispatchRules);
+export type AgentDispatchRule = z.infer<typeof AgentDispatchRule>;
+
+/** The dispatcher's rules. Each has its own mode in the server's configuration. */
+export const dispatchRules = [
+  ...githubDispatchRules,
+  ...agentDispatchRules,
 ] as const;
 export const DispatchRule = z.enum(dispatchRules);
 export type DispatchRule = z.infer<typeof DispatchRule>;
@@ -160,6 +177,41 @@ export const UsageLimitSignalEvent = z.object({
 });
 export type UsageLimitSignalEvent = z.infer<typeof UsageLimitSignalEvent>;
 
+/** How an agent's session stands when it holds open work and is not working. */
+export const idleSessionStates = ["idle", "gone"] as const;
+export const IdleSessionState = z.enum(idleSessionStates);
+export type IdleSessionState = z.infer<typeof IdleSessionState>;
+
+/**
+ * An agent that holds an open task and whose session has been idle, or
+ * gone, for longer than a threshold. The server finds it by joining the
+ * task database's claims to the Claude Code sessions. `idle_with_work`
+ * opens it; `cleared` closes it, with the same key, once the agent works
+ * again or no longer holds open work. `text` is a fixed note built by the
+ * server.
+ */
+export const IdleWithWorkSignalEvent = z.object({
+  type: z.literal("signal"),
+  source: z.literal("atlas"),
+  /** One key per spell of idleness: the agent and when it began. */
+  key: z.string().min(1).max(512),
+  kind: z.literal("agent"),
+  event: z.enum(["idle_with_work", "cleared"]),
+  agentId: Identifier,
+  /** `idle`: the session is live and idle. `gone`: no live session. */
+  session: IdleSessionState,
+  /** How long the session has been idle or gone, in whole minutes. */
+  minutes: z.number().int().nonnegative(),
+  /** The open tasks the agent holds, earliest claim first. */
+  taskIds: z.array(Identifier),
+  client: Identifier.nullable(),
+  /** The agent and its tasks, so their logs show the signal. */
+  recordIds: z.array(Identifier),
+  at: z.iso.datetime(),
+  text: z.string().min(1),
+});
+export type IdleWithWorkSignalEvent = z.infer<typeof IdleWithWorkSignalEvent>;
+
 /**
  * A Claude Code session asked the person a question. `text` is the
  * question's title; a card's title is written for outside use, and a card
@@ -185,19 +237,20 @@ export const QuestionSignalEvent = z.object({
 });
 export type QuestionSignalEvent = z.infer<typeof QuestionSignalEvent>;
 
-/** A happening in an outside system: GitHub, a Claude Code usage limit, or an agent's question. */
+/** A happening in an outside system (GitHub, a Claude Code usage limit, an agent's question), or in Atlas itself. */
 export const SignalEvent = z.discriminatedUnion("kind", [
   GithubSignalEvent,
   UsageLimitSignalEvent,
+  IdleWithWorkSignalEvent,
   QuestionSignalEvent,
 ]);
 export type SignalEvent = z.infer<typeof SignalEvent>;
 
-/** What the dispatcher decided about one signal, linked to it by `signalKey`. */
-export const DispatchEvent = z.object({
+/** What a GitHub rule decided about one signal, linked to it by `signalKey`. */
+export const GithubDispatchEvent = z.object({
   type: z.literal("dispatch"),
   signalKey: z.string().min(1).max(512),
-  rule: DispatchRule,
+  rule: GithubDispatchRule,
   /** `dry` records the act without doing it. */
   mode: z.enum(["dry", "on"]),
   outcome: DispatchOutcome,
@@ -214,6 +267,43 @@ export const DispatchEvent = z.object({
   mergeMethod: z.enum(["squash", "merge", "rebase"]).optional(),
   text: z.string().min(1),
 });
+export type GithubDispatchEvent = z.infer<typeof GithubDispatchEvent>;
+
+/**
+ * What the nudge rule decided about an agent idle with open work. `wake`
+ * asks the agent's session to continue a task; `ask` asks you to restart
+ * a session that is gone; `fail` is a wake that was tried and did not work.
+ */
+export const agentDispatchOutcomes = ["wake", "ask", "skip", "fail"] as const;
+export const AgentDispatchOutcome = z.enum(agentDispatchOutcomes);
+export type AgentDispatchOutcome = z.infer<typeof AgentDispatchOutcome>;
+
+export const AgentDispatchEvent = z.object({
+  type: z.literal("dispatch"),
+  signalKey: z.string().min(1).max(512),
+  rule: AgentDispatchRule,
+  /** `dry` records the act without doing it. */
+  mode: z.enum(["dry", "on"]),
+  outcome: AgentDispatchOutcome,
+  agentId: Identifier,
+  /** The task the agent is asked to continue first, then the rest it holds. */
+  taskIds: z.array(Identifier),
+  client: Identifier.nullable(),
+  /** The decision also asks the reader to look. */
+  needsYou: z.boolean(),
+  /** Whether the session was asked to continue. */
+  woken: z.boolean().optional(),
+  /** The command that restarts a gone session, for you to run. */
+  command: z.string().min(1).max(200).optional(),
+  text: z.string().min(1),
+});
+export type AgentDispatchEvent = z.infer<typeof AgentDispatchEvent>;
+
+/** What the dispatcher decided, linked to its signal by `signalKey`. */
+export const DispatchEvent = z.discriminatedUnion("rule", [
+  GithubDispatchEvent,
+  AgentDispatchEvent,
+]);
 export type DispatchEvent = z.infer<typeof DispatchEvent>;
 
 /**

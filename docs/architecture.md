@@ -137,7 +137,7 @@ origin. Machine tokens, Litestream and the import are still to come.
 | `POST /api/events`               | Adds one event, writes its effect and streams it             |
 | `GET /api/stream`                | Server-sent events after `?after=`, then each new one        |
 | `GET /api/items/:id/log`         | One backlog item's log from the task database, newest first  |
-| `GET /api/digest`                | Agents' open questions, then alerts left for a digest        |
+| `GET /api/digest`                | Open questions, agents idle with open work, then alerts      |
 | `GET /api/questions`             | Agents' questions, by `?state=open,answered,delivered`       |
 | `POST /api/questions/:id/answer` | Answers an agent's question; the first answer wins           |
 | `POST /api/questions/:id/close`  | Closes one as answered elsewhere, or withdrawn               |
@@ -413,15 +413,17 @@ skips one.
 
 ### The Dispatcher
 
-The dispatcher acts on each new signal. It runs whenever GitHub state is
-on, unless `ATLAS_DISPATCHER=off`. Each rule has a mode: `off` decides
+The dispatcher acts on each new signal. Its GitHub rules run whenever
+GitHub state is on, and its rule on idle agents whenever live agent status
+is on, unless `ATLAS_DISPATCHER=off`. Each rule has a mode: `off` decides
 nothing, `dry` records what it would do and does nothing, `on` does it.
 
-| Rule                | On                                               | Act                                                                                                   | Default |
-| ------------------- | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------- | ------- |
-| `merge-approved`    | `approved` or `checks_passed`                    | Merge a pull request the registry shows open, approved, green and not conflicting                     | `dry`   |
-| `fix-failed-checks` | `ci_failed` on a pull request the account opened | Delegate a fix                                                                                        | `on`    |
-| `alert-by-severity` | `opened` or `swept` alert                        | Critical or high: delegate and ask you. Medium: delegate, or the digest when `swept`. Low: the digest | `on`    |
+| Rule                   | On                                               | Act                                                                                                   | Default |
+| ---------------------- | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------- | ------- |
+| `merge-approved`       | `approved` or `checks_passed`                    | Merge a pull request the registry shows open, approved, green and not conflicting                     | `dry`   |
+| `fix-failed-checks`    | `ci_failed` on a pull request the account opened | Delegate a fix                                                                                        | `on`    |
+| `alert-by-severity`    | `opened` or `swept` alert                        | Critical or high: delegate and ask you. Medium: delegate, or the digest when `swept`. Low: the digest | `on`    |
+| `nudge-idle-with-work` | An agent idle with open work (below)             | Idle session: wake it through Commander. Gone session: ask you to restart it with `cc-restart`        | `dry`   |
 
 The contract does not say who opened a pull request, so the dispatcher
 counts one as opened by the account unless a `review_requested` line was
@@ -458,6 +460,20 @@ hold records a `skip` with the reason. A signal older than `maxAgeHours`
 - Without a tasks API, a delegation is recorded as `dry`. Without
   Commander, the task is added and no agent is woken.
 
+`nudge-idle-with-work` acts on the agents the idle watcher
+(`idle-with-work.ts`) flags, not on GitHub signals. Its decisions are
+`dispatch` events with the agent's id, its open task ids, and the outcome:
+
+| Session | `dry`                                           | `on`                                                                                                                                                                                                                 |
+| ------- | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Idle    | Records "Would wake the session", wakes nothing | `POST /requests` on the Commander bridge with `action: execute`, `ref: db:<task id>` of the earliest open claim, and the title "Continue <task>: your session has been idle with it open". Outcome `wake`, or `fail` |
+| Gone    | Records the ask, not on your list               | Outcome `ask`, needs you, with `command: cc-restart <agent name>`. Atlas never restarts a session                                                                                                                    |
+
+An agent is nudged at most once per `cooldownMinutes`, in either mode. The
+time of the last nudge is written to the `idle_with_work` table before the
+act, so a restart of Atlas never nudges twice. Without Commander, a wake is
+recorded as `dry`.
+
 The rules are pure functions in `dispatcher-rules.ts`; the task database,
 Commander and the merge are interfaces in `dispatcher.ts`, so the rules and
 the runner are tested without a network.
@@ -474,14 +490,22 @@ the runner are tested without a network.
 
 The dispatcher file sets only what it names; the rest keeps its default.
 Merge methods are `squash`, `merge` or `rebase`, by `owner/name`, then by
-`owner`, then `default`:
+`owner`, then `default`. `idleWithWork` holds the idle rule's thresholds,
+in minutes:
+
+| Key               | What it sets                                        | Default |
+| ----------------- | --------------------------------------------------- | ------- |
+| `idleMinutes`     | A live session idle longer than this counts as idle | 20      |
+| `goneMinutes`     | No live session for longer than this counts as gone | 10      |
+| `cooldownMinutes` | At most one nudge per agent in this many minutes    | 60      |
 
 ```json
 {
   "rules": {
     "merge-approved": "dry",
     "fix-failed-checks": "on",
-    "alert-by-severity": "on"
+    "alert-by-severity": "on",
+    "nudge-idle-with-work": "dry"
   },
   "mergeMethods": {
     "default": "squash",
@@ -490,9 +514,20 @@ Merge methods are `squash`, `merge` or `rebase`, by `owner/name`, then by
   },
   "maxAgeHours": 24,
   "sweepOpenAlerts": true,
-  "by": "atlas-dispatcher"
+  "by": "atlas-dispatcher",
+  "idleWithWork": {
+    "idleMinutes": 20,
+    "goneMinutes": 10,
+    "cooldownMinutes": 60
+  }
 }
 ```
+
+`GET /api/digest` lists agents' open questions first, oldest first, as
+`kind: "question"` (see [Agents' Questions](#agents-questions)). Then the
+agents idle with open work, longest first, as `kind: "idle-with-work"` with the agent, `session`, `since`,
+`minutes`, `taskIds` and a reason naming the first task. Then the alerts
+left for a digest, newest first, as `kind: "alert"`.
 
 Tokens are read by their commands when a call needs one, and are never
 logged or kept in an error. The log holds counts and failure names only.

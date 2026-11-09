@@ -10,9 +10,9 @@
  * | POST /api/events        | Adds one event, writes its effect and streams it      |
  * | GET  /api/stream        | Server-sent events after `?after=`, then each new one |
  * | GET  /api/items/:id/log | One item's log from the task database, newest first   |
- * | GET  /api/digest        | Agents' open questions, then alerts left for a digest |
- * | GET  /api/questions     | Agents' questions, `?state=open,answered,delivered`   |
- * | POST /api/questions/:id/answer | Answers an agent's question; the first wins    |
+ * | GET  /api/digest        | Open questions, idle agents with work, then alerts    |
+ * | GET  /api/questions     | Agents' questions, `?state=open,answered,delivered`    |
+ * | POST /api/questions/:id/answer | Answers an agent's question; the first wins     |
  * | POST /api/questions/:id/close  | Closes one: answered elsewhere, or withdrawn   |
  * | POST /mcp               | The MCP tools agents call (see `mcp.ts`)              |
  *
@@ -24,6 +24,8 @@
  * development tracking from gh-events replaces it on every item the reader
  * matches (see `github-reader.ts`). With a session reader, agents' statuses
  * follow the Claude Code sessions on this machine (see `session-source.ts`).
+ * With an idle watcher, an agent idle with open work shows a note saying
+ * so, and is listed on the digest (see `idle-with-work.ts`).
  */
 import { z, ZodError } from "zod/v4";
 
@@ -53,6 +55,7 @@ import {
 import { withFakeDevelopment } from "./fake-development";
 import type { Dispatcher } from "./dispatcher";
 import { noGithubSource, type GithubReader } from "./github-reader";
+import type { IdleWatcher } from "./idle-with-work";
 import { everyClient } from "./machines";
 import { handleMcp } from "./mcp";
 import { noSessionSource, type SessionReader } from "./session-source";
@@ -180,6 +183,8 @@ export interface ApiOptions {
    * question back to the asking session. Leave out to keep answers unsent.
    */
   messages?: MessageApi;
+  /** Agents idle with open work. Leave out when live agent status is off. */
+  idle?: IdleWatcher;
 }
 
 export interface Api {
@@ -219,6 +224,7 @@ export function createApi({
   sessions,
   dispatcher,
   messages,
+  idle,
 }: ApiOptions): Api {
   const streams = new Set<(text: string) => void>();
   const closers = new Set<() => void>();
@@ -273,10 +279,25 @@ export function createApi({
     for (const write of streams) write(frame);
   });
 
-  /** The dataset views read: real GitHub state first, then any fake tracking. */
+  // Idle agents are found on the same dataset; an agent flagged or
+  // cleared reloads open pages, so the note shows.
+  idle?.connect({
+    dataset: () => readDataset(database, overlay),
+    record,
+  });
+  const stopIdle = idle?.subscribe(() => {
+    const frame = refreshFrame(tasks?.health().lastRefresh ?? null);
+    for (const write of streams) write(frame);
+  });
+
+  /**
+   * The dataset views read: real GitHub state first, then any fake
+   * tracking, then the notes of agents idle with open work.
+   */
   function served(dataset: Dataset): Dataset {
     const real = github ? github.overlay(dataset) : dataset;
-    return fakeDevelopment ? withFakeDevelopment(real) : real;
+    const tracked = fakeDevelopment ? withFakeDevelopment(real) : real;
+    return idle ? idle.overlay(tracked) : tracked;
   }
 
   /** The merge as of now, for its counts, or `undefined` before a good read. */
@@ -575,12 +596,14 @@ export function createApi({
         case "POST /api/events":
           return postEvent(request);
         case "GET /api/digest":
-          // Agents' open questions first, oldest first; then the alerts the
-          // dispatcher left for a digest, newest first.
+          // Agents' open questions first, oldest first; then agents idle
+          // with open work, longest first; then the alerts the dispatcher
+          // left for a digest, newest first.
           return json([
             ...questions
               .list({ states: ["open"] }, everything)
               .map(questionDigestEntry),
+            ...(idle?.digest() ?? []),
             ...(dispatcher?.digest() ?? []).map((entry) => ({
               kind: "alert" as const,
               ...entry,
@@ -606,6 +629,7 @@ export function createApi({
       stopRefreshes?.();
       stopGithub?.();
       stopSessions?.();
+      stopIdle?.();
       for (const finish of [...closers]) finish();
     },
   };

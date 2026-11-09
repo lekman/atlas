@@ -46,9 +46,10 @@ export function describeEvent(
         event.text,
       );
     case "signal": {
-      // A usage limit names its agent. Otherwise the first matched item
-      // names the subject, and an unmatched signal names its repository.
-      if (event.kind === "usage-limit")
+      // A usage limit or an idle agent names its agent. Otherwise the first
+      // matched item names the subject, and an unmatched signal names its
+      // repository.
+      if (event.kind === "usage-limit" || event.kind === "agent")
         return phrases.external(
           externalSourceNames[event.source],
           nameOf(before, event.agentId),
@@ -85,6 +86,12 @@ export function describeEvent(
         event.text,
       );
     case "dispatch":
+      if (event.rule === "nudge-idle-with-work")
+        return phrases.external(
+          dispatcherName,
+          nameOf(before, event.agentId),
+          event.text,
+        );
       return phrases.external(
         dispatcherName,
         event.taskId && findRecord(before, event.taskId)

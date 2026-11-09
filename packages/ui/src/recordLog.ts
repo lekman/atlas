@@ -86,7 +86,10 @@ export function isAbout(
   if (event.type === "external") return event.recordId === recordId;
   if (event.type === "signal" || event.type === "agent-question")
     return event.recordIds.includes(recordId);
-  if (event.type === "dispatch") return event.taskId === recordId;
+  if (event.type === "dispatch")
+    return event.rule === "nudge-idle-with-work"
+      ? event.agentId === recordId || event.taskIds.includes(recordId)
+      : event.taskId === recordId;
   if (event.type === "account-switch") return event.agentId === recordId;
   const kind = findRecord(before, recordId)?.kind;
   switch (event.type) {

@@ -297,6 +297,7 @@ describe("the dispatcher file", () => {
       "merge-approved": "on",
       "fix-failed-checks": "on",
       "alert-by-severity": "on",
+      "nudge-idle-with-work": "dry",
     });
     expect(settings.defaultMergeMethod).toBe("merge");
     expect(settings.mergeMethods).toEqual({ "example-org": "rebase" });
@@ -335,6 +336,16 @@ describe("the dispatcher configuration", () => {
     expect(readConfiguration({}).dispatcher).toBeUndefined();
     expect(
       readConfiguration({ ...github, ATLAS_DISPATCHER: "off" }).dispatcher,
+    ).toBeUndefined();
+  });
+
+  test("is on for the idle-with-work rule whenever live agent status is on", () => {
+    const sessions = { ATLAS_SESSIONS_DIR: "/tmp/sessions" };
+    expect(readConfiguration(sessions).dispatcher?.settings).toEqual(
+      defaultDispatcherSettings,
+    );
+    expect(
+      readConfiguration({ ...sessions, ATLAS_DISPATCHER: "off" }).dispatcher,
     ).toBeUndefined();
   });
 

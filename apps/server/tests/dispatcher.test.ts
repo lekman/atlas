@@ -1,4 +1,8 @@
-import type { AtlasEvent, DispatchEvent, GithubSignalEvent } from "@atlas/core";
+import type {
+  AtlasEvent,
+  GithubDispatchEvent as DispatchEvent,
+  GithubSignalEvent,
+} from "@atlas/core";
 import { sampleDataset } from "@atlas/fixtures";
 import { beforeEach, describe, expect, test } from "bun:test";
 

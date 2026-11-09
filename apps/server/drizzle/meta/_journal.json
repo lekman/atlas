@@ -61,8 +61,15 @@
     {
       "idx": 8,
       "version": "6",
-      "when": 1794227995506,
-      "tag": "0008_agent_questions",
+      "when": 1794227050816,
+      "tag": "0008_idle_with_work",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1794229524508,
+      "tag": "0009_agent_questions",
       "breakpoints": true
     }
   ]
