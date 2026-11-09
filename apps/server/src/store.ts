@@ -223,6 +223,8 @@ export function appendEvent(
       }
       case "agent-message":
       case "external":
+      case "signal":
+      case "dispatch":
         // Recorded and drawn; nothing stored changes.
         break;
     }

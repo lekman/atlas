@@ -228,3 +228,35 @@ export const sessionAgents = sqliteTable("session_agents", {
   /** When the session was first seen gone, ISO 8601; empty while it is live. */
   offlineSince: text("offline_since"),
 });
+
+/**
+ * One row per signal the dispatcher decided about, by the signal's key, so
+ * a signal is never acted on twice. The row is written before the act, as
+ * `pending`, and holds the outcome after it; a row left `pending` by a
+ * crash is not acted on again. See `dispatcher.ts`.
+ */
+export const dispatchDecisions = sqliteTable("dispatch_decisions", {
+  signalKey: text("signal_key").primaryKey(),
+  rule: text().notNull(),
+  mode: text().notNull(),
+  outcome: text().notNull(),
+  /** `owner/name`, in lower case. */
+  repository: text().notNull(),
+  number: integer().notNull(),
+  url: text().notNull(),
+  /** For an alert: its type and severity, for the digest. */
+  alertType: text("alert_type"),
+  severity: text(),
+  decidedAt: text("decided_at").notNull(),
+});
+
+/**
+ * The task each delegated subject was given, such as a pull request or an
+ * alert, so it is not delegated again while that task is open.
+ */
+export const dispatchDelegations = sqliteTable("dispatch_delegations", {
+  /** `pr:owner/name#12` or `alert:dependabot:owner/name#3`, in lower case. */
+  subject: text().primaryKey(),
+  taskId: text("task_id").notNull(),
+  delegatedAt: text("delegated_at").notNull(),
+});

@@ -111,7 +111,13 @@ describe("sample script", () => {
               ? [step.agentId]
               : step.type === "agent-launched"
                 ? [step.parentId, ...(step.workingOn ?? [])]
-                : [step.questionId];
+                : step.type === "question-answered"
+                  ? [step.questionId]
+                  : step.type === "signal"
+                    ? step.recordIds
+                    : step.taskId
+                      ? [step.taskId]
+                      : [];
       for (const id of ids) expect(findRecord(dataset, id)).not.toBeNull();
       if (step.type === "agent-launched")
         expect(findRecord(dataset, step.agentId)).toBeNull();

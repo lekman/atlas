@@ -87,8 +87,9 @@ with no workstream gathers at an "Unsorted" marker. Unscheduled and done
 work stays in the data for lists and the day plan.
 
 Everything that changes the picture is an **event**: a message between
-agents, an event from an outside system, a status change, a question
-answered, a vessel launched or returned. The same event drives the
+agents, an event from an outside system, a signal (every happening an
+outside system reports, matched to a record or not), a dispatcher decision,
+a status change, a question answered, a vessel launched or returned. The same event drives the
 database write, the animation, the log line and the sound.
 
 A **launch vessel** is an agent with a parent: a background agent or
@@ -135,6 +136,7 @@ origin. Machine tokens, Litestream and the import are still to come.
 | `POST /api/events`       | Adds one event, writes its effect and streams it             |
 | `GET /api/stream`        | Server-sent events after `?after=`, then each new one        |
 | `GET /api/items/:id/log` | One backlog item's log from the task database, newest first  |
+| `GET /api/digest`        | Alerts the dispatcher left for a digest, newest first        |
 | `POST /mcp`              | The MCP tools, over Streamable HTTP                          |
 
 The dataset response names the last event it includes in the
@@ -294,16 +296,17 @@ questions and vessels.
 
 ### GitHub State
 
-Atlas never calls GitHub. A separate process, gh-events, polls GitHub and
-writes two files into one folder. Atlas reads them when
+Atlas reads GitHub state from files and calls GitHub only to merge, when
+the dispatcher's merge rule is on (see "The Dispatcher", below). A separate
+process, gh-events, polls GitHub and writes two files into one folder. Atlas reads them when
 `ATLAS_GITHUB_STATE_DIR` names that folder, usually
 `~/.local/state/gh-events`. Without the variable, the server behaves as
 before.
 
-| File            | What Atlas does with it                                                          |
-| --------------- | -------------------------------------------------------------------------------- |
-| `registry.json` | Every open pull request and issue gh-events watches. Read every 30 seconds       |
-| `events.jsonl`  | One line per change: approved, checks failed, conflict, merged, closed, assigned |
+| File            | What Atlas does with it                                                    |
+| --------------- | -------------------------------------------------------------------------- |
+| `registry.json` | Every open pull request and issue gh-events watches. Read every 30 seconds |
+| `events.jsonl`  | One line per change to a pull request, an issue or a security alert        |
 
 The folder is also watched, so a change is usually read within a second.
 gh-events' contract never carries titles, bodies, branch names or logins,
@@ -333,9 +336,30 @@ The fake values fill only the items the reader did not match. Like them,
 the real values are never written to the records and never reach MCP
 tools. When they change, the event stream sends `event: refresh`.
 
-Each new line in `events.jsonl` that matches an item becomes an `external`
-event from GitHub about that item, such as "Pull request #148: checks
-failed" or "Issue #391 closed". gh-events rotates the log to
+The lines Atlas reads:
+
+| Kind    | Events                                                                                                              |
+| ------- | ------------------------------------------------------------------------------------------------------------------- |
+| `pr`    | `approved`, `ci_failed`, `conflict`, `merged`, `closed`, `released`, `review_requested`, `changes_requested`        |
+| `issue` | `issue_assigned`, `issue_closed`                                                                                    |
+| `alert` | `opened`, `fixed`, `dismissed`, with `alert_type` (`dependabot`, `code_scanning`, `secret_scanning`) and `severity` |
+
+Every new line becomes a `signal` event, whether it matched an item or
+not. A signal holds the source (`github`), the line's key, kind, event,
+repository and number, the client, an address built from the repository
+and number, the ids of the items it matched, and for an alert its type and
+severity. It holds no text anyone wrote on GitHub, and plays no sound.
+The reader also derives one signal of its own: `checks_passed`, when a pull
+request's checks turn to `SUCCESS` between two reads of `registry.json`.
+A pull request seen for the first time gives none, so a fresh start does
+not flood the log. gh-events writes no `opened` line for an alert that was
+already open when it first read the repository, so with the dispatcher on,
+the reader records each open alert in `registry.json` once as a `swept`
+signal, unless an `opened` line was read for it.
+
+Each new line that matches an item also becomes an `external` event from
+GitHub about that item, such as "Pull request #148: checks failed" or
+"Issue #391 closed". gh-events rotates the log to
 `events.<YYYYMMDDTHHMMSSZ>.jsonl`; after a restart the reader finds the file
 it was reading by its stored inode under that name and finishes it before
 the new `events.jsonl`. The text holds only the event and the
@@ -349,8 +373,94 @@ skips one.
 `GET /api/health` reports `github` as counts only: `source` (`gh-events` or
 `none`), `ok`, `stale` (the registry is older than three poll intervals),
 `error`, `items`, `matched`, `unmatched`, `unknownClients`, `skipped`,
-`eventsApplied`, `eventsUnmatched`, `eventsSkipped`, `eventsRefused` and
-`lastEventAt`. It never names a repository or a number.
+`signals`, `eventsApplied`, `eventsUnmatched`, `eventsSkipped`,
+`eventsRefused` and `lastEventAt`. It never names a repository or a number.
+
+### The Dispatcher
+
+The dispatcher acts on each new signal. It runs whenever GitHub state is
+on, unless `ATLAS_DISPATCHER=off`. Each rule has a mode: `off` decides
+nothing, `dry` records what it would do and does nothing, `on` does it.
+
+| Rule                | On                                               | Act                                                                                                   | Default |
+| ------------------- | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------- | ------- |
+| `merge-approved`    | `approved` or `checks_passed`                    | Merge a pull request the registry shows open, approved, green and not conflicting                     | `dry`   |
+| `fix-failed-checks` | `ci_failed` on a pull request the account opened | Delegate a fix                                                                                        | `on`    |
+| `alert-by-severity` | `opened` or `swept` alert                        | Critical or high: delegate and ask you. Medium: delegate, or the digest when `swept`. Low: the digest | `on`    |
+
+The contract does not say who opened a pull request, so the dispatcher
+counts one as opened by the account unless a `review_requested` line was
+read for it. A secret scanning alert has no severity and counts as high; any other
+alert without one counts as medium. `review_requested`,
+`changes_requested` and the other events are signals with no rule yet.
+
+Every outcome is a `dispatch` event linked to its signal by `signalKey`:
+the rule, the mode, the outcome (`merge`, `delegate`, `digest`, `skip` or
+`fail`), whether it needs you, and for a delegation the task's id and
+whether an agent was woken. A rule that applies but whose conditions do not
+hold records a `skip` with the reason. A signal older than `maxAgeHours`
+(24) is recorded and not acted on.
+
+- **One decision per signal.** The decision row is written to SQLite
+  before the act, so a line read twice, or a restart in the middle of an
+  act, never acts twice.
+- **No second delegation while the first is open.** A pull request or an
+  alert keeps the id of the task it was given; while that task is not done
+  or dropped, a new signal about it records a `skip`.
+- **Delegating** adds a task through the tasks MCP server's HTTP endpoint
+  (`task_add`): the client from the signal, a title naming the repository
+  and the pull request or alert, the tags `from-signal` and `github`, the
+  tracker link, and for a pull request its `pullRequests`, so gh-events
+  moves the task along when the pull request merges. A task that needs you
+  is blocked on "You", which puts it on the Waiting on you list. Then
+  Commander is asked to start an agent on it: `POST /requests` on the
+  Commander bridge with `action: execute` and `ref: db:<task id>`, the
+  shape the dashboard sends. The request id comes from the signal key, so
+  asking twice is one request.
+- **Merging** runs `gh pr merge --match-head-commit <sha>` with the
+  repository's merge method, so GitHub refuses the merge if the head moved.
+  The command line must be signed in as an account that may merge.
+- Without a tasks API, a delegation is recorded as `dry`. Without
+  Commander, the task is added and no agent is woken.
+
+The rules are pure functions in `dispatcher-rules.ts`; the task database,
+Commander and the merge are interfaces in `dispatcher.ts`, so the rules and
+the runner are tested without a network.
+
+| Setting                         | What it does                                                                   |
+| ------------------------------- | ------------------------------------------------------------------------------ |
+| `ATLAS_DISPATCHER`              | `off` turns the dispatcher off                                                 |
+| `ATLAS_DISPATCHER_FILE`         | A JSON file outside the repository with the rules' modes and the merge methods |
+| `ATLAS_TASKS_API_URL`           | The tasks MCP server's HTTP endpoint                                           |
+| `ATLAS_TASKS_API_TOKEN_COMMAND` | A command that prints its token, such as a Keychain lookup                     |
+| `ATLAS_COMMANDER_URL`           | The Commander bridge's address                                                 |
+| `ATLAS_COMMANDER_TOKEN_COMMAND` | A command that prints the bridge's token                                       |
+| `ATLAS_GITHUB_COMMAND`          | The GitHub command line, `gh` unless set                                       |
+
+The dispatcher file sets only what it names; the rest keeps its default.
+Merge methods are `squash`, `merge` or `rebase`, by `owner/name`, then by
+`owner`, then `default`:
+
+```json
+{
+  "rules": {
+    "merge-approved": "dry",
+    "fix-failed-checks": "on",
+    "alert-by-severity": "on"
+  },
+  "mergeMethods": {
+    "default": "squash",
+    "example-org": "rebase",
+    "example-org/ledger": "merge"
+  },
+  "maxAgeHours": 24,
+  "sweepOpenAlerts": true,
+  "by": "atlas-dispatcher"
+}
+```
+
+Tokens are read by their commands when a call needs one, and are never
+logged or kept in an error. The log holds counts and failure names only.
 
 ### Live Agent Status
 

@@ -47,7 +47,12 @@ export interface AtlasMap {
 
 const logLimit = 100;
 
-export function cueFor(event: AtlasEvent): SoundCue {
+/**
+ * The cue an event plays, or null for none. A signal is silent, because a
+ * matched one already plays as an outside event; a dispatcher decision
+ * plays only when it needs the reader.
+ */
+export function cueFor(event: AtlasEvent): SoundCue | null {
   switch (event.type) {
     case "agent-message":
       return "message";
@@ -63,6 +68,10 @@ export function cueFor(event: AtlasEvent): SoundCue {
     case "agent-launched":
     case "agent-returned":
       return "status";
+    case "signal":
+      return null;
+    case "dispatch":
+      return event.needsYou ? "needs" : null;
   }
 }
 
@@ -99,7 +108,8 @@ export function useAtlasMap(options: AtlasMapOptions): AtlasMap {
           ...entries,
         ].slice(0, logLimit),
       );
-      player.current.play(world.current, cueFor(event), sound.current);
+      const cue = cueFor(event);
+      if (cue) player.current.play(world.current, cue, sound.current);
     },
     [scene],
   );

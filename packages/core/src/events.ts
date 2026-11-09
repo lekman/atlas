@@ -35,7 +35,105 @@ export const externalSourceNames: Record<ExternalSource, string> = {
   monday: "monday.com",
 };
 
+/** What a signal is about: a pull request, an issue, or a security alert. */
+export const signalKinds = ["pr", "issue", "alert"] as const;
+export const SignalKind = z.enum(signalKinds);
+export type SignalKind = z.infer<typeof SignalKind>;
+
+export const alertTypes = [
+  "dependabot",
+  "code_scanning",
+  "secret_scanning",
+] as const;
+export const AlertType = z.enum(alertTypes);
+export type AlertType = z.infer<typeof AlertType>;
+
+export const alertSeverities = ["critical", "high", "medium", "low"] as const;
+export const AlertSeverity = z.enum(alertSeverities);
+export type AlertSeverity = z.infer<typeof AlertSeverity>;
+
+/** The dispatcher's rules. Each has its own mode in the server's configuration. */
+export const dispatchRules = [
+  "merge-approved",
+  "fix-failed-checks",
+  "alert-by-severity",
+] as const;
+export const DispatchRule = z.enum(dispatchRules);
+export type DispatchRule = z.infer<typeof DispatchRule>;
+
+/**
+ * What the dispatcher decided. `merge`, `delegate` and `digest` are acts;
+ * with mode `dry` the act is only recorded. `skip` is a rule that applied
+ * but whose conditions did not hold; `fail` is an act that was tried and
+ * did not work.
+ */
+export const dispatchOutcomes = [
+  "merge",
+  "delegate",
+  "digest",
+  "skip",
+  "fail",
+] as const;
+export const DispatchOutcome = z.enum(dispatchOutcomes);
+export type DispatchOutcome = z.infer<typeof DispatchOutcome>;
+
+const HttpsUrl = z.url({ protocol: /^https$/ });
+
+/**
+ * One happening in an outside system, matched to a task or not. It holds
+ * no text an author wrote: `text` is built by the server from the kind,
+ * the event and the number.
+ */
+export const SignalEvent = z.object({
+  type: z.literal("signal"),
+  source: ExternalSource,
+  /** The source's own id for the happening. One signal per key. */
+  key: z.string().min(1).max(512),
+  kind: SignalKind,
+  /** The source's event name, such as `ci_failed` or `opened`. */
+  event: z.string().regex(/^[a-z][a-z_]{0,39}$/),
+  /** `owner/name`. */
+  repository: z.string().min(3).max(140),
+  number: z.number().int().positive(),
+  /** The client id the source gave, or null when it gave none. */
+  client: Identifier.nullable(),
+  url: HttpsUrl,
+  /** The backlog items the signal matched. Empty when it matched none. */
+  recordIds: z.array(Identifier),
+  alertType: AlertType.optional(),
+  severity: AlertSeverity.nullable().optional(),
+  /** When the source saw it, ISO 8601. */
+  at: z.iso.datetime(),
+  text: z.string().min(1),
+});
+export type SignalEvent = z.infer<typeof SignalEvent>;
+
+/** What the dispatcher decided about one signal, linked to it by `signalKey`. */
+export const DispatchEvent = z.object({
+  type: z.literal("dispatch"),
+  signalKey: z.string().min(1).max(512),
+  rule: DispatchRule,
+  /** `dry` records the act without doing it. */
+  mode: z.enum(["dry", "on"]),
+  outcome: DispatchOutcome,
+  repository: z.string().min(3).max(140),
+  number: z.number().int().positive(),
+  url: HttpsUrl,
+  client: Identifier.nullable(),
+  /** The decision also asks the reader to look. */
+  needsYou: z.boolean(),
+  /** The task a delegation created. */
+  taskId: Identifier.optional(),
+  /** Whether an agent was asked to start on the task. */
+  woken: z.boolean().optional(),
+  mergeMethod: z.enum(["squash", "merge", "rebase"]).optional(),
+  text: z.string().min(1),
+});
+export type DispatchEvent = z.infer<typeof DispatchEvent>;
+
 export const AtlasEvent = z.discriminatedUnion("type", [
+  SignalEvent,
+  DispatchEvent,
   z.object({
     type: z.literal("agent-message"),
     from: Identifier,
@@ -142,8 +240,8 @@ export function planLaunch(
 }
 
 /**
- * The dataset after an event, as a new value. Messages and external events
- * change nothing stored; they are recorded in the log and drawn. A launch
+ * The dataset after an event, as a new value. Messages, external events,
+ * signals and dispatcher decisions change nothing stored; they are recorded in the log and drawn. A launch
  * adds a vessel and a return removes it. An event
  * that names something missing is returned unchanged rather than thrown, so
  * a late event about a deleted record cannot stop the stream.
@@ -192,6 +290,8 @@ export function applyEvent(dataset: Dataset, event: AtlasEvent): Dataset {
     }
     case "agent-message":
     case "external":
+    case "signal":
+    case "dispatch":
       return dataset;
   }
 }

@@ -3,8 +3,19 @@
  * that is safe on the Mac mini: the server listens on the loopback address
  * only, and Tailscale Serve is what puts it on the tailnet.
  */
+import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+
+import { dispatchRules } from "@atlas/core";
+import { z } from "zod/v4";
+
+import {
+  defaultDispatcherSettings,
+  mergeMethods,
+  ruleModes,
+  type DispatcherSettings,
+} from "./dispatcher-rules";
 
 export interface Configuration {
   /** Where the SQLite file lives. */
@@ -37,6 +48,44 @@ export interface Configuration {
    * Set by `ATLAS_SESSIONS_DIR`; see `session-source.ts`.
    */
   sessions?: SessionsConfiguration;
+  /**
+   * The dispatcher that acts on GitHub signals. It runs whenever GitHub
+   * state is on, unless `ATLAS_DISPATCHER=off`; see `dispatcher.ts`.
+   */
+  dispatcher?: DispatcherConfiguration;
+}
+
+/** An HTTP endpoint and the command that prints its token. */
+export interface EndpointConfiguration {
+  url: string;
+  tokenCommand: string;
+}
+
+export interface DispatcherConfiguration {
+  /** The rules' modes and the merge methods, from `ATLAS_DISPATCHER_FILE`, or the defaults. */
+  settings: DispatcherSettings;
+  /** The name task database changes are recorded under. */
+  by: string;
+  /**
+   * The tasks MCP server's HTTP endpoint, for adding delegated tasks:
+   * `ATLAS_TASKS_API_URL` and `ATLAS_TASKS_API_TOKEN_COMMAND`. Without it a
+   * delegation is recorded as dry.
+   */
+  tasksApi?: EndpointConfiguration;
+  /**
+   * The Commander bridge, for waking an agent on a delegated task:
+   * `ATLAS_COMMANDER_URL` and `ATLAS_COMMANDER_TOKEN_COMMAND`. Without it
+   * the task is added and no agent is woken.
+   */
+  commander?: EndpointConfiguration;
+  /** The GitHub command line merges run, `gh` unless `ATLAS_GITHUB_COMMAND` is set. */
+  githubCommand: string;
+  /**
+   * Sweep each alert already open in `registry.json` once, so alerts that
+   * were open before gh-events read their repository are triaged too.
+   * On unless the dispatcher file sets `sweepOpenAlerts` to false.
+   */
+  sweepOpenAlerts: boolean;
 }
 
 /**
@@ -131,6 +180,119 @@ function readSessions(
   return { directory, pollSeconds, forgetHours };
 }
 
+const RuleMode = z.enum(ruleModes);
+const MergeMethod = z.enum(mergeMethods);
+
+/**
+ * The dispatcher file, kept outside the repository. Every field is
+ * optional; what is left out keeps its default.
+ *
+ * ```json
+ * {
+ *   "rules": { "merge-approved": "dry", "fix-failed-checks": "on", "alert-by-severity": "on" },
+ *   "mergeMethods": { "default": "squash", "example-org": "rebase", "example-org/ledger": "merge" },
+ *   "maxAgeHours": 24,
+ *   "sweepOpenAlerts": true,
+ *   "by": "atlas-dispatcher"
+ * }
+ * ```
+ */
+const DispatcherFile = z
+  .object({
+    rules: z.partialRecord(z.enum(dispatchRules), RuleMode).optional(),
+    /** `default`, then entries by `owner` or `owner/name`. */
+    mergeMethods: z.record(z.string().min(1).max(140), MergeMethod).optional(),
+    maxAgeHours: z.number().positive().optional(),
+    sweepOpenAlerts: z.boolean().optional(),
+    by: z.string().min(1).max(96).optional(),
+  })
+  .strict();
+
+/** Reads the dispatcher file's text into settings over the defaults. */
+export function parseDispatcherFile(text: string): {
+  settings: DispatcherSettings;
+  by?: string;
+  sweepOpenAlerts?: boolean;
+} {
+  let body: unknown;
+  try {
+    body = JSON.parse(text);
+  } catch {
+    throw new Error("ATLAS_DISPATCHER_FILE is not JSON");
+  }
+  const read = DispatcherFile.safeParse(body);
+  if (!read.success)
+    throw new Error(
+      `ATLAS_DISPATCHER_FILE does not match its shape: ${read.error.issues
+        .map((issue) => issue.path.join(".") || issue.message)
+        .join(", ")}`,
+    );
+  const { default: defaultMethod, ...byRepository } =
+    read.data.mergeMethods ?? {};
+  return {
+    settings: {
+      rules: { ...defaultDispatcherSettings.rules, ...read.data.rules },
+      defaultMergeMethod:
+        defaultMethod ?? defaultDispatcherSettings.defaultMergeMethod,
+      mergeMethods: Object.fromEntries(
+        Object.entries(byRepository).map(([name, method]) => [
+          name.toLowerCase(),
+          method,
+        ]),
+      ),
+      maxAgeHours:
+        read.data.maxAgeHours ?? defaultDispatcherSettings.maxAgeHours,
+    },
+    ...(read.data.by ? { by: read.data.by } : {}),
+    ...(read.data.sweepOpenAlerts !== undefined
+      ? { sweepOpenAlerts: read.data.sweepOpenAlerts }
+      : {}),
+  };
+}
+
+function readEndpoint(
+  environment: Record<string, string | undefined>,
+  urlName: string,
+  tokenName: string,
+): EndpointConfiguration | undefined {
+  const url = environment[urlName]?.trim();
+  const tokenCommand = environment[tokenName]?.trim();
+  if (!url && !tokenCommand) return undefined;
+  if (!url || !tokenCommand)
+    throw new Error(`${urlName} and ${tokenName} are set together`);
+  if (!/^https?:\/\//.test(url))
+    throw new Error(`${urlName} must be an http or https address`);
+  return { url, tokenCommand };
+}
+
+function readDispatcher(
+  environment: Record<string, string | undefined>,
+): DispatcherConfiguration | undefined {
+  if (environment.ATLAS_DISPATCHER === "off") return undefined;
+  const path = environment.ATLAS_DISPATCHER_FILE?.trim();
+  const file: ReturnType<typeof parseDispatcherFile> = path
+    ? parseDispatcherFile(readFileSync(path, "utf8"))
+    : { settings: defaultDispatcherSettings };
+  const tasksApi = readEndpoint(
+    environment,
+    "ATLAS_TASKS_API_URL",
+    "ATLAS_TASKS_API_TOKEN_COMMAND",
+  );
+  const commander = readEndpoint(
+    environment,
+    "ATLAS_COMMANDER_URL",
+    "ATLAS_COMMANDER_TOKEN_COMMAND",
+  );
+  return {
+    settings: file.settings,
+    by: file.by ?? "atlas-dispatcher",
+    ...(tasksApi ? { tasksApi } : {}),
+    ...(commander ? { commander } : {}),
+    githubCommand: environment.ATLAS_GITHUB_COMMAND?.trim() || "gh",
+    sweepOpenAlerts: file.sweepOpenAlerts ?? true,
+  };
+}
+
 export function readConfiguration(
   environment: Record<string, string | undefined> = process.env,
 ): Configuration {
@@ -138,6 +300,10 @@ export function readConfiguration(
   if (!Number.isInteger(port) || port < 1 || port > 65_535)
     throw new Error("ATLAS_PORT must be a port number");
   const sessions = readSessions(environment);
+  const githubStateDirectory = environment.ATLAS_GITHUB_STATE_DIR?.trim();
+  const dispatcher = githubStateDirectory
+    ? readDispatcher(environment)
+    : undefined;
   return {
     databasePath:
       environment.ATLAS_DATABASE ??
@@ -148,9 +314,8 @@ export function readConfiguration(
     requireTokens: environment.ATLAS_REQUIRE_TOKENS === "true",
     tasks: readTasks(environment),
     fakeDevelopment: environment.ATLAS_FAKE_DEVELOPMENT === "true",
-    ...(environment.ATLAS_GITHUB_STATE_DIR?.trim()
-      ? { githubStateDirectory: environment.ATLAS_GITHUB_STATE_DIR.trim() }
-      : {}),
+    ...(githubStateDirectory ? { githubStateDirectory } : {}),
     ...(sessions ? { sessions } : {}),
+    ...(dispatcher ? { dispatcher } : {}),
   };
 }

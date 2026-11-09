@@ -10,6 +10,9 @@ import {
 } from "@atlas/core";
 import type { World } from "@atlas/worlds";
 
+/** Who a dispatcher decision comes from, in the log. */
+export const dispatcherName = "Dispatcher";
+
 function nameOf(dataset: Dataset, id: string): string {
   const found = findRecord(dataset, id);
   if (!found) return id;
@@ -34,6 +37,24 @@ export function describeEvent(
       return phrases.external(
         externalSourceNames[event.source],
         nameOf(before, event.recordId),
+        event.text,
+      );
+    case "signal": {
+      // The first matched item names the subject; an unmatched signal
+      // names its repository.
+      const first = event.recordIds[0];
+      return phrases.external(
+        externalSourceNames[event.source],
+        first ? nameOf(before, first) : event.repository,
+        event.text,
+      );
+    }
+    case "dispatch":
+      return phrases.external(
+        dispatcherName,
+        event.taskId && findRecord(before, event.taskId)
+          ? nameOf(before, event.taskId)
+          : event.repository,
         event.text,
       );
     case "status-change": {

@@ -39,6 +39,7 @@ import {
   type NodeLookup,
 } from "./identity";
 import { withFakeDevelopment } from "./fake-development";
+import type { Dispatcher } from "./dispatcher";
 import { noGithubSource, type GithubReader } from "./github-reader";
 import { everyClient } from "./machines";
 import { handleMcp } from "./mcp";
@@ -119,6 +120,8 @@ export interface ApiOptions {
   github?: GithubReader;
   /** Live agent status from Claude Code's session files. Leave out to keep it off. */
   sessions?: SessionReader;
+  /** The dispatcher, for its digest list. Leave out when it is off. */
+  dispatcher?: Dispatcher;
 }
 
 export interface Api {
@@ -154,6 +157,7 @@ export function createApi({
   fakeDevelopment = false,
   github,
   sessions,
+  dispatcher,
 }: ApiOptions): Api {
   const streams = new Set<(text: string) => void>();
   const closers = new Set<() => void>();
@@ -428,6 +432,9 @@ export function createApi({
         }
         case "POST /api/events":
           return postEvent(request);
+        case "GET /api/digest":
+          // Alerts the dispatcher left for a digest, newest first.
+          return json(dispatcher?.digest() ?? []);
         case "GET /api/stream":
           return stream(request);
         default:

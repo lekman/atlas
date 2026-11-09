@@ -337,6 +337,11 @@ export class Scene {
           duration: 2.6,
         });
         break;
+      case "signal":
+      case "dispatch":
+        // Shown in the log only. A matched signal also arrives as an
+        // outside event, which draws.
+        break;
       case "status-change":
         this.effects.push({
           kind: "ring",

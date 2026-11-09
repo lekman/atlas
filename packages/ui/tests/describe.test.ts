@@ -1,11 +1,17 @@
 import { describe, expect, it } from "bun:test";
 
-import { applyEvent, type LaunchEvent } from "@atlas/core";
+import {
+  applyEvent,
+  type DispatchEvent,
+  type LaunchEvent,
+  type SignalEvent,
+} from "@atlas/core";
 import { sampleDataset } from "@atlas/fixtures";
 import { worlds } from "@atlas/worlds";
 
 import { cueFor } from "../src/useAtlasMap";
 import { describeEvent } from "../src/describe";
+import { isAbout, whoOf } from "../src/recordLog";
 
 describe("log lines", () => {
   const message = {
@@ -110,5 +116,87 @@ describe("sound cues", () => {
     expect(cueFor({ type: "agent-returned", agentId: "x", text: "t" })).toBe(
       "status",
     );
+  });
+});
+
+describe("signals and dispatcher decisions", () => {
+  const repository = "example-org/sample-app";
+  const signal = {
+    type: "signal",
+    source: "github",
+    key: `${repository}#12:ci_failed:0123456789abcdef0123456789abcdef01234567`,
+    kind: "pr",
+    event: "ci_failed",
+    repository,
+    number: 12,
+    client: "ashgrove",
+    url: `https://github.com/${repository}/pull/12`,
+    recordIds: [],
+    at: "2026-11-09T10:00:00.000Z",
+    text: "Pull request #12: checks failed",
+  } satisfies SignalEvent;
+  const dispatch = {
+    type: "dispatch",
+    signalKey: signal.key,
+    rule: "merge-approved",
+    mode: "dry",
+    outcome: "merge",
+    repository,
+    number: 12,
+    url: signal.url,
+    client: "ashgrove",
+    needsYou: false,
+    mergeMethod: "squash",
+    text: "Would merge pull request #12 by squash",
+  } satisfies DispatchEvent;
+
+  it("names the repository of an unmatched signal", () => {
+    expect(describeEvent(worlds.mariner, sampleDataset, signal)).toBe(
+      `Telegram from GitHub, for ${repository}: Pull request #12: checks failed`,
+    );
+  });
+
+  it("names the matched item of a matched signal", () => {
+    expect(
+      describeEvent(worlds.mariner, sampleDataset, {
+        ...signal,
+        recordIds: ["send-invoices"],
+      }),
+    ).toBe(
+      "Telegram from GitHub, for Send October invoices: Pull request #12: checks failed",
+    );
+  });
+
+  it("reads a decision as the dispatcher's", () => {
+    expect(describeEvent(worlds.mariner, sampleDataset, dispatch)).toBe(
+      `Telegram from Dispatcher, for ${repository}: Would merge pull request #12 by squash`,
+    );
+  });
+
+  it("is about the matched items, and the task a decision created", () => {
+    const entry = { before: sampleDataset };
+    expect(
+      isAbout(
+        entry.before,
+        { ...signal, recordIds: ["send-invoices"] },
+        "send-invoices",
+      ),
+    ).toBe(true);
+    expect(isAbout(entry.before, signal, "send-invoices")).toBe(false);
+    expect(
+      isAbout(
+        entry.before,
+        { ...dispatch, taskId: "send-invoices" },
+        "send-invoices",
+      ),
+    ).toBe(true);
+    expect(whoOf(sampleDataset, signal)).toBe("GitHub");
+    expect(whoOf(sampleDataset, dispatch)).toBe("Dispatcher");
+  });
+
+  it("stays silent unless a decision needs the reader", () => {
+    expect(cueFor(signal)).toBeNull();
+    expect(cueFor(dispatch)).toBeNull();
+    expect(cueFor({ ...dispatch, needsYou: true })).toBe("needs");
   });
 });
