@@ -78,8 +78,12 @@ export function tasksMessages(
         since,
         limit: 200,
       });
-      if (!Array.isArray(answer)) return [];
-      return answer
+      // The tasks server answers `{ messages: [...] }`; a bare list is read too.
+      const messages = Array.isArray(answer)
+        ? answer
+        : (answer as { messages?: unknown } | null)?.messages;
+      if (!Array.isArray(messages)) return [];
+      return messages
         .filter(
           (message): message is { id: string; deliveredAt?: unknown } =>
             typeof message?.id === "string",
