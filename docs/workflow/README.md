@@ -101,6 +101,7 @@ Each page goes one level deeper than the one before it.
 | 2     | [Building Blocks](building-blocks.md)         | Slots, contracts, the registry and the first slots          |
 | 2     | [Core Model](core-model.md)                   | The records behind every capability, as a diagram           |
 | 3     | [The Scientific Method](scientific-method.md) | How a prediction is made, tested, measured and learned from |
+| Setup | [Claude Accounts](claude-accounts.md)         | Register each Claude subscription in its own folder         |
 
 The pages share one invented example. You run your own business, called
 Home. Your general orchestrator is called Compass. Two invented clients

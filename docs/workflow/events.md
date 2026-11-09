@@ -141,7 +141,8 @@ Atlas records one `signal` event:
 
 The account-switch rule acts on it, and is off unless switched on. Each
 decision is an `account-switch` event. See
-[Usage Limits](../architecture.md#usage-limits).
+[Usage Limits](../architecture.md#usage-limits). To register the accounts
+and see each one's limit, use [Claude Accounts](claude-accounts.md).
 
 ## Client Boundaries Apply to Sources
 
