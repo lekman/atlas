@@ -225,7 +225,9 @@ export function appendEvent(
       case "external":
       case "signal":
       case "dispatch":
-        // Recorded and drawn; nothing stored changes.
+      case "agent-question":
+        // Recorded and drawn; nothing stored changes. An agent question's
+        // own row is written by `agent-questions.ts`.
         break;
     }
     const receivedAt = now.toISOString();

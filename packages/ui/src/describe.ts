@@ -16,6 +16,9 @@ export const dispatcherName = "Dispatcher";
 /** Who an account-switch decision comes from, in the log. */
 export const accountSwitchName = "Account switch";
 
+/** Who an agent question's answer or delivery comes from, in the log. */
+export const questionsName = "Questions";
+
 function nameOf(dataset: Dataset, id: string): string {
   const found = findRecord(dataset, id);
   if (!found) return id;
@@ -51,10 +54,27 @@ export function describeEvent(
           nameOf(before, event.agentId),
           event.text,
         );
+      // A question names its task when it has one, else the asking session.
+      if (event.kind === "question") {
+        const task = event.recordIds[0];
+        return phrases.external(
+          externalSourceNames[event.source],
+          task ? nameOf(before, task) : event.session,
+          event.text,
+        );
+      }
       const first = event.recordIds[0];
       return phrases.external(
         externalSourceNames[event.source],
         first ? nameOf(before, first) : event.repository,
+        event.text,
+      );
+    }
+    case "agent-question": {
+      const task = event.recordIds[0];
+      return phrases.external(
+        questionsName,
+        task ? nameOf(before, task) : event.session,
         event.text,
       );
     }

@@ -10,6 +10,10 @@
  * | POST /api/events        | Adds one event, writes its effect and streams it      |
  * | GET  /api/stream        | Server-sent events after `?after=`, then each new one |
  * | GET  /api/items/:id/log | One item's log from the task database, newest first   |
+ * | GET  /api/digest        | Agents' open questions, then alerts left for a digest |
+ * | GET  /api/questions     | Agents' questions, `?state=open,answered,delivered`   |
+ * | POST /api/questions/:id/answer | Answers an agent's question; the first wins    |
+ * | POST /api/questions/:id/close  | Closes one: answered elsewhere, or withdrawn   |
  * | POST /mcp               | The MCP tools agents call (see `mcp.ts`)              |
  *
  * With a task source, every read lays the task database's clients,
@@ -21,15 +25,23 @@
  * matches (see `github-reader.ts`). With a session reader, agents' statuses
  * follow the Claude Code sessions on this machine (see `session-source.ts`).
  */
-import { ZodError } from "zod/v4";
+import { z, ZodError } from "zod/v4";
 
 import {
+  agentQuestionStates,
   Identifier,
+  type AgentQuestion,
+  type AgentQuestionState,
   type AtlasEvent,
   type Dataset,
   type ItemLog,
 } from "@atlas/core";
 
+import {
+  createQuestionService,
+  type MessageApi,
+  type QuestionService,
+} from "./agent-questions";
 import type { AtlasDatabase } from "./database";
 import {
   CallerRefused,
@@ -63,6 +75,47 @@ const keepAliveMilliseconds = 25_000;
 
 /** The item log route: `/api/items/<id>/log`. */
 const itemLogPath = /^\/api\/items\/([^/]+)\/log$/;
+
+/** An agent question's action routes: `/api/questions/<id>/answer` and `/close`. */
+const questionActionPath =
+  /^\/api\/questions\/([a-z0-9][a-z0-9-]*)\/(answer|close)$/;
+
+const AnswerBody = z
+  .object({
+    answer: z.string().min(1).max(1000).optional(),
+    answers: z.record(z.string(), z.string().max(1000)).optional(),
+    note: z.string().max(2000).optional(),
+  })
+  .strict();
+
+const CloseBody = z
+  .object({
+    resolution: z.enum(["answered-elsewhere", "withdrawn"]),
+    note: z.string().max(2000).optional(),
+  })
+  .strict();
+
+/** The REST routes serve callers that may see every client. */
+const everything = () => true;
+
+function isQuestionState(value: string): value is AgentQuestionState {
+  return (agentQuestionStates as readonly string[]).includes(value);
+}
+
+/** An open agent question on the digest. A card carries its title, task and link only. */
+function questionDigestEntry(question: AgentQuestion) {
+  return {
+    kind: "question" as const,
+    id: question.id,
+    clientId: question.clientId,
+    title: question.title,
+    session: question.session.address,
+    ...(question.taskId ? { taskId: question.taskId } : {}),
+    cardOnly: question.cardOnly,
+    ...(question.link ? { link: question.link } : {}),
+    askedAt: question.askedAt,
+  };
+}
 
 /** The last event the dataset in a response already holds. */
 export const sequenceHeader = "x-atlas-sequence";
@@ -122,6 +175,11 @@ export interface ApiOptions {
   sessions?: SessionReader;
   /** The dispatcher, for its digest list. Leave out when it is off. */
   dispatcher?: Dispatcher;
+  /**
+   * The tasks server's messages, which carry each answer to an agent's
+   * question back to the asking session. Leave out to keep answers unsent.
+   */
+  messages?: MessageApi;
 }
 
 export interface Api {
@@ -137,6 +195,8 @@ export interface Api {
   listeners(): number;
   /** Ends every open stream, for a clean shutdown. */
   close(): void;
+  /** Questions agents ask the person. */
+  questions: QuestionService;
 }
 
 /** Whether a caller may use the whole API: a person, or a machine that sees every client. */
@@ -158,6 +218,7 @@ export function createApi({
   github,
   sessions,
   dispatcher,
+  messages,
 }: ApiOptions): Api {
   const streams = new Set<(text: string) => void>();
   const closers = new Set<() => void>();
@@ -182,6 +243,13 @@ export function createApi({
     for (const write of streams) write(frame);
     return stored;
   }
+
+  // Agents' questions record their signals and answers through the same path.
+  const questions = createQuestionService({
+    database,
+    record,
+    ...(messages ? { messages } : {}),
+  });
 
   // GitHub events go through the same record path, and a change in pull
   // request or issue state reloads open pages as a task change does.
@@ -338,6 +406,71 @@ export function createApi({
     }
   }
 
+  /** A JSON body of at most `maximumBodyBytes`, or the problem response. */
+  async function jsonBody(
+    request: Request,
+  ): Promise<{ body: unknown } | { problem: Response }> {
+    const type = request.headers.get("content-type") ?? "";
+    if (!type.toLowerCase().startsWith("application/json"))
+      return { problem: problem(415, "send the body as application/json") };
+    const text = await request.text();
+    if (new TextEncoder().encode(text).length > maximumBodyBytes)
+      return { problem: problem(413, "the body is too large") };
+    try {
+      return { body: JSON.parse(text) };
+    } catch {
+      return { problem: problem(400, "the body is not JSON") };
+    }
+  }
+
+  /**
+   * Answers or closes an agent's question. The first answer wins: a later
+   * one is a 409 that says when and by whom the question was settled.
+   */
+  async function questionAction(
+    request: Request,
+    id: string,
+    action: "answer" | "close",
+    caller: Caller,
+  ): Promise<Response> {
+    const read = await jsonBody(request);
+    if ("problem" in read) return read.problem;
+    const by =
+      caller.kind === "person"
+        ? caller.login
+        : caller.kind === "machine"
+          ? `machine:${caller.machine.id}`
+          : "atlas";
+    const parsed =
+      action === "answer"
+        ? AnswerBody.safeParse(read.body)
+        : CloseBody.safeParse(read.body);
+    if (!parsed.success)
+      return problem(400, "the body does not match", parsed.error.issues);
+    const change =
+      action === "answer"
+        ? questions.answer(
+            id,
+            { ...(parsed.data as z.infer<typeof AnswerBody>), by },
+            everything,
+          )
+        : questions.close(
+            id,
+            { ...(parsed.data as z.infer<typeof CloseBody>), by },
+            everything,
+          );
+    if ("refusal" in change)
+      return problem(
+        change.refusal.reason === "missing"
+          ? 404
+          : change.refusal.reason === "conflict"
+            ? 409
+            : 400,
+        change.refusal.message,
+      );
+    return json(change.question);
+  }
+
   async function postEvent(request: Request): Promise<Response> {
     // A JSON content type makes a cross-site form or script send a preflight,
     // which this server never answers, so another site cannot post here
@@ -397,6 +530,7 @@ export function createApi({
               }
             : {}),
           ...(caller.kind === "machine" ? { machine: caller.machine } : {}),
+          questions,
         });
       }
       // The API returns every client's records, so a machine limited to some
@@ -413,6 +547,14 @@ export function createApi({
         );
 
       const route = `${request.method} ${url.pathname}`;
+      const questionMatch = questionActionPath.exec(url.pathname);
+      if (questionMatch?.[1] && questionMatch[2] && request.method === "POST")
+        return questionAction(
+          request,
+          questionMatch[1],
+          questionMatch[2] as "answer" | "close",
+          caller,
+        );
       const itemLogMatch = itemLogPath.exec(url.pathname);
       if (itemLogMatch?.[1] && request.method === "GET")
         return itemLog(itemLogMatch[1]);
@@ -433,8 +575,24 @@ export function createApi({
         case "POST /api/events":
           return postEvent(request);
         case "GET /api/digest":
-          // Alerts the dispatcher left for a digest, newest first.
-          return json(dispatcher?.digest() ?? []);
+          // Agents' open questions first, oldest first; then the alerts the
+          // dispatcher left for a digest, newest first.
+          return json([
+            ...questions
+              .list({ states: ["open"] }, everything)
+              .map(questionDigestEntry),
+            ...(dispatcher?.digest() ?? []).map((entry) => ({
+              kind: "alert" as const,
+              ...entry,
+            })),
+          ]);
+        case "GET /api/questions": {
+          const state = url.searchParams.get("state");
+          const states = state
+            ? state.split(",").filter((value) => isQuestionState(value))
+            : undefined;
+          return json(questions.list(states ? { states } : {}, everything));
+        }
         case "GET /api/stream":
           return stream(request);
         default:
@@ -442,7 +600,9 @@ export function createApi({
       }
     },
     listeners: () => streams.size,
+    questions,
     close() {
+      questions.stop();
       stopRefreshes?.();
       stopGithub?.();
       stopSessions?.();

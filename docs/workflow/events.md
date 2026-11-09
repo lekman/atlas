@@ -118,6 +118,7 @@ hooks and the server.
 | Release status    | An environment drifted from its branch               | Delegate, or digest when the drift is expected                                                              |
 | Budgets and usage | An orchestrator near its budget, a usage limit near  | Digest. Ask you when a limit would stop work                                                                |
 | Usage limits      | A Claude Code session hit a subscription usage limit | Show the agent blocked until the reset. Restart it under another account when the account-switch rule is on |
+| Questions         | A Claude Code session asked the person a question    | Ask you. The answer goes back to the session as a message                                                   |
 | Host statistics   | Disk, memory or CPU over a threshold                 | Delegate a clean-up. Ask you when it repeats                                                                |
 | Schedules         | Timesheet deadlines, month end, routines             | Auto-act or delegate by rule                                                                                |
 
@@ -143,6 +144,27 @@ The account-switch rule acts on it, and is off unless switched on. Each
 decision is an `account-switch` event. See
 [Usage Limits](../architecture.md#usage-limits). To register the accounts
 and see each one's limit, use [Claude Accounts](claude-accounts.md).
+
+### Question Signals
+
+When a session asks the person a question (see
+[Agents' Questions](../architecture.md#agents-questions)), Atlas records
+one `signal` event:
+
+| Field        | Value                                                         |
+| ------------ | ------------------------------------------------------------- |
+| `source`     | `claude`                                                      |
+| `kind`       | `question`                                                    |
+| `event`      | `asked`                                                       |
+| `questionId` | The question's own id, `q-…`                                  |
+| `session`    | The asking session's address                                  |
+| `cardOnly`   | Whether the question is a card with no text                   |
+| `recordIds`  | The task the question is about, when the session named one    |
+| `text`       | The first question, or a card's title written for outside use |
+
+Each later step is an `agent-question` event with `phase` `answered` or
+`delivered`. Its text is fixed, such as "Answer delivered to builder", and
+never holds the answer.
 
 ## Client Boundaries Apply to Sources
 

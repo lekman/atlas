@@ -113,7 +113,7 @@ describe("sample script", () => {
                 ? [step.parentId, ...(step.workingOn ?? [])]
                 : step.type === "question-answered"
                   ? [step.questionId]
-                  : step.type === "signal"
+                  : step.type === "signal" || step.type === "agent-question"
                     ? step.recordIds
                     : step.type === "account-switch"
                       ? [step.agentId]

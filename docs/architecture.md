@@ -129,16 +129,19 @@ left the client's boundary even if no file moved.
 MCP endpoint, and serves the web app from `apps/web` at `/` on the same
 origin. Machine tokens, Litestream and the import are still to come.
 
-| Route                    | What it does                                                 |
-| ------------------------ | ------------------------------------------------------------ |
-| `GET /api/health`        | Whether the server is up, its version, and its source counts |
-| `GET /api/dataset`       | Every record, and the last event they include                |
-| `GET /api/events`        | The event log after `?after=<sequence>`, oldest first        |
-| `POST /api/events`       | Adds one event, writes its effect and streams it             |
-| `GET /api/stream`        | Server-sent events after `?after=`, then each new one        |
-| `GET /api/items/:id/log` | One backlog item's log from the task database, newest first  |
-| `GET /api/digest`        | Alerts the dispatcher left for a digest, newest first        |
-| `POST /mcp`              | The MCP tools, over Streamable HTTP                          |
+| Route                            | What it does                                                 |
+| -------------------------------- | ------------------------------------------------------------ |
+| `GET /api/health`                | Whether the server is up, its version, and its source counts |
+| `GET /api/dataset`               | Every record, and the last event they include                |
+| `GET /api/events`                | The event log after `?after=<sequence>`, oldest first        |
+| `POST /api/events`               | Adds one event, writes its effect and streams it             |
+| `GET /api/stream`                | Server-sent events after `?after=`, then each new one        |
+| `GET /api/items/:id/log`         | One backlog item's log from the task database, newest first  |
+| `GET /api/digest`                | Agents' open questions, then alerts left for a digest        |
+| `GET /api/questions`             | Agents' questions, by `?state=open,answered,delivered`       |
+| `POST /api/questions/:id/answer` | Answers an agent's question; the first answer wins           |
+| `POST /api/questions/:id/close`  | Closes one as answered elsewhere, or withdrawn               |
+| `POST /mcp`                      | The MCP tools, over Streamable HTTP                          |
 
 The dataset response names the last event it includes in the
 `x-atlas-sequence` header, and the web app opens the stream from there, so
@@ -153,10 +156,41 @@ every open view.
 | `report_status`       | Sets the agent's status and note: a `status-change` event              |
 | `send_message`        | A message between two known agents: an `agent-message` event           |
 | `list_my_work`        | The agent's own work, then its client's open work, most urgent first   |
-| `list_open_questions` | Open questions, with who must answer                                   |
-| `answer_question`     | Answers a question and records the decision                            |
+| `ask_question`        | Asks the person 1 to 4 questions; returns at once with the question id |
+| `list_open_questions` | Open questions, with who must answer, agents' questions included       |
+| `answer_question`     | Answers a question: an agent's goes back to its session as a message   |
+| `close_question`      | Closes an agent's question as answered elsewhere, or withdrawn         |
 | `launch_vessel`       | Adds a vessel launched from an agent: an `agent-launched` event        |
 | `return_vessel`       | Removes a vessel that has finished: an `agent-returned` event          |
+
+### Agents' Questions
+
+A Claude Code session asks the person through `ask_question`, either
+itself or through the hook in the ai-toolkit `commander` plugin that turns
+`AskUserQuestion` into a question and lets the session keep working. A
+question holds the 1 to 4 questions `AskUserQuestion` takes, with their
+options, the asking session's address, account and host, the client and
+the task. It moves through three states:
+
+| State       | When                                                                              |
+| ----------- | --------------------------------------------------------------------------------- |
+| `open`      | Asked. Shown on `/api/digest` and by `list_open_questions`, and a question signal |
+| `answered`  | The first answer, or a close. A later answer is a 409 that says when and by whom  |
+| `delivered` | The asking session's delivery hook has marked the answer message delivered        |
+
+Each answer goes to the asking session as a message through the tasks
+server (`message_send`), which every machine and Claude account reaches.
+Every 30 seconds the server sends any answer it could not send yet, and
+reads the tasks server back (`message_inbox`): a message marked delivered
+moves its question to `delivered`. Set `ATLAS_TASKS_API_URL` and
+`ATLAS_TASKS_API_TOKEN_COMMAND` to turn this on; without them answers are
+kept and not sent.
+
+A card is a question from a client whose boundary keeps the text in its
+own tools. It holds a title written for outside use, the task and a link
+back (the task's ticket when the session gives none), and no question or
+answer text. It is answered in the client's tools and closed here as
+answered elsewhere; the session is then told where to read the answer.
 
 A session connects as described in "Who May Connect", below. A request with an Origin header from another site is refused, so a web page
 cannot call the tools through a browser on the tailnet.

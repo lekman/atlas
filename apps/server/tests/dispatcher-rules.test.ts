@@ -352,6 +352,19 @@ describe("the dispatcher configuration", () => {
     });
   });
 
+  test("reads the tasks API for answer messages without GitHub state", () => {
+    const configuration = readConfiguration({
+      ATLAS_TASKS_API_URL: "http://tasks.test/mcp",
+      ATLAS_TASKS_API_TOKEN_COMMAND: "printf token",
+    });
+    expect(configuration.messages).toEqual({
+      url: "http://tasks.test/mcp",
+      tokenCommand: "printf token",
+    });
+    expect(configuration.dispatcher).toBeUndefined();
+    expect(readConfiguration({}).messages).toBeUndefined();
+  });
+
   test("refuses an address without its token command", () => {
     expect(() =>
       readConfiguration({

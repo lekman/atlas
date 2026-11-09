@@ -15,6 +15,14 @@ export {
   type SwitchConnection,
   type SwitchPlan,
 } from "./account-switch";
+export {
+  createQuestionService,
+  tasksMessages,
+  type ClientFilter,
+  type MessageApi,
+  type QuestionService,
+  type QuestionServiceOptions,
+} from "./agent-questions";
 export { createApi, sequenceHeader, type Api, type ApiOptions } from "./api";
 export {
   parseAccountsFile,

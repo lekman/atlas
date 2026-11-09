@@ -57,6 +57,8 @@ describe("the MCP tools", () => {
     const { tools } = await client.listTools();
     expect(tools.map((tool) => tool.name).sort()).toEqual([
       "answer_question",
+      "ask_question",
+      "close_question",
       "launch_vessel",
       "list_agents",
       "list_my_work",
@@ -186,6 +188,76 @@ describe("the MCP tools", () => {
         })
       ).isError,
     ).toBe(true);
+  });
+
+  test("ask_question returns at once, and the question closes on its first answer", async () => {
+    const asked = await call("ask_question", {
+      session: { address: "halcyon-builder", account: "ultra-a" },
+      clientId: "halcyon",
+      taskId: "cut-over",
+      questions: [
+        {
+          question: "Which region should the cut-over use?",
+          options: [{ label: "West" }, { label: "North" }],
+        },
+      ],
+    });
+    expect(asked.isError).toBe(false);
+    const { questionId, state } = asked.value as {
+      questionId: string;
+      state: string;
+    };
+    expect(state).toBe("open");
+    const open = (await call("list_open_questions", { clientId: "halcyon" }))
+      .value as { id: string; kind?: string; session?: string }[];
+    expect(open.find((question) => question.id === questionId)).toMatchObject({
+      kind: "agent",
+      session: "halcyon-builder",
+    });
+    const first = await call("answer_question", { questionId, answer: "West" });
+    expect(first.value).toEqual({ questionId, state: "answered" });
+    const second = await call("answer_question", {
+      questionId,
+      answer: "North",
+    });
+    expect(second.isError).toBe(true);
+    expect(String(second.value)).toContain("is already answered");
+    expect(api.questions.get(questionId)?.answers).toEqual({
+      "Which region should the cut-over use?": "West",
+    });
+  });
+
+  test("a card holds no question text, refuses an answer and closes as answered elsewhere", async () => {
+    const asked = await call("ask_question", {
+      session: { address: "kestrel-agent" },
+      clientId: "kestrel",
+      cardOnly: true,
+      title: "A question waits in the client's own tools",
+      questions: [],
+    });
+    const { questionId } = asked.value as { questionId: string };
+    const answered = await call("answer_question", {
+      questionId,
+      answer: "Yes",
+    });
+    expect(answered.isError).toBe(true);
+    expect(String(answered.value)).toContain("card-only");
+    const closed = await call("close_question", {
+      questionId,
+      resolution: "answered-elsewhere",
+    });
+    expect(closed.value).toEqual({ questionId, state: "answered" });
+  });
+
+  test("ask_question refuses card text", async () => {
+    const asked = await call("ask_question", {
+      session: { address: "kestrel-agent" },
+      clientId: "kestrel",
+      cardOnly: true,
+      title: "A question waits",
+      questions: [{ question: "Secret?", options: [] }],
+    });
+    expect(asked.isError).toBe(true);
   });
 
   test("launch_vessel adds a vessel that list_agents shows with its parent", async () => {

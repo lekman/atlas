@@ -13,6 +13,7 @@ import {
   type Agent,
   type Dataset,
 } from "./model";
+import { SessionAddress } from "./agent-questions";
 import { findRecord } from "./records";
 
 export const externalSources = [
@@ -42,8 +43,15 @@ export const githubSignalKinds = ["pr", "issue", "alert"] as const;
 export const GithubSignalKind = z.enum(githubSignalKinds);
 export type GithubSignalKind = z.infer<typeof GithubSignalKind>;
 
-/** What a signal is about: a GitHub subject, or a Claude Code session that hit a usage limit. */
-export const signalKinds = [...githubSignalKinds, "usage-limit"] as const;
+/**
+ * What a signal is about: a GitHub subject, a Claude Code session that hit a
+ * usage limit, or a question a session asked the person.
+ */
+export const signalKinds = [
+  ...githubSignalKinds,
+  "usage-limit",
+  "question",
+] as const;
 export const SignalKind = z.enum(signalKinds);
 export type SignalKind = z.infer<typeof SignalKind>;
 
@@ -152,10 +160,36 @@ export const UsageLimitSignalEvent = z.object({
 });
 export type UsageLimitSignalEvent = z.infer<typeof UsageLimitSignalEvent>;
 
-/** A happening in an outside system: GitHub, or a Claude Code usage limit. */
+/**
+ * A Claude Code session asked the person a question. `text` is the
+ * question's title; a card's title is written for outside use, and a card
+ * carries no question text anywhere.
+ */
+export const QuestionSignalEvent = z.object({
+  type: z.literal("signal"),
+  source: z.literal("claude"),
+  /** `claude:question:<question id>`. */
+  key: z.string().min(1).max(512),
+  kind: z.literal("question"),
+  event: z.literal("asked"),
+  questionId: Identifier,
+  /** The asking session's address. */
+  session: SessionAddress,
+  cardOnly: z.boolean(),
+  client: Identifier.nullable(),
+  /** The task the question is about, when the session named one. */
+  recordIds: z.array(Identifier),
+  /** When the session asked, ISO 8601. */
+  at: z.iso.datetime(),
+  text: z.string().min(1),
+});
+export type QuestionSignalEvent = z.infer<typeof QuestionSignalEvent>;
+
+/** A happening in an outside system: GitHub, a Claude Code usage limit, or an agent's question. */
 export const SignalEvent = z.discriminatedUnion("kind", [
   GithubSignalEvent,
   UsageLimitSignalEvent,
+  QuestionSignalEvent,
 ]);
 export type SignalEvent = z.infer<typeof SignalEvent>;
 
@@ -209,10 +243,29 @@ export const AccountSwitchEvent = z.object({
 });
 export type AccountSwitchEvent = z.infer<typeof AccountSwitchEvent>;
 
+/**
+ * An agent question moved on: `answered` (answered, closed as answered in
+ * the client's own tools, or withdrawn) or `delivered` (the asking session
+ * has the answer). Its text never holds a card's content.
+ */
+export const agentQuestionPhases = ["answered", "delivered"] as const;
+export const AgentQuestionEvent = z.object({
+  type: z.literal("agent-question"),
+  questionId: Identifier,
+  phase: z.enum(agentQuestionPhases),
+  session: SessionAddress,
+  client: Identifier.nullable(),
+  /** The task the question is about, when the session named one. */
+  recordIds: z.array(Identifier),
+  text: z.string().min(1),
+});
+export type AgentQuestionEvent = z.infer<typeof AgentQuestionEvent>;
+
 export const AtlasEvent = z.discriminatedUnion("type", [
   SignalEvent,
   DispatchEvent,
   AccountSwitchEvent,
+  AgentQuestionEvent,
   z.object({
     type: z.literal("agent-message"),
     from: Identifier,
@@ -372,6 +425,7 @@ export function applyEvent(dataset: Dataset, event: AtlasEvent): Dataset {
     case "signal":
     case "dispatch":
     case "account-switch":
+    case "agent-question":
       return dataset;
   }
 }

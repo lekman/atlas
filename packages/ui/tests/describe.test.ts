@@ -200,3 +200,59 @@ describe("signals and dispatcher decisions", () => {
     expect(cueFor({ ...dispatch, needsYou: true })).toBe("needs");
   });
 });
+
+describe("agent questions", () => {
+  const asked = {
+    type: "signal",
+    source: "claude",
+    key: "claude:question:q-1",
+    kind: "question",
+    event: "asked",
+    questionId: "q-1",
+    session: "schema",
+    cardOnly: false,
+    client: "halcyon",
+    recordIds: [],
+    at: "2026-03-12T09:00:00.000Z",
+    text: "Which region should the cut-over use?",
+  } satisfies SignalEvent;
+
+  it("names the asking session when the question names no task", () => {
+    expect(describeEvent(worlds.mariner, sampleDataset, asked)).toContain(
+      "Which region should the cut-over use?",
+    );
+    expect(whoOf(sampleDataset, asked)).toBe("Claude Code");
+  });
+
+  it("rings the needs-you cue for a new question, and nothing for its delivery", () => {
+    expect(cueFor(asked)).toBe("needs");
+    expect(
+      cueFor({
+        type: "agent-question",
+        questionId: "q-1",
+        phase: "delivered",
+        session: "schema",
+        client: "halcyon",
+        recordIds: [],
+        text: "Answer delivered to schema",
+      }),
+    ).toBeNull();
+  });
+
+  it("belongs to the log of the task it names", () => {
+    expect(
+      isAbout(sampleDataset, { ...asked, recordIds: ["cutover"] }, "cutover"),
+    ).toBe(true);
+    expect(
+      whoOf(sampleDataset, {
+        type: "agent-question",
+        questionId: "q-1",
+        phase: "answered",
+        session: "schema",
+        client: "halcyon",
+        recordIds: [],
+        text: "Answered",
+      }),
+    ).toBe("Questions");
+  });
+});
