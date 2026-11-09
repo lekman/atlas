@@ -349,3 +349,19 @@ export const idleWithWork = sqliteTable("idle_with_work", {
   /** When the rule last nudged the agent, ISO 8601, in any mode. */
   nudgedAt: text("nudged_at"),
 });
+
+/**
+ * The sidebar web page's stored documents (see `sidebar-routes.ts`), in
+ * the place the artifact keeps them in its own store. A delete keeps the
+ * row with `data` null, so `version` only ever rises and a page that saw
+ * an older version knows to read again.
+ */
+export const sidebarDocuments = sqliteTable("sidebar_documents", {
+  /** `board/<name>`, `details/<key>` or `prs/<key>`. */
+  path: text().primaryKey(),
+  /** The document as JSON text, or null once it is deleted. */
+  data: text(),
+  version: integer().notNull(),
+  /** When it last changed, ISO 8601. */
+  updatedAt: text("updated_at").notNull(),
+});

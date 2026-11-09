@@ -124,6 +124,25 @@ export function clientColour(
     : "var(--client-other)";
 }
 
+/**
+ * The config for a page without claude.ai connectors, as the one the
+ * Atlas server serves: trackers read through a connector (Monday, GitHub),
+ * the connector calendars and the phone inbox are left out, so their
+ * panels do not show. Trackers the Mac's sync fills, such as Jira, stay.
+ */
+export function withoutConnectors(from: SidebarConfig): SidebarConfig {
+  const { inbox: _inbox, calendar, ...rest } = from;
+  const result: SidebarConfig = {
+    ...rest,
+    trackers: from.trackers.filter((t) => !t.monday && !t.github),
+  };
+  if (calendar) {
+    const { google: _google, outlook: _outlook, ...feeds } = calendar;
+    result.calendar = feeds;
+  }
+  return result;
+}
+
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 /**

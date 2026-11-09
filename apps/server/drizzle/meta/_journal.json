@@ -71,6 +71,13 @@
       "when": 1794229524508,
       "tag": "0009_agent_questions",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1794238982393,
+      "tag": "0010_sidebar_documents",
+      "breakpoints": true
     }
   ]
 }

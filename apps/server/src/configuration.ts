@@ -63,6 +63,19 @@ export interface Configuration {
    * Without it answers are kept and not sent.
    */
   messages?: EndpointConfiguration;
+  /**
+   * The command that starts the dashboard MCP server over stdio, which the
+   * sidebar page's `host:dashboard` calls reach: `ATLAS_DASHBOARD_MCP_COMMAND`,
+   * the program and its arguments, quoted where they hold spaces. Without
+   * it those calls answer that the server is not connected.
+   */
+  dashboardCommand?: string;
+  /**
+   * The built sidebar page (`apps/sidebar/dist/index.html`, built with this
+   * machine's `sidebar.config.json`) that `/sidebar` serves:
+   * `ATLAS_SIDEBAR_FILE`. Without it `/sidebar` is not found.
+   */
+  sidebarFile?: string;
 }
 
 /** An HTTP endpoint and the command that prints its token. */
@@ -423,6 +436,8 @@ export function readConfiguration(
     "ATLAS_TASKS_API_URL",
     "ATLAS_TASKS_API_TOKEN_COMMAND",
   );
+  const dashboardCommand = environment.ATLAS_DASHBOARD_MCP_COMMAND?.trim();
+  const sidebarFile = environment.ATLAS_SIDEBAR_FILE?.trim();
   return {
     databasePath:
       environment.ATLAS_DATABASE ??
@@ -437,5 +452,7 @@ export function readConfiguration(
     ...(sessions ? { sessions } : {}),
     ...(dispatcher ? { dispatcher } : {}),
     ...(messages ? { messages } : {}),
+    ...(dashboardCommand ? { dashboardCommand } : {}),
+    ...(sidebarFile ? { sidebarFile } : {}),
   };
 }
