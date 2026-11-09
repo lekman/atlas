@@ -176,6 +176,23 @@ describe("createServerRuntime: tools", () => {
     });
   });
 
+  it("trims any run of trailing slashes from the base, quickly", async () => {
+    const server = fakeServer({
+      tools: { worklist: () => Response.json({ structuredContent: {} }) },
+    });
+    const runtime = new Runtime(
+      createServerRuntime({
+        base: `https://atlas.example${"/".repeat(100_000)}`,
+        fetch: server.fetch,
+        openStream: () => null,
+      }),
+    );
+    const started = performance.now();
+    await runtime.call("host:dashboard", "worklist");
+    expect(performance.now() - started).toBeLessThan(1000);
+    expect(server.sent[0]?.url).toBe("/api/host/dashboard/worklist");
+  });
+
   it("rejects with the server's code when the tool is not allowed or not set up", async () => {
     const server = fakeServer({
       tools: {
