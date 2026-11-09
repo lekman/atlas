@@ -233,3 +233,20 @@ export {
   revokeMachine,
   type Machine,
 } from "./machines";
+export {
+  createDashboardHost,
+  dashboardTools,
+  isDashboardTool,
+  stdioConnector,
+  type DashboardAnswer,
+  type DashboardConnector,
+  type DashboardHost,
+  type DashboardTool,
+} from "./dashboard-host";
+export {
+  createSidebarRoutes,
+  markPage,
+  sidebarPageFile,
+  type SidebarRoutes,
+  type SidebarRoutesOptions,
+} from "./sidebar-routes";

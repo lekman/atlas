@@ -15,6 +15,7 @@
  * | POST /api/questions/:id/answer | Answers an agent's question; the first wins     |
  * | POST /api/questions/:id/close  | Closes one: answered elsewhere, or withdrawn   |
  * | POST /mcp               | The MCP tools agents call (see `mcp.ts`)              |
+ * | GET  /sidebar, /api/host/dashboard/:tool, /api/sidebar/doc | The sidebar as a web page (see `sidebar-routes.ts`) |
  *
  * With a task source, every read lays the task database's clients,
  * workstreams and tasks over SQLite (see `task-source.ts`), and the stream
@@ -68,6 +69,8 @@ import {
   type Overlay,
   type StoredEvent,
 } from "./store";
+import type { DashboardHost } from "./dashboard-host";
+import { createSidebarRoutes } from "./sidebar-routes";
 import { noTaskSource, type TaskCache } from "./task-cache";
 import { mergeTasks, type MergedDataset } from "./task-source";
 
@@ -185,6 +188,13 @@ export interface ApiOptions {
   messages?: MessageApi;
   /** Agents idle with open work. Leave out when live agent status is off. */
   idle?: IdleWatcher;
+  /**
+   * The dashboard MCP server the sidebar page's `host:dashboard` calls go
+   * to. Leave out when it is not configured; the calls then say so.
+   */
+  dashboard?: DashboardHost;
+  /** The marked sidebar page `/sidebar` serves, or undefined while there is none. */
+  sidebarPage?: () => string | undefined;
 }
 
 export interface Api {
@@ -225,9 +235,20 @@ export function createApi({
   dispatcher,
   messages,
   idle,
+  dashboard,
+  sidebarPage,
 }: ApiOptions): Api {
   const streams = new Set<(text: string) => void>();
   const closers = new Set<() => void>();
+
+  const sidebar = createSidebarRoutes({
+    database,
+    ...(dashboard ? { dashboard } : {}),
+    ...(sidebarPage ? { page: sidebarPage } : {}),
+    broadcast: (frame) => {
+      for (const write of streams) write(frame);
+    },
+  });
 
   /** The task database's records laid over SQLite, once there has been a good read. */
   const overlay: Overlay | undefined = tasks
@@ -526,7 +547,12 @@ export function createApi({
     async handle(request, socketAddress) {
       const url = new URL(request.url);
       const isMcp = url.pathname === "/mcp";
-      if (!isMcp && !url.pathname.startsWith("/api/")) return undefined;
+      if (
+        !isMcp &&
+        url.pathname !== "/sidebar" &&
+        !url.pathname.startsWith("/api/")
+      )
+        return undefined;
       if (url.pathname === "/api/health" && request.method === "GET")
         return json(health());
 
@@ -567,6 +593,8 @@ export function createApi({
             : "this machine may not see every client; use MCP",
         );
 
+      const sidebarResponse = await sidebar.handle(request, url);
+      if (sidebarResponse) return sidebarResponse;
       const route = `${request.method} ${url.pathname}`;
       const questionMatch = questionActionPath.exec(url.pathname);
       if (questionMatch?.[1] && questionMatch[2] && request.method === "POST")

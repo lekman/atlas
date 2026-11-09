@@ -5,6 +5,7 @@
  */
 import { toRuntimeError } from "./errors";
 import { readHost, type Host } from "./host";
+import { serverRuntimeFor } from "./server";
 import type {
   CallOptions,
   ClaudeRuntime,
@@ -133,21 +134,31 @@ export interface FeedOptions<T> {
 
 export interface RuntimeOptions {
   now?: () => Date;
+  /**
+   * Whether claude.ai connectors (calendars, trackers) can answer here.
+   * True by default when there is a host; the Atlas server's runtime has
+   * none.
+   */
+  connectors?: boolean;
 }
 
 export class Runtime {
   readonly #host: ClaudeRuntime | null;
   readonly #now: () => Date;
+  readonly #connectors: boolean;
 
   constructor(host: ClaudeRuntime | null, options: RuntimeOptions = {}) {
     this.#host = host;
     this.#now = options.now ?? (() => new Date());
+    this.#connectors = host !== null && (options.connectors ?? true);
   }
 
   /**
-   * The runtime of the page this code runs in. Outside the artifact and
-   * the VS Code view there is none, and every call fails with
-   * `not_granted`, which the sidebar shows as "not available in this view".
+   * The runtime of the page this code runs in: `window.claude` in the
+   * artifact and the VS Code view; the Atlas server's when the server
+   * served the page (see `server.ts`); otherwise none, and every call
+   * fails with `not_granted`, which the sidebar shows as "not available in
+   * this view".
    */
   static fromWindow(target: unknown = globalThis): Runtime {
     const claude = (target as { claude?: unknown } | null)?.claude;
@@ -155,11 +166,20 @@ export class Runtime {
       typeof claude === "object" &&
       claude !== null &&
       typeof (claude as { use?: unknown }).use === "function";
-    return new Runtime(usable ? (claude as ClaudeRuntime) : null);
+    if (usable) return new Runtime(claude as ClaudeRuntime);
+    const server = serverRuntimeFor(target);
+    return server
+      ? new Runtime(server, { connectors: false })
+      : new Runtime(null);
   }
 
   get present(): boolean {
     return this.#host !== null;
+  }
+
+  /** Whether claude.ai connectors can answer in this page. */
+  get connectors(): boolean {
+    return this.#connectors;
   }
 
   /**

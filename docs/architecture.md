@@ -838,17 +838,48 @@ A backup that has never been restored does not count.
 
 ## Where Each View Runs
 
-| Where                  | Built from                        | Reaches the data through                                         |
-| ---------------------- | --------------------------------- | ---------------------------------------------------------------- |
-| iPhone and Mac browser | `apps/web`, a PWA                 | The API over the tailnet                                         |
-| Claude desktop sidebar | `apps/artifact`, a one-file build | A local MCP server on the MacBook, then the API over the tailnet |
-| Claude Code plugin     | `apps/plugin`                     | The MCP endpoint, from hooks; the still SVG map comes later      |
+| Where                  | Built from                              | Reaches the data through                                         |
+| ---------------------- | --------------------------------------- | ---------------------------------------------------------------- |
+| iPhone and Mac browser | `apps/web`, a PWA                       | The API over the tailnet                                         |
+| Claude desktop sidebar | `apps/artifact`, a one-file build       | A local MCP server on the MacBook, then the API over the tailnet |
+| Claude Code plugin     | `apps/plugin`                           | The MCP endpoint, from hooks; the still SVG map comes later      |
+| Sidebar as a web page  | `apps/sidebar`, the same one-file build | The Atlas server at `/sidebar`, over the tailnet                 |
 
 **Can the Claude Artifact talk to the database?** On the Mac, yes: the
 desktop app lets an artifact call a local MCP server, which forwards to the
 API. In the iPhone Claude app, no: local MCP servers are not available
 there, and Claude's own servers cannot reach a tailnet. The phone uses the
 web app over Tailscale instead.
+
+### The Sidebar as a Web Page
+
+The Atlas server serves the built sidebar at `/sidebar`, for a browser or
+another app's web view, including in a frame. The page has no
+`window.claude`, so the runtime (`packages/runtime/src/server.ts`) talks to
+the server it came from. The server marks the page with
+`<meta name="atlas-runtime" content="server">`; the artifact and the VS Code
+view never carry the mark and keep their own runtime.
+
+| What the sidebar uses  | In the web page                                                                     |
+| ---------------------- | ----------------------------------------------------------------------------------- |
+| `host:dashboard` tools | `POST /api/host/dashboard/<tool>`, forwarded to the dashboard MCP server over stdio |
+| Stored documents       | `/api/sidebar/doc?path=`, in SQLite; the event stream says when one changes         |
+| claude.ai connectors   | Not reached. Monday, GitHub, the connector calendars and the phone inbox are hidden |
+
+Only the tools the sidebar calls are forwarded (`dashboardTools` in
+`apps/server/src/dashboard-host.ts`). The page and its routes sit behind the
+same caller check as the rest of the API. Stored documents here are the
+server's own, separate from the artifact's store.
+
+| Variable                      | What it sets                                                                                   | Default |
+| ----------------------------- | ---------------------------------------------------------------------------------------------- | ------- |
+| `ATLAS_SIDEBAR_FILE`          | The built page, `apps/sidebar/dist/index.html` built with this machine's `sidebar.config.json` | Off     |
+| `ATLAS_DASHBOARD_MCP_COMMAND` | The command that starts the dashboard MCP server, quoted where a path holds spaces             | Off     |
+
+Without `ATLAS_SIDEBAR_FILE`, `/sidebar` is not found. Without
+`ATLAS_DASHBOARD_MCP_COMMAND`, every tool call answers
+`server_not_connected`, and the panels show their stored copies, as they do
+in the artifact when the local server is not connected.
 
 A Claude Code plugin pane can only draw Claude's own elements (boxes, text,
 buttons, SVG). It cannot run the animated canvas, which is why

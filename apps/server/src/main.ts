@@ -10,6 +10,7 @@ import webApp from "@atlas/web/index.html";
 import rootPackage from "../../../package.json" with { type: "json" };
 import { commandLineLauncher, createAccountSwitcher } from "./account-switch";
 import { createApi } from "./api";
+import { createDashboardHost, stdioConnector } from "./dashboard-host";
 import { readConfiguration } from "./configuration";
 import { openDatabase } from "./database";
 import { createDispatcher } from "./dispatcher";
@@ -23,6 +24,7 @@ import { defaultDispatcherSettings } from "./dispatcher-rules";
 import { createGithubReader } from "./github-reader";
 import { createIdleWatcher } from "./idle-with-work";
 import { createSessionReader } from "./session-source";
+import { sidebarPageFile } from "./sidebar-routes";
 import { isEmpty, readSeedFile, seedDataset } from "./store";
 import { createTaskCache } from "./task-cache";
 import { passwordFromCommand, postgresTaskSource } from "./task-database";
@@ -183,6 +185,11 @@ const idle = sessions
     })
   : undefined;
 
+// The dashboard MCP server for the sidebar page, started on its first call.
+const dashboard = configuration.dashboardCommand
+  ? createDashboardHost(stdioConnector(configuration.dashboardCommand))
+  : undefined;
+
 // Every start is a new build as far as open pages are concerned: a deploy
 // restarts the server, and the pages reload when they reconnect.
 const build = `${rootPackage.version}-${Date.now().toString(36)}`;
@@ -205,6 +212,10 @@ const api = createApi({
       }
     : {}),
   ...(idle ? { idle } : {}),
+  ...(dashboard ? { dashboard } : {}),
+  ...(configuration.sidebarFile
+    ? { sidebarPage: sidebarPageFile(configuration.sidebarFile) }
+    : {}),
 });
 // Answers to agents' questions go out, and their delivery is read back,
 // every 30 seconds, besides straight after each answer.
@@ -245,7 +256,7 @@ const server = Bun.serve({
 });
 
 console.log(
-  `atlas ${rootPackage.version} listening on ${server.url}, tokens ${configuration.requireTokens ? "required" : "optional"}, tasks from ${tasks ? "the task database" : "SQLite"}${github ? ", GitHub state from gh-events" : ""}${signalDispatcher ? ", dispatcher on" : ""}${sessions ? ", agent status from Claude Code sessions" : ""}${idle ? `, idle-with-work nudges ${configuration.dispatcher?.settings.rules["nudge-idle-with-work"] ?? "off"}` : ""}${configuration.messages ? ", answers to agents through the tasks server" : ""}${accounts ? `, ${accounts.settings.accounts.length} accounts, switch ${accounts.settings.mode}` : ""}${configuration.fakeDevelopment ? ", development tracking fake" : ""}`,
+  `atlas ${rootPackage.version} listening on ${server.url}, tokens ${configuration.requireTokens ? "required" : "optional"}, tasks from ${tasks ? "the task database" : "SQLite"}${github ? ", GitHub state from gh-events" : ""}${signalDispatcher ? ", dispatcher on" : ""}${sessions ? ", agent status from Claude Code sessions" : ""}${idle ? `, idle-with-work nudges ${configuration.dispatcher?.settings.rules["nudge-idle-with-work"] ?? "off"}` : ""}${configuration.messages ? ", answers to agents through the tasks server" : ""}${accounts ? `, ${accounts.settings.accounts.length} accounts, switch ${accounts.settings.mode}` : ""}${configuration.fakeDevelopment ? ", development tracking fake" : ""}${configuration.sidebarFile ? ", sidebar page on" : ""}${dashboard ? ", dashboard server for the sidebar" : ""}`,
 );
 
 function shutdown() {
@@ -254,6 +265,7 @@ function shutdown() {
   sessions?.stop();
   idle?.stop();
   api.close();
+  void dashboard?.close();
   server.stop();
   database.$client.close();
   process.exit(0);
