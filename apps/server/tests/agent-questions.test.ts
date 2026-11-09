@@ -286,10 +286,12 @@ describe("the tasks server connection", () => {
         const answer =
           body.params.name === "message_send"
             ? { id: "m-7", createdAt: "2026-03-12T09:00:00Z" }
-            : [
-                { id: "m-7", deliveredAt: "2026-03-12T09:01:00Z" },
-                { id: "m-8" },
-              ];
+            : {
+                messages: [
+                  { id: "m-7", deliveredAt: "2026-03-12T09:01:00Z" },
+                  { id: "m-8" },
+                ],
+              };
         return new Response(
           JSON.stringify({
             jsonrpc: "2.0",
