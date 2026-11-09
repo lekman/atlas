@@ -21,6 +21,7 @@ import {
   chmodSync,
   closeSync,
   existsSync,
+  fstatSync,
   lstatSync,
   mkdirSync,
   openSync,
@@ -103,11 +104,22 @@ function writeAtomically(path: string, text: string) {
   renameSync(temporary, path);
 }
 
+/** A file's text, or null when there is no file. Read once, without checking first. */
+function readIfPresent(path: string): string | null {
+  try {
+    return readFileSync(path, "utf8");
+  } catch (error) {
+    if ((error as { code?: string }).code === "ENOENT") return null;
+    throw error;
+  }
+}
+
 function readJsonObject(path: string): Record<string, unknown> | null {
-  if (!existsSync(path)) return null;
+  const text = readIfPresent(path);
+  if (text === null) return null;
   let body: unknown;
   try {
-    body = JSON.parse(readFileSync(path, "utf8"));
+    body = JSON.parse(text);
   } catch {
     throw new Stop(`${path} is not JSON. Fix it by hand, then run again.`);
   }
@@ -117,9 +129,10 @@ function readJsonObject(path: string): Record<string, unknown> | null {
 }
 
 function loadAccounts(path: string) {
-  if (!existsSync(path)) return null;
+  const text = readIfPresent(path);
+  if (text === null) return null;
   try {
-    return readAccountsFile(readFileSync(path, "utf8"), HOME);
+    return readAccountsFile(text, HOME);
   } catch (error) {
     throw new Stop(
       `The accounts file ${path} is not valid (${(error as Error).message}). Fix it by hand, then run again.`,
@@ -373,8 +386,7 @@ function add(
   );
   say(copyServers(folder));
   const text = serialiseAccountsFile(body);
-  const unchanged =
-    existsSync(accountsPath) && readFileSync(accountsPath, "utf8") === text;
+  const unchanged = readIfPresent(accountsPath) === text;
   if (!unchanged) writeAtomically(accountsPath, text);
   say(
     `${unchanged ? "already in" : "written to"} ${accountsPath} (switch ${String(body.switch ?? "off")})`,
@@ -413,22 +425,23 @@ function login(
 const TAIL_BYTES = 256 * 1024;
 
 function lastLines(path: string): string[] {
-  let size: number;
+  let file: number;
   try {
-    size = statSync(path).size;
+    file = openSync(path, "r");
   } catch {
     return [];
   }
-  const length = Math.min(size, TAIL_BYTES);
-  const buffer = Buffer.alloc(length);
-  const file = openSync(path, "r");
   try {
+    // The size of the file that is open, so a change between two calls cannot mislead the read.
+    const size = fstatSync(file).size;
+    const length = Math.min(size, TAIL_BYTES);
+    const buffer = Buffer.alloc(length);
     readSync(file, buffer, 0, length, size - length);
+    const lines = buffer.toString("utf8").split("\n");
+    return size > length ? lines.slice(1) : lines;
   } finally {
     closeSync(file);
   }
-  const lines = buffer.toString("utf8").split("\n");
-  return size > length ? lines.slice(1) : lines;
 }
 
 /** The transcript path Claude Code uses, as the Atlas server's `transcriptPath`. */
