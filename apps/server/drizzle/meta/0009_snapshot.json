@@ -177,12 +177,8 @@
           "name": "agent_groups_client_id_clients_id_fk",
           "tableFrom": "agent_groups",
           "tableTo": "clients",
-          "columnsFrom": [
-            "client_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["client_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -442,12 +438,8 @@
           "name": "agents_group_id_agent_groups_id_fk",
           "tableFrom": "agents",
           "tableTo": "agent_groups",
-          "columnsFrom": [
-            "group_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["group_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -455,12 +447,8 @@
           "name": "agents_account_id_accounts_id_fk",
           "tableFrom": "agents",
           "tableTo": "accounts",
-          "columnsFrom": [
-            "account_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["account_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -580,12 +568,8 @@
           "name": "decisions_client_id_clients_id_fk",
           "tableFrom": "decisions",
           "tableTo": "clients",
-          "columnsFrom": [
-            "client_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["client_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -851,9 +835,7 @@
       "indexes": {
         "github_events_key_unique": {
           "name": "github_events_key_unique",
-          "columns": [
-            "key"
-          ],
+          "columns": ["key"],
           "isUnique": true
         }
       },
@@ -905,10 +887,7 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {
         "github_pull_requests_repository_number_pk": {
-          "columns": [
-            "repository",
-            "number"
-          ],
+          "columns": ["repository", "number"],
           "name": "github_pull_requests_repository_number_pk"
         }
       },
@@ -1110,12 +1089,8 @@
           "name": "items_client_id_clients_id_fk",
           "tableFrom": "items",
           "tableTo": "clients",
-          "columnsFrom": [
-            "client_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["client_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1173,9 +1148,7 @@
       "indexes": {
         "machines_token_hash_unique": {
           "name": "machines_token_hash_unique",
-          "columns": [
-            "token_hash"
-          ],
+          "columns": ["token_hash"],
           "isUnique": true
         }
       },
@@ -1257,12 +1230,8 @@
           "name": "questions_client_id_clients_id_fk",
           "tableFrom": "questions",
           "tableTo": "clients",
-          "columnsFrom": [
-            "client_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["client_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1323,12 +1292,8 @@
           "name": "requirements_client_id_clients_id_fk",
           "tableFrom": "requirements",
           "tableTo": "clients",
-          "columnsFrom": [
-            "client_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["client_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1382,12 +1347,8 @@
           "name": "session_agents_agent_id_agents_id_fk",
           "tableFrom": "session_agents",
           "tableTo": "agents",
-          "columnsFrom": [
-            "agent_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["agent_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1455,12 +1416,8 @@
           "name": "workstreams_client_id_clients_id_fk",
           "tableFrom": "workstreams",
           "tableTo": "clients",
-          "columnsFrom": [
-            "client_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["client_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
