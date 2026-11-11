@@ -46,6 +46,7 @@ name: `bun test -t 'substring'`.
 | `apps/storybook`       | Storybook configuration, story tests, the Pages build         |
 | `apps/plugin`          | Claude Code plugin: hooks report subagents and prompts        |
 | `apps/claude-accounts` | A command to register each Claude account in its own folder   |
+| `apps/dashboard-host`  | The `host:dashboard` MCP server the sidebar calls. Python     |
 | `docs/`                | Architecture, worlds, contributing, repository settings       |
 
 Planned next, not yet here: Litestream in `apps/server`, the

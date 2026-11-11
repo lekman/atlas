@@ -881,6 +881,10 @@ Without `ATLAS_SIDEBAR_FILE`, `/sidebar` is not found. Without
 `server_not_connected`, and the panels show their stored copies, as they do
 in the artifact when the local server is not connected.
 
+The dashboard MCP server is [`apps/dashboard-host`](../apps/dashboard-host/README.md).
+Its configuration folder reaches it only through the command, because the
+process gets the MCP SDK's default environment. The README shows the command.
+
 A Claude Code plugin pane can only draw Claude's own elements (boxes, text,
 buttons, SVG). It cannot run the animated canvas, which is why
 `@atlas/worlds` also renders a still SVG map.
