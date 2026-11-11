@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.15.0](https://github.com/lekman/atlas/compare/v0.14.0...v0.15.0) (2026-11-11)
+
+
+### Features
+
+* **dashboard-host:** add the host:dashboard MCP server ([#118](https://github.com/lekman/atlas/issues/118)) ([16bf7ce](https://github.com/lekman/atlas/commit/16bf7ce08e35a3174b103b255198a561b5f1162d))
+
 ## [0.14.0](https://github.com/lekman/atlas/compare/v0.13.0...v0.14.0) (2026-11-09)
 
 
