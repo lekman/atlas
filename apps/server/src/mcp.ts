@@ -7,6 +7,7 @@
  * so nothing is kept between calls and a restart loses nothing.
  */
 import {
+  activities,
   AgentQuestionInput,
   agentStatuses,
   Identifier,
@@ -23,6 +24,7 @@ import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod/v4";
 
+import type { AgentActivity } from "./agent-activity";
 import type { QuestionService } from "./agent-questions";
 import type { AtlasDatabase } from "./database";
 import { canSee, type Machine } from "./machines";
@@ -47,6 +49,10 @@ export interface McpOptions {
   unknownClaims?: () => UnknownClaim[];
   /** Questions agents ask the person. */
   questions?: QuestionService;
+  /** What agents' sessions are doing, from the collector. Without it report_activity is refused. */
+  activity?: AgentActivity;
+  /** Called when a reading changes what a view shows. */
+  onActivityChange?: () => void;
 }
 
 /** The most items `list_my_work` returns, so a reply stays readable. */
@@ -117,6 +123,8 @@ export function createMcpServer({
   overlay,
   unknownClaims = () => [],
   questions,
+  activity,
+  onActivityChange,
 }: McpOptions): McpServer {
   const server = new McpServer(
     { name: "atlas", version },
@@ -200,6 +208,36 @@ export function createMcpServer({
         });
         return reply({ recorded: stored.sequence });
       }),
+  );
+
+  server.registerTool(
+    "report_activity",
+    {
+      title: "Report activity",
+      description:
+        "For the collector: what a session is doing now, from its last tool, and how many tokens its context holds. It is shown beside the agent and is not kept: a reading counts for 30 minutes.",
+      inputSchema: {
+        agentId: Identifier.describe("The agent id, from list_agents"),
+        activity: z
+          .enum(activities)
+          .nullable()
+          .describe("What the session's last tool was for, or null for none"),
+        contextTokens: z
+          .number()
+          .int()
+          .nonnegative()
+          .max(10_000_000)
+          .nullable()
+          .describe("Tokens in the context at the last turn, or null"),
+      },
+    },
+    ({ agentId, activity: now, contextTokens }) => {
+      if (!activity) return refuse("activity is not kept on this server");
+      if (!agentNamed(read(), agentId)) return refuse(`no agent ${agentId}`);
+      const changed = activity.set(agentId, { activity: now, contextTokens });
+      if (changed) onActivityChange?.();
+      return reply({ changed });
+    },
   );
 
   server.registerTool(

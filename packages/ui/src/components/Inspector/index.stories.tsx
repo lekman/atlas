@@ -52,6 +52,31 @@ type Story = StoryObj<typeof meta>;
 /** An agent: status, client, what it works on, and the plain-word buttons. */
 export const AnAgent: Story = { name: "An Agent" };
 
+/** An agent whose session the collector reads: what it is doing, and its context size. */
+export const AnAgentWithActivity: Story = {
+  name: "An Agent With Activity",
+  args: {
+    dataset: {
+      ...sampleDataset,
+      agents: sampleDataset.agents.map((agent) =>
+        agent.id === "release"
+          ? {
+              ...agent,
+              activity: "editing",
+              contextTokens: 93_412,
+              activityAt: "2026-11-17T12:00:00.000Z",
+            }
+          : agent,
+      ),
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText("Editing files")).toBeInTheDocument();
+    await expect(canvas.getByText("93K tokens")).toBeInTheDocument();
+  },
+};
+
 /** A requirement, with the backlog items and decisions under it. */
 export const ARequirement: Story = {
   name: "A Requirement",

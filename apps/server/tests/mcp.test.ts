@@ -63,6 +63,7 @@ describe("the MCP tools", () => {
       "list_agents",
       "list_my_work",
       "list_open_questions",
+      "report_activity",
       "report_status",
       "return_vessel",
       "send_message",
@@ -97,6 +98,60 @@ describe("the MCP tools", () => {
       note: "Needs the drill window",
     });
     expect(listEvents(database)).toHaveLength(1);
+  });
+
+  test("report_activity shows on the agent in /api/dataset and logs no event", async () => {
+    const before = listEvents(database).length;
+    const { value, isError } = await call("report_activity", {
+      agentId: "test-runner",
+      activity: "editing",
+      contextTokens: 93_000,
+    });
+    expect(isError).toBe(false);
+    expect(value).toEqual({ changed: true });
+    expect(listEvents(database)).toHaveLength(before);
+    const response = await api.handle(
+      new Request("http://atlas.test/api/dataset"),
+    );
+    const dataset = (await response!.json()) as {
+      agents: { id: string; activity?: string; contextTokens?: number }[];
+    };
+    const agent = dataset.agents.find((a) => a.id === "test-runner");
+    expect(agent?.activity).toBe("editing");
+    expect(agent?.contextTokens).toBe(93_000);
+    // Stored data is unchanged: activity is laid over, never written.
+    expect(
+      readDataset(database).agents.find((a) => a.id === "test-runner"),
+    ).not.toHaveProperty("activity");
+  });
+
+  test("report_activity the same again is no change", async () => {
+    const reading = {
+      agentId: "test-runner",
+      activity: "git",
+      contextTokens: 50_000,
+    };
+    await call("report_activity", reading);
+    const { value } = await call("report_activity", {
+      ...reading,
+      contextTokens: 52_000,
+    });
+    expect(value).toEqual({ changed: false });
+  });
+
+  test("report_activity refuses an unknown agent and a word outside the set", async () => {
+    const unknown = await call("report_activity", {
+      agentId: "nobody",
+      activity: "reading",
+      contextTokens: null,
+    });
+    expect(unknown.isError).toBe(true);
+    const free = await call("report_activity", {
+      agentId: "test-runner",
+      activity: "reading src/secret.ts",
+      contextTokens: null,
+    });
+    expect(free.isError).toBe(true);
   });
 
   test("report_status for an unknown agent is a tool error", async () => {

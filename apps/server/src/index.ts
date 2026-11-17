@@ -1,3 +1,4 @@
+export * from "./agent-activity";
 export {
   accountIsLimited,
   commandLineLauncher,

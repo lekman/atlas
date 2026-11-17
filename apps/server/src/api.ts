@@ -58,6 +58,7 @@ import type { Dispatcher } from "./dispatcher";
 import { noGithubSource, type GithubReader } from "./github-reader";
 import type { IdleWatcher } from "./idle-with-work";
 import { everyClient } from "./machines";
+import { createAgentActivity } from "./agent-activity";
 import { handleMcp } from "./mcp";
 import { noSessionSource, type SessionReader } from "./session-source";
 import {
@@ -263,6 +264,14 @@ export function createApi({
     for (const write of streams) write(frame);
   });
 
+  // What each agent's session is doing, from the collector. A change a view
+  // would show reloads open pages, as a task change does.
+  const activity = createAgentActivity();
+  const activityChanged = () => {
+    const frame = refreshFrame(tasks?.health().lastRefresh ?? null);
+    for (const write of streams) write(frame);
+  };
+
   /** Stores an event and streams it to every open view. */
   function record(event: AtlasEvent): StoredEvent {
     const stored = appendEvent(database, event, new Date(), overlay);
@@ -318,7 +327,7 @@ export function createApi({
   function served(dataset: Dataset): Dataset {
     const real = github ? github.overlay(dataset) : dataset;
     const tracked = fakeDevelopment ? withFakeDevelopment(real) : real;
-    return idle ? idle.overlay(tracked) : tracked;
+    return activity.overlay(idle ? idle.overlay(tracked) : tracked);
   }
 
   /** The merge as of now, for its counts, or `undefined` before a good read. */
@@ -578,6 +587,8 @@ export function createApi({
             : {}),
           ...(caller.kind === "machine" ? { machine: caller.machine } : {}),
           questions,
+          activity,
+          onActivityChange: activityChanged,
         });
       }
       // The API returns every client's records, so a machine limited to some

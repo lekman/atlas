@@ -8,20 +8,9 @@
  * The approach follows Agent-Quest (github.com/FulAppiOS/Agent-Quest, MIT):
  * read the local logs instead of asking agents to report.
  */
-import type { AgentStatus } from "@atlas/core";
+import { activities, type Activity, type AgentStatus } from "@atlas/core";
 
-/** What a session is doing, from the last tool it used. */
-export const activities = [
-  "reading",
-  "editing",
-  "shell",
-  "git",
-  "web",
-  "delegating",
-  "asking",
-  "other",
-] as const;
-export type Activity = (typeof activities)[number];
+export { activities, type Activity };
 
 /** The session record fields the collector keeps, from ~/.claude/sessions/<pid>.json. */
 export interface SessionRecord {
