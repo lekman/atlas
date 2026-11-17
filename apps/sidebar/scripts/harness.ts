@@ -54,7 +54,8 @@ const shim = `(() => {
       { kind: "question", id: "q1", ask: "Which day suits the review?", options: [
         { label: "Thursday", description: "The team is free all afternoon.", recommended: true },
         { label: "Friday" }] },
-      { kind: "question", id: "q2", ask: "Keep the Friday retro?" }] } }),
+      { kind: "question", id: "q2", ask: "Keep the Friday retro?" },
+      { kind: "question", id: "q3", ask: "Move the standup to 09:30?" }] } }),
     "host:dashboard/commander_answer": (args) => ({ structuredContent: { request: {
       id: args.id, state: "received", action: "answer", summary: "Harness Commander has the answer", updatedAt: new Date().toISOString() } } }),
     "monday.com/get_board_items_page": () => ({ payload: { items: [{
@@ -246,7 +247,7 @@ try {
     // keeps what was written and stays open; a sent one reaches Commander and
     // the view goes back on its own a second later.
     await tab
-      .getByRole("button", { name: "Which day suits the review?" })
+      .getByRole("button", { name: "Which day suits the review?", exact: true })
       .click();
     await tab.evaluate(() => {
       (window as unknown as { __refuse?: string }).__refuse =
@@ -302,6 +303,38 @@ try {
     if ((await tab.getByRole("dialog").count()) !== 0) {
       problems.push(
         `${width}px: the ask view does not go back a second after the answer`,
+      );
+    }
+    // Dismissing a redundant ask from its row asks first, then sends the
+    // dismiss choice, and the ask leaves the list.
+    await tab
+      .getByRole("button", { name: "Actions for Keep the Friday retro?" })
+      .click();
+    await tab.getByRole("menuitem", { name: /Dismiss as redundant/ }).click();
+    await tab.getByRole("button", { name: "Dismiss", exact: true }).click();
+    const dismissed = await tab.evaluate(
+      () =>
+        (
+          (
+            window as unknown as {
+              __calls?: Array<{
+                tool: string;
+                args?: { answer?: { choice?: string }; ask?: { id?: string } };
+              }>;
+            }
+          ).__calls ?? []
+        ).find(
+          (c) =>
+            c.tool === "commander_answer" &&
+            c.args?.answer?.choice === "Dismiss as redundant",
+        )?.args,
+    );
+    if (
+      dismissed?.ask?.id !== "q2" ||
+      (await tab.getByText("Keep the Friday retro?").count()) !== 0
+    ) {
+      problems.push(
+        `${width}px: dismissing an ask does not send it or hide it`,
       );
     }
     // Details: the task opens its page, drawn without HTML, and Escape returns to it.
@@ -448,7 +481,7 @@ try {
         }
       ).__docs.get("board/waiting"),
     );
-    if (!waiting?.storedAt || waiting.items?.length !== 2) {
+    if (!waiting?.storedAt || waiting.items?.length !== 3) {
       problems.push(`${width}px: board/waiting was not stored with storedAt`);
     }
     // Writes, against the stand-in. Status from a task's menu shows Commander's answer under it.

@@ -142,3 +142,40 @@ describe("askText with a possessive", () => {
     ).toBe(0);
   });
 });
+
+import { askReference } from "../src/sidebar/waiting/model";
+
+describe("askReference", () => {
+  it("names the task for a task's ask, and the asker otherwise", () => {
+    expect(
+      askReference(
+        {
+          kind: "task",
+          ref: "db:1",
+          title: "Move the scanners",
+          ask: "Alex: approve the window",
+        },
+        "Alex",
+      ),
+    ).toBe(
+      'Regarding task "Move the scanners" (db:1), which asks "Approve the window": ',
+    );
+    expect(
+      askReference(
+        { kind: "question", id: "q1", ask: "Restart the waiter?" },
+        "Alex",
+      ),
+    ).toBe('Regarding Commander\'s question "Restart the waiter?" (q1): ');
+    expect(
+      askReference(
+        {
+          kind: "commander",
+          id: "d1",
+          worker: "Halcyon",
+          ask: "Name the system",
+        },
+        "Alex",
+      ),
+    ).toBe('Regarding Halcyon\'s question "Name the system" (d1): ');
+  });
+});

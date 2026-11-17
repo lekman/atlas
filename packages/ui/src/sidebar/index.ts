@@ -56,6 +56,8 @@ export {
   type WaitingRow,
 } from "./WaitingOnYou";
 export {
+  askReference,
+  DISMISS_CHOICE,
   ANSWER_GRACE_MS,
   answeredView,
   answerOptions,

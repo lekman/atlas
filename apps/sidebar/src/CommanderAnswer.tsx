@@ -2,7 +2,9 @@ import {
   AskForm,
   answerOptions,
   askKey,
+  askReference,
   askText,
+  DISMISS_CHOICE,
   type WaitingItem,
 } from "@atlas/ui/sidebar";
 
@@ -20,6 +22,8 @@ export interface CommanderAnswerProps {
    * ignores it.
    */
   onAnswered?: () => void;
+  /** Copies text to the clipboard and says whether it worked. */
+  onCopy?: (text: string) => Promise<boolean>;
 }
 
 /** How long the sent answer stays in view before the view goes back. */
@@ -31,6 +35,7 @@ export function CommanderAnswer({
   commander,
   operator,
   onAnswered,
+  onCopy,
 }: CommanderAnswerProps) {
   const sent = commander.latest(askKey(item) ?? undefined);
   const last = sent?.action === "answer" ? sent : null;
@@ -65,6 +70,16 @@ export function CommanderAnswer({
                   text: last.summary || `Sent; Commander hands it to ${from}.`,
                 }
       }
+      onCopy={onCopy ? () => onCopy(askReference(item, operator)) : undefined}
+      onDismiss={() => {
+        commander
+          .answer(item, { choice: DISMISS_CHOICE })
+          .then((sent) => {
+            if (sent && onAnswered)
+              setTimeout(onAnswered, BACK_AFTER_ANSWER_MS);
+          })
+          .catch(() => undefined);
+      }}
       onSend={(answer) => {
         commander
           .answer(item, answer)

@@ -1,4 +1,6 @@
-import { useId, type CSSProperties } from "react";
+import { useId, useState, type CSSProperties } from "react";
+
+import { ActionMenu } from "../ActionMenu";
 
 import { formatTime } from "../format";
 import { Icon } from "../Icon";
@@ -22,6 +24,10 @@ export interface WaitingRow {
    * The source line then says so, with a warning icon, instead of who asks.
    */
   answeredAt?: string;
+  /** Copies a line to discuss the ask in a session. */
+  onCopy?: () => void;
+  /** Removes the ask as redundant, after the operator confirms. */
+  onDismiss?: () => void;
 }
 
 export interface WaitingOnYouProps {
@@ -52,6 +58,7 @@ export function WaitingOnYou({
   onTeach,
 }: WaitingOnYouProps) {
   const heading = useId();
+  const [confirming, setConfirming] = useState<string | null>(null);
   if (!rows.length) {
     const failed = failedSources(errors);
     if (!failed.length) return null;
@@ -82,23 +89,79 @@ export function WaitingOnYou({
       <ul>
         {rows.map((row, i) => {
           const { ask, tooltip } = askText(row.item, operator);
+          const key = row.item.ref ?? row.item.id ?? `${row.item.kind}-${i}`;
           return (
             <li
-              key={row.item.ref ?? `${row.item.kind}-${i}`}
+              key={key}
               className="wy"
               style={{ "--c": row.client.colour } as CSSProperties}
               title={tooltip || undefined}
             >
-              {row.onOpen ? (
-                <button
-                  type="button"
-                  className="tlink ask"
-                  onClick={row.onOpen}
+              <div className="wy-top">
+                {row.onOpen ? (
+                  <button
+                    type="button"
+                    className="tlink ask"
+                    onClick={row.onOpen}
+                  >
+                    {ask}
+                  </button>
+                ) : (
+                  <span className="ask">{ask}</span>
+                )}
+                {(row.onCopy || row.onDismiss) && (
+                  <ActionMenu
+                    what={ask}
+                    actions={[
+                      ...(row.onCopy
+                        ? [
+                            {
+                              label: "Copy reference",
+                              icon: "clip" as const,
+                              onSelect: row.onCopy,
+                            },
+                          ]
+                        : []),
+                      ...(row.onDismiss
+                        ? [
+                            {
+                              label: "Dismiss as redundant",
+                              icon: "badc" as const,
+                              hint: "Removes the ask for good",
+                              divider: Boolean(row.onCopy),
+                              onSelect: () => setConfirming(key),
+                            },
+                          ]
+                        : []),
+                    ]}
+                  />
+                )}
+              </div>
+              {confirming === key && row.onDismiss && (
+                <div
+                  className="wy-confirm"
+                  role="group"
+                  aria-label="Dismiss this ask?"
                 >
-                  {ask}
-                </button>
-              ) : (
-                <span className="ask">{ask}</span>
+                  <span>Dismiss this ask for good?</span>
+                  <button
+                    type="button"
+                    className="sec-btn"
+                    onClick={() => {
+                      setConfirming(null);
+                      row.onDismiss!();
+                    }}
+                  >
+                    Dismiss
+                  </button>
+                  <button
+                    type="button"
+                    className="sec-btn"
+                    onClick={() => setConfirming(null)}
+                  >
+                    Keep
+                  </button>
+                </div>
               )}
               <div className="sub">
                 {waitingSource(row.item, row.client.name).map((part, j) =>

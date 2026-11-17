@@ -155,3 +155,29 @@ export const AnsweredNoReply: Story = {
     ).toBeVisible();
   },
 };
+
+/** Each ask has a menu: copy a reference to discuss it, or dismiss it as redundant after confirming. */
+export const CopyAndDismiss: Story = {
+  name: "Copy and Dismiss",
+  args: {
+    rows: [
+      {
+        item: waitingItems[2]!,
+        client: colourOf("other"),
+        onCopy: fn(),
+        onDismiss: fn(),
+      },
+    ],
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: /Actions for/ }));
+    await userEvent.click(
+      await within(document.body).findByRole("menuitem", {
+        name: /Dismiss as redundant/,
+      }),
+    );
+    await userEvent.click(canvas.getByRole("button", { name: "Dismiss" }));
+    await expect(args.rows[0]!.onDismiss).toHaveBeenCalledOnce();
+  },
+};

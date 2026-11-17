@@ -28,6 +28,8 @@ import {
   whenOf,
   type Sizing,
   referenceText,
+  askReference,
+  DISMISS_CHOICE,
   RequestLine,
   type MenuAction,
   type WaitingItem,
@@ -262,6 +264,13 @@ function Sidebar({
     const timer = setTimeout(() => setWorkNote(null), 3000);
     return () => clearTimeout(timer);
   }, [workNote]);
+  const copyLine = async (text: string) => {
+    const ok = await copyText(text);
+    setWorkNote(
+      ok ? `Copied: ${text}` : "Could not copy to the clipboard in this view.",
+    );
+    return ok;
+  };
   const copyReference = async (t: WorkItem) => {
     const text = referenceText(t.title, t.key);
     setWorkNote(
@@ -599,6 +608,20 @@ function Sidebar({
                             : row,
                         ];
                       })
+                      .map((row) => ({
+                        ...row,
+                        onCopy: () =>
+                          copyLine(
+                            askReference(row.item, config.operator ?? "you"),
+                          ),
+                        onDismiss: askKey(row.item)
+                          ? () => {
+                              commander
+                                .answer(row.item, { choice: DISMISS_CHOICE })
+                                .catch(() => undefined);
+                            }
+                          : undefined,
+                      }))
                       .map((row) => {
                         // A waiting task opens its details once the worklist has it.
                         const task =
@@ -918,6 +941,7 @@ function Sidebar({
             onAnswered={() =>
               setAsking((open) => (open === asking ? null : open))
             }
+            onCopy={copyLine}
           />
         </AskView>
       )}
@@ -936,6 +960,7 @@ function Sidebar({
           detailsIndex={detailsIndex?.items ?? {}}
           onClose={() => setOpened(null)}
           onDone={() => setOpened(null)}
+          onCopy={copyLine}
         />
       )}
       {settingsOpen && (

@@ -154,3 +154,26 @@ export const WithContext: Story = {
     ).toBeVisible();
   },
 };
+
+/** Copy a reference to discuss the ask, or dismiss it as redundant after a second click. */
+export const CopyAndDismiss: Story = {
+  name: "Copy and Dismiss",
+  args: { onCopy: fn(async () => true), onDismiss: fn() },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Copy reference" }),
+    );
+    await expect(
+      await canvas.findByRole("button", { name: "Copied" }),
+    ).toBeInTheDocument();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Dismiss as redundant" }),
+    );
+    await expect(args.onDismiss).not.toHaveBeenCalled();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Dismiss for good" }),
+    );
+    await expect(args.onDismiss).toHaveBeenCalledOnce();
+  },
+};

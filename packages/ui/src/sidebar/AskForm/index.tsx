@@ -25,6 +25,10 @@ export interface AskFormProps {
   busy?: boolean;
   /** What the ask is about, to judge it: the task's summary, then the latest state. */
   context?: { detail?: string; reason?: string };
+  /** Copies a line to discuss the ask in a session; resolves whether it worked. */
+  onCopy?: () => Promise<boolean> | void;
+  /** Removes the ask as redundant, after the operator confirms. */
+  onDismiss?: () => void;
   /** The last answer sent: when, and what was chosen or written. */
   sent?: { at: string; answer: AskAnswer } | null;
 }
@@ -45,7 +49,11 @@ export function AskForm({
   busy = false,
   sent,
   context,
+  onCopy,
+  onDismiss,
 }: AskFormProps) {
+  const [confirming, setConfirming] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
   const name = useId();
   const [choice, setChoice] = useState<string | null>(
     options.length ? null : OTHER,
@@ -139,6 +147,54 @@ export function AskForm({
         {status && !sent && (
           <span className={`askst ${status.tone}`} role="status">
             {status.text}
+          </span>
+        )}
+        {(onCopy || onDismiss) && (
+          <span className="askmore">
+            {onCopy && (
+              <button
+                type="button"
+                className="sec-btn"
+                onClick={async () => {
+                  const ok = await onCopy();
+                  setCopied(ok === false ? "Couldn't copy" : "Copied");
+                  setTimeout(() => setCopied(null), 2000);
+                }}
+              >
+                {copied ?? "Copy reference"}
+              </button>
+            )}
+            {onDismiss &&
+              (confirming ? (
+                <>
+                  <button
+                    type="button"
+                    className="sec-btn"
+                    onClick={() => {
+                      setConfirming(false);
+                      onDismiss();
+                    }}
+                  >
+                    Dismiss for good
+                  </button>
+                  <button
+                    type="button"
+                    className="sec-btn"
+                    onClick={() => setConfirming(false)}
+                  >
+                    Keep
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  className="sec-btn"
+                  disabled={busy}
+                  onClick={() => setConfirming(true)}
+                >
+                  Dismiss as redundant
+                </button>
+              ))}
           </span>
         )}
       </div>
