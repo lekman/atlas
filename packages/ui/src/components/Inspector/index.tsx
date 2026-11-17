@@ -1,12 +1,32 @@
 import {
   clientOfAgent,
   findRecord,
+  type Activity,
   isOnMap,
   orderByUrgency,
   type Dataset,
 } from "@atlas/core";
 import { workstreamTerm, type World } from "@atlas/worlds";
 import { useId, type ReactNode } from "react";
+
+/** What a session's activity means, in plain words. */
+export const activityWords: Record<Activity, string> = {
+  reading: "Reading code",
+  editing: "Editing files",
+  shell: "Running commands",
+  git: "Working with git",
+  web: "Reading the web",
+  delegating: "Running subagents",
+  asking: "Asking a question",
+  other: "Working",
+};
+
+/** A token count as the reader says it: 950, 93K, 1.2M. */
+export function tokenCount(tokens: number): string {
+  if (tokens < 1000) return String(tokens);
+  if (tokens < 999_500) return `${Math.round(tokens / 1000)}K`;
+  return `${(tokens / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
+}
 
 export type InspectorAction =
   | "open-session"
@@ -114,6 +134,9 @@ export function Inspector({
         </span>,
       ]);
       rows.push(["Now", agent.note]);
+      if (agent.activity) rows.push(["Doing", activityWords[agent.activity]]);
+      if (agent.contextTokens !== undefined)
+        rows.push(["Context", `${tokenCount(agent.contextTokens)} tokens`]);
       rows.push([
         "Works on",
         agent.workingOn.length ? agent.workingOn.map(link) : "Nothing assigned",

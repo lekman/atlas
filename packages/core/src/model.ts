@@ -64,6 +64,23 @@ export const agentStatuses = [
 export const AgentStatus = z.enum(agentStatuses);
 export type AgentStatus = z.infer<typeof AgentStatus>;
 
+/**
+ * What a session is doing, from the last tool it used. The collector reads
+ * it from the session's transcript, as a fixed word: never author text.
+ */
+export const activities = [
+  "reading",
+  "editing",
+  "shell",
+  "git",
+  "web",
+  "delegating",
+  "asking",
+  "other",
+] as const;
+export const Activity = z.enum(activities);
+export type Activity = z.infer<typeof Activity>;
+
 /** The statuses that put an agent on the reader's "needs you" list. */
 export const attentionStatuses: readonly AgentStatus[] = [
   "waiting",
@@ -104,6 +121,15 @@ export const Agent = z.object({
    * to it when its work is done. The map draws it smaller, beside its parent.
    */
   parentId: Identifier.optional(),
+  /**
+   * What the agent's session is doing now, read by the collector. Live
+   * state, never stored: the server lays it over the agent while it is fresh.
+   */
+  activity: Activity.optional(),
+  /** Tokens in the session's context at its last turn, read with the activity. */
+  contextTokens: z.number().int().nonnegative().optional(),
+  /** When the activity and context were read, ISO 8601. */
+  activityAt: z.string().optional(),
 });
 export type Agent = z.infer<typeof Agent>;
 

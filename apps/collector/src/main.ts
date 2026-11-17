@@ -30,6 +30,7 @@ import {
   readTail,
   reportFor,
   type SessionRecord,
+  type SessionReport,
 } from "@atlas/collector";
 
 import { decide, type AtlasAgent } from "./decide";
@@ -162,13 +163,23 @@ function sessions(): Array<{
       transcript,
     });
   }
-  return [...out.values()].filter(
-    (s) =>
-      WITH_RECORDS ||
-      s.record.state === null ||
-      process.argv.includes("--list"),
-  );
+  return [...out.values()];
 }
+
+/**
+ * Whether the collector reports this session's status. Sessions with a
+ * record are left to the Atlas server on this machine unless --with-records
+ * is given. Activity and context are reported for every session, because
+ * the server does not read them.
+ */
+const reportsStatus = (record: SessionRecord) =>
+  WITH_RECORDS || record.state === null;
+
+/** Readings sent per agent, so an unchanged one is sent again only to stay fresh. */
+const sent = new Map<string, { key: string; at: number }>();
+
+/** Ten minutes: well inside the server's thirty-minute window. */
+const RESEND_AFTER_MS = 10 * 60_000;
 
 function lastLines(path: string): string[] {
   const text = readFileSync(path, "utf8");
@@ -197,6 +208,40 @@ function list() {
   }
 }
 
+/**
+ * Sends what the session is doing: its activity only while it is running,
+ * and its context size. A reading is sent when it changes, and again after
+ * ten minutes so the server keeps it.
+ */
+async function sendActivity(agentId: string, report: SessionReport, now: Date) {
+  const reading = {
+    activity: report.status === "running" ? report.activity : null,
+    contextTokens: report.contextTokens,
+  };
+  const key = `${reading.activity}|${reading.contextTokens}`;
+  const last = sent.get(agentId);
+  if (last?.key === key && now.getTime() - last.at < RESEND_AFTER_MS) return;
+  if (!APPLY) {
+    log(
+      "would report activity",
+      agentId,
+      reading.activity ?? "-",
+      reading.contextTokens ?? "-",
+    );
+    return;
+  }
+  try {
+    await call("report_activity", { agentId, ...reading });
+    sent.set(agentId, { key, at: now.getTime() });
+  } catch (err) {
+    log(
+      "activity not reported",
+      agentId,
+      String((err as Error).message).slice(0, 160),
+    );
+  }
+}
+
 async function tick() {
   const now = new Date();
   const reports = sessions()
@@ -206,15 +251,33 @@ async function tick() {
       const quiet = tail.lastWriteAt
         ? now.getTime() - Date.parse(tail.lastWriteAt)
         : Infinity;
-      return r ? { report: r, quiet } : null;
+      return r ? { report: r, quiet, record } : null;
     })
     .filter((x): x is NonNullable<typeof x> => x !== null);
   const { agents } = (await call("list_agents", {})) as {
     agents: AtlasAgent[];
   };
-  for (const { report, quiet } of reports) {
+  // One reading per agent: of several sessions on it, the running one, then
+  // the one written to last.
+  const busiest = new Map<string, (typeof reports)[number]>();
+  for (const entry of reports) {
+    const agent = matchAgent(entry.report.name, agents);
+    if (!agent) continue;
+    const best = busiest.get(agent.id);
+    const running = (e: typeof entry) => e.report.status === "running";
+    if (
+      !best ||
+      (running(entry) && !running(best)) ||
+      (running(entry) === running(best) && entry.quiet < best.quiet)
+    )
+      busiest.set(agent.id, entry);
+  }
+  for (const [agentId, { report }] of busiest)
+    await sendActivity(agentId, report, now);
+  for (const { report, quiet, record } of reports) {
     const agent = matchAgent(report.name, agents);
     if (!agent) continue;
+    if (!reportsStatus(record)) continue;
     const change = decide(report, agent, quiet);
     if (!change) continue;
     if (!APPLY) {
