@@ -72,7 +72,8 @@ export interface Commander {
    * the worker that asked, or to the task's owner, and closes the ask. Kept
    * under the task's ref, or `ask:<kind>:<id>`.
    */
-  answer: (item: WaitingItem, answer: AskAnswer) => Promise<void>;
+  /** Resolves true when the answer went out (to the local server or the phone inbox), false when it failed. */
+  answer: (item: WaitingItem, answer: AskAnswer) => Promise<boolean>;
   /**
    * Leaves a request in the phone inbox for the Mac mini; false when there
    * is no inbox. Done and move go this way from the phone.
@@ -440,7 +441,7 @@ export function useCommander(
     },
     answer: async (item, answer) => {
       const ref = askKey(item);
-      if (!ref) return;
+      if (!ref) return false;
       await request(
         { ref, title: item.ask ?? item.title ?? "", answer },
         "answer",
@@ -464,6 +465,9 @@ export function useCommander(
           },
         }),
       );
+      // The record request() just wrote, read from the live copy, not this render's.
+      const sent = latestRequest(current.current, ref);
+      return sent?.action === "answer" && sent.state !== "failed";
     },
     queue,
     error,

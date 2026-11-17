@@ -184,6 +184,7 @@ export function TaskDetails({
             item={waits}
             commander={commander}
             operator={operator}
+            onAnswered={onClose}
           />
         ) : null
       }

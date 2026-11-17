@@ -53,7 +53,8 @@ const shim = `(() => {
     "host:dashboard/waiting_on_you": () => ({ structuredContent: { items: [
       { kind: "question", id: "q1", ask: "Which day suits the review?", options: [
         { label: "Thursday", description: "The team is free all afternoon.", recommended: true },
-        { label: "Friday" }] }] } }),
+        { label: "Friday" }] },
+      { kind: "question", id: "q2", ask: "Keep the Friday retro?" }] } }),
     "host:dashboard/commander_answer": (args) => ({ structuredContent: { request: {
       id: args.id, state: "received", action: "answer", summary: "Harness Commander has the answer", updatedAt: new Date().toISOString() } } }),
     "monday.com/get_board_items_page": () => ({ payload: { items: [{
@@ -241,10 +242,37 @@ try {
     if ((await tab.getByRole("dialog").count()) !== 0) {
       problems.push(`${width}px: Escape does not close the settings`);
     }
-    // An ask from Commander opens with its options; the answer goes to Commander.
+    // An ask from Commander opens with its options. A refused answer says why,
+    // keeps what was written and stays open; a sent one reaches Commander and
+    // the view goes back on its own a second later.
     await tab
       .getByRole("button", { name: "Which day suits the review?" })
       .click();
+    await tab.evaluate(() => {
+      (window as unknown as { __refuse?: string }).__refuse =
+        "commander_answer";
+    });
+    await tab.getByRole("radio", { name: "Other" }).check();
+    await tab
+      .getByRole("textbox", { name: "Your answer" })
+      .fill("Tuesday instead");
+    await tab.getByRole("button", { name: "Send to Commander" }).click();
+    await tab.waitForTimeout(1500);
+    if (
+      !(await tab
+        .getByText(/Not sent: this page can't answer yet/)
+        .isVisible()) ||
+      (await tab.getByRole("textbox", { name: "Your answer" }).inputValue()) !==
+        "Tuesday instead" ||
+      (await tab.getByRole("dialog").count()) !== 1
+    ) {
+      problems.push(
+        `${width}px: a refused answer does not say why and stay open`,
+      );
+    }
+    await tab.evaluate(() => {
+      delete (window as unknown as { __refuse?: string }).__refuse;
+    });
     await tab.getByRole("radio", { name: /Thursday \(Recommended\)/ }).check();
     await tab.getByRole("button", { name: "Send to Commander" }).click();
     const answered = await tab.evaluate(
@@ -258,45 +286,24 @@ try {
               }>;
             }
           ).__calls ?? []
-        ).find((c) => c.tool === "commander_answer")?.args,
+        ).find(
+          (c) =>
+            c.tool === "commander_answer" &&
+            c.args?.answer?.choice === "Thursday",
+        )?.args,
     );
     if (
-      answered?.answer?.choice !== "Thursday" ||
       answered?.ask?.id !== "q1" ||
-      !(await tab.getByText("Harness Commander has the answer").isVisible())
+      !(await tab.getByText(/^You answered /).isVisible())
     ) {
       problems.push(`${width}px: answering an ask does not reach Commander`);
     }
-    // A refused answer says why in the form and keeps what was written.
-    await tab.evaluate(() => {
-      (window as unknown as { __refuse?: string }).__refuse =
-        "commander_answer";
-    });
-    await tab.getByRole("radio", { name: "Other" }).check();
-    await tab
-      .getByRole("textbox", { name: "Your answer" })
-      .fill("Tuesday instead");
-    if (!(await tab.getByText(/^You answered /).isVisible())) {
+    await tab.waitForTimeout(1500);
+    if ((await tab.getByRole("dialog").count()) !== 0) {
       problems.push(
-        `${width}px: the answer form does not say when you answered`,
+        `${width}px: the ask view does not go back a second after the answer`,
       );
     }
-    await tab.getByRole("button", { name: "Send again to Commander" }).click();
-    if (
-      !(await tab
-        .getByText(/Not sent: this page can't answer yet/)
-        .isVisible()) ||
-      (await tab.getByRole("textbox", { name: "Your answer" }).inputValue()) !==
-        "Tuesday instead"
-    ) {
-      problems.push(
-        `${width}px: a refused answer does not say why in the form`,
-      );
-    }
-    await tab.evaluate(() => {
-      delete (window as unknown as { __refuse?: string }).__refuse;
-    });
-    await tab.keyboard.press("Escape");
     // Details: the task opens its page, drawn without HTML, and Escape returns to it.
     const taskTitle = tab.getByRole("button", {
       name: "Harness task for today",
@@ -441,7 +448,7 @@ try {
         }
       ).__docs.get("board/waiting"),
     );
-    if (!waiting?.storedAt || waiting.items?.length !== 1) {
+    if (!waiting?.storedAt || waiting.items?.length !== 2) {
       problems.push(`${width}px: board/waiting was not stored with storedAt`);
     }
     // Writes, against the stand-in. Status from a task's menu shows Commander's answer under it.
