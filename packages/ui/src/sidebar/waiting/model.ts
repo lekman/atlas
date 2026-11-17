@@ -201,3 +201,20 @@ export function answeredView(
   if (Number.isNaN(at)) return "show";
   return now.getTime() - at < ANSWER_GRACE_MS ? "hide" : "late";
 }
+
+/** The choice that removes an ask as redundant; the Commander bridge acts on it itself. */
+export const DISMISS_CHOICE = "Dismiss as redundant";
+
+/**
+ * The line to paste into a session to discuss an ask: the task's reference
+ * for a task, otherwise who asked and what.
+ */
+export function askReference(item: WaitingItem, operator: string): string {
+  if (item.kind === "task" && item.title)
+    return `Regarding task "${item.title}"${item.ref ? ` (${item.ref})` : ""}, which asks "${askText(item, operator).ask}": `;
+  const who =
+    item.kind === "commander" && item.worker
+      ? `${item.worker}'s`
+      : "Commander's";
+  return `Regarding ${who} question "${askText(item, operator).ask}"${item.id ? ` (${item.id})` : ""}: `;
+}

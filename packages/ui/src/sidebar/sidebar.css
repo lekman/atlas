@@ -856,6 +856,52 @@
   outline-offset: 1px;
 }
 
+.atlas-sidebar .waiting .wy-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.atlas-sidebar .waiting .wy-top .ask {
+  flex: 1;
+  min-width: 0;
+}
+
+.atlas-sidebar .waiting .wy-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.atlas-sidebar .waiting .wy-confirm .sec-btn,
+.atlas-sidebar .askf .askmore .sec-btn {
+  all: unset;
+  box-sizing: border-box;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+}
+
+.atlas-sidebar .waiting .wy-confirm .sec-btn:focus-visible,
+.atlas-sidebar .askf .askmore .sec-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.atlas-sidebar .askf .askmore {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-left: auto;
+}
+
 .atlas-sidebar .waiting .detail-line {
   font-size: 12px;
   color: var(--muted);

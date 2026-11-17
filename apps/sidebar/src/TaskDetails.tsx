@@ -41,6 +41,8 @@ export interface TaskDetailsProps {
   onClose?: () => void;
   /** After Done, once the fresh worklist has the task done or no longer has it. */
   onDone?: () => void;
+  /** Copies a line to the clipboard and says so. */
+  onCopy?: (text: string) => Promise<boolean>;
 }
 
 /**
@@ -62,6 +64,7 @@ export function TaskDetails({
   detailsIndex,
   onClose,
   onDone,
+  onCopy,
 }: TaskDetailsProps) {
   const details = useDetails(runtime, item, detailsIndex);
   const pulls = usePullRequests(runtime, item);
@@ -185,6 +188,7 @@ export function TaskDetails({
             commander={commander}
             operator={operator}
             onAnswered={onClose}
+            onCopy={onCopy}
           />
         ) : null
       }
