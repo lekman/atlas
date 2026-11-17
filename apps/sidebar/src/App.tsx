@@ -915,6 +915,9 @@ function Sidebar({
             item={asking}
             commander={commander}
             operator={config.operator ?? "you"}
+            onAnswered={() =>
+              setAsking((open) => (open === asking ? null : open))
+            }
           />
         </AskView>
       )}

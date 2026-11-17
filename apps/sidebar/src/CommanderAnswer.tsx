@@ -14,13 +14,23 @@ export interface CommanderAnswerProps {
   commander: Commander;
   /** The operator's name, as asks addressed to them begin with it. */
   operator: string;
+  /**
+   * Called a second after an answer was sent, unless sending failed, so the
+   * view can go back to where it was opened. A view already closed by then
+   * ignores it.
+   */
+  onAnswered?: () => void;
 }
+
+/** How long the sent answer stays in view before the view goes back. */
+export const BACK_AFTER_ANSWER_MS = 1000;
 
 /** The answer form for an ask, with what happened to the last answer sent. */
 export function CommanderAnswer({
   item,
   commander,
   operator,
+  onAnswered,
 }: CommanderAnswerProps) {
   const sent = commander.latest(askKey(item) ?? undefined);
   const last = sent?.action === "answer" ? sent : null;
@@ -56,7 +66,13 @@ export function CommanderAnswer({
                 }
       }
       onSend={(answer) => {
-        commander.answer(item, answer).catch(() => undefined);
+        commander
+          .answer(item, answer)
+          .then((sent) => {
+            if (sent && onAnswered)
+              setTimeout(onAnswered, BACK_AFTER_ANSWER_MS);
+          })
+          .catch(() => undefined);
       }}
     />
   );
