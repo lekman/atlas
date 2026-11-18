@@ -4,13 +4,23 @@
  * fleet and whether settings is open. Lists other than Missions are empty
  * until their step is built.
  */
-import { sampleDataset } from "@atlas/fixtures";
 import { useState } from "react";
 
+import { exampleClients } from "../../sidebar/stories/examples";
+import {
+  STORY_TODAY,
+  STORY_TOMORROW,
+  worklistItems,
+} from "../../sidebar/stories/worklist";
+import type { WorkItem } from "../../sidebar/worklist/model";
 import { ConsoleFrame } from "../ConsoleFrame";
 import type { RelayState } from "../layout";
+import { MissionsList, taskKey } from "../MissionsList";
+import { movesFor, type MissionsView, type Range } from "../missions";
+import { MoveSheet } from "../MoveSheet";
 import { SectionHeading } from "../SectionHeading";
 import { sectionNames, sectionPurposes, type Section } from "../sections";
+import { TaskSummary } from "../TaskSummary";
 import type { Fleet } from "../TopBar";
 
 /** Two invented fleets: the reader's work account and a personal one. */
@@ -31,7 +41,8 @@ export const storyFleets: Fleet[] = [
   },
 ];
 
-const items = sampleDataset.items.slice(0, 8);
+const systemName = (key: string) =>
+  exampleClients.find((client) => client.key === key)?.name ?? key;
 
 export interface ConsoleStoryFrameProps {
   /** The screen size in CSS pixels. */
@@ -39,42 +50,77 @@ export interface ConsoleStoryFrameProps {
   height: number;
   /** The section the story opens on. */
   section?: Section;
-  /** An item selected when the story opens. */
-  selectedId?: string;
+  /** The range and view Missions opens on. */
+  range?: Range;
+  view?: MissionsView;
+  /** A task selected when the story opens, by its ref. */
+  selectedKey?: string;
   relay?: RelayState;
 }
 
+/**
+ * The console at a fixed screen size, with the sidebar's invented worklist.
+ * It holds what a real page would: the section, range, view, selected task,
+ * fleet, the task being moved and whether settings is open. Moves and Done
+ * change the story's own copy of the list.
+ */
 export function ConsoleStoryFrame({
   width,
   height,
   section: initialSection = "missions",
-  selectedId: initialSelected,
+  range: initialRange = "today",
+  view: initialView = "list",
+  selectedKey: initialSelected,
   relay = { kind: "live" },
 }: ConsoleStoryFrameProps) {
   const [section, setSection] = useState<Section>(initialSection);
-  const [selected, setSelected] = useState<string | undefined>(initialSelected);
+  const [items, setItems] = useState<WorkItem[]>(worklistItems);
+  const [range, setRange] = useState<Range>(initialRange);
+  const [view, setView] = useState<MissionsView>(initialView);
+  const [selected, setSelected] = useState<string | null>(
+    initialSelected ?? null,
+  );
+  const [moving, setMoving] = useState<WorkItem | null>(null);
   const [fleetId, setFleetId] = useState("work");
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const item = items.find((candidate) => candidate.id === selected);
+  const task = items.find((candidate) => taskKey(candidate) === selected);
+
+  const change = (target: WorkItem, patch: Partial<WorkItem>) =>
+    setItems((current) =>
+      current.map((candidate) =>
+        taskKey(candidate) === taskKey(target)
+          ? { ...candidate, ...patch }
+          : candidate,
+      ),
+    );
+  const bandPatch: Record<Range, Partial<WorkItem>> = {
+    today: { band: "today", day: STORY_TODAY },
+    tomorrow: { band: "tomorrow", day: STORY_TOMORROW },
+    backlog: { band: "unscheduled", day: undefined },
+  };
 
   const list =
     section === "missions" ? (
-      <>
-        <SectionHeading title="Missions" scope={null} onScope={() => {}} />
-        <ul className="console-story-list" aria-label="Tasks">
-          {items.map((candidate) => (
-            <li key={candidate.id}>
-              <button
-                type="button"
-                aria-current={candidate.id === selected ? "true" : undefined}
-                onClick={() => setSelected(candidate.id)}
-              >
-                {candidate.title}
-              </button>
-            </li>
-          ))}
-        </ul>
-      </>
+      <MissionsList
+        items={items}
+        today={STORY_TODAY}
+        tomorrow={STORY_TOMORROW}
+        range={range}
+        view={view}
+        scope={null}
+        selectedKey={selected}
+        systemName={systemName}
+        canMove={(candidate) => String(candidate.ref ?? "").startsWith("db:")}
+        onRangeChange={(next) => {
+          setRange(next);
+          setSelected(null);
+        }}
+        onViewChange={setView}
+        onScope={() => {}}
+        onTriage={() => {}}
+        onSelect={(candidate) => setSelected(taskKey(candidate))}
+        onMove={setMoving}
+      />
     ) : (
       <>
         <SectionHeading
@@ -89,7 +135,14 @@ export function ConsoleStoryFrame({
     );
 
   return (
-    <div style={{ width, height, outline: "1px dashed #5b6b8c" }}>
+    <div
+      style={{
+        width,
+        height,
+        transform: "translateZ(0)",
+        outline: "1px dashed #5b6b8c",
+      }}
+    >
       <ConsoleFrame
         initialWidth={width}
         fleets={storyFleets}
@@ -109,29 +162,38 @@ export function ConsoleStoryFrame({
         }
         list={list}
         detail={
-          item && section === "missions" ? (
-            <article aria-label="Task">
-              <h2 className="console-story-title">{item.title}</h2>
-              <p>{item.summary ?? "No summary."}</p>
-            </article>
+          task && section === "missions" ? (
+            <TaskSummary
+              task={task}
+              systemName={systemName(task.customer)}
+              onDone={(target) => change(target, { done: true })}
+              onMove={setMoving}
+            />
           ) : null
         }
         onFleetChange={setFleetId}
         onSelectSection={(next) => {
           setSection(next);
-          setSelected(undefined);
+          setSelected(null);
           setSettingsOpen(false);
         }}
-        onBack={() => setSelected(undefined)}
+        onBack={() => setSelected(null)}
         onSettings={() => setSettingsOpen((open) => !open)}
+        overlay={
+          moving ? (
+            <MoveSheet
+              task={moving}
+              to={movesFor(range)}
+              queued={relay.kind !== "live"}
+              onMove={(target, to) => {
+                change(target, bandPatch[to]);
+                setMoving(null);
+              }}
+              onCancel={() => setMoving(null)}
+            />
+          ) : null
+        }
       />
-      <style>{`
-        .console-story-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-        .console-story-list button { width: 100%; min-height: 44px; padding: 8px 12px; text-align: left;
-          border: 1px solid var(--line); border-radius: 8px; background: var(--card); }
-        .console-story-list button[aria-current="true"] { border-color: var(--amber); }
-        .console-story-title { margin: 0 0 8px; font: 600 16px/1.3 var(--face-heading); }
-      `}</style>
     </div>
   );
 }
