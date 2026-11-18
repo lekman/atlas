@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
-import type { WorkItem } from "../../sidebar/worklist/model";
+import { isWaiting, type WorkItem } from "../../sidebar/worklist/model";
+import { ConsoleMenu, type MenuItem } from "../ConsoleMenu";
 import { DayScopePanel } from "../DayScopePanel";
 import {
   byQuadrant,
@@ -18,39 +19,66 @@ import { SectionHeading } from "../SectionHeading";
 import { SegmentedSwitch } from "../SegmentedSwitch";
 import { TaskRow } from "../TaskRow";
 
+/** What the filter menu shows or hides. Both start off, as in the sidebar. */
+export interface MissionsFilter {
+  /** Show done tasks. */
+  done: boolean;
+  /** Show tasks waiting on a merge or a release (approved or merged). */
+  waiting: boolean;
+}
+
 export interface MissionsListProps {
   /** Every worklist item; the range picks from them. */
   items: readonly WorkItem[];
   /** Today and tomorrow as YYYY-MM-DD in the reader's time zone. */
   today: string;
   tomorrow: string;
-  /** Which range is shown. */
   range: Range;
-  /** List by system, or the quadrant grid. */
   view: MissionsView;
   /** The system the list is narrowed to, or null for all. */
   scope: string | null;
+  /** The words in the search box. */
+  query?: string;
+  filter?: MissionsFilter;
+  /** Systems whose group is folded in the list. */
+  folded?: ReadonlySet<string>;
   /** The task open in the detail, by ref or title. */
   selectedKey?: string | null;
-  /** The name a system is shown by, from its client key. */
   systemName(system: string): string;
-  /** Whether a task can be moved from here. */
-  canMove?(task: WorkItem): boolean;
+  /** A task's Actions menu; none shows no menu. */
+  actionsFor?(task: WorkItem): readonly MenuItem[];
+  /** A line under a task's actions, such as why Commander actions are off. */
+  actionsFooterFor?(task: WorkItem): string | undefined;
   onRangeChange(range: Range): void;
   onViewChange(view: MissionsView): void;
   onScope(): void;
   onTriage(): void;
   onSelect(task: WorkItem): void;
-  onMove(task: WorkItem): void;
+  onQuery?(query: string): void;
+  onFilter?(filter: MissionsFilter): void;
+  /** Called with the systems to fold: all of them, or none to expand all. */
+  onFold?(folded: ReadonlySet<string>): void;
 }
 
 /** A task's key for selection and React: its ref, else its title. */
 export const taskKey = (task: WorkItem): string => task.ref ?? task.title;
 
+/** Whether a task matches the search words: every word in its title, ticket or system. */
+export function matchesQuery(
+  task: WorkItem,
+  query: string,
+  systemName: string,
+): boolean {
+  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+  if (!words.length) return true;
+  const text = `${task.title} ${task.key ?? ""} ${systemName}`.toLowerCase();
+  return words.every((word) => text.includes(word));
+}
+
 /**
  * The Missions list: range, view, today's scope and the Triage button,
- * then the range's tasks by system, or in the four Covey quadrants with
- * the ungraded ones under them.
+ * then a search box and the filter menu, then the range's tasks by system
+ * (each group can fold) or in the four Covey quadrants.
  */
 export function MissionsList({
   items,
@@ -59,27 +87,42 @@ export function MissionsList({
   range,
   view,
   scope,
+  query = "",
+  filter = { done: false, waiting: false },
+  folded = new Set(),
   selectedKey = null,
   systemName,
-  canMove = () => true,
+  actionsFor = () => [],
+  actionsFooterFor = () => undefined,
   onRangeChange,
   onViewChange,
   onScope,
   onTriage,
   onSelect,
-  onMove,
+  onQuery = () => {},
+  onFilter = () => {},
+  onFold = () => {},
 }: MissionsListProps) {
   const inScope = scope ? items.filter((t) => t.customer === scope) : items;
-  const tasks = tasksIn(inScope, range, today, tomorrow);
+  const inRange = tasksIn(inScope, range, today, tomorrow);
+  const doneCount = inRange.filter((t) => t.done).length;
+  const waitingCount = inRange.filter((t) => !t.done && isWaiting(t)).length;
+  const tasks = inRange.filter(
+    (t) =>
+      (filter.done || !t.done) &&
+      (filter.waiting || t.done || !isWaiting(t)) &&
+      matchesQuery(t, query, systemName(t.customer)),
+  );
   const ungraded = ungradedCount(inScope);
+  const groups = groupBySystem(tasks);
   const row = (task: WorkItem) => (
     <TaskRow
       key={taskKey(task)}
       task={task}
       selected={taskKey(task) === selectedKey}
-      canMove={canMove(task)}
+      actions={actionsFor(task)}
+      actionsFooter={actionsFooterFor(task)}
       onSelect={onSelect}
-      onMove={onMove}
     />
   );
   const scopeTitle =
@@ -88,6 +131,32 @@ export function MissionsList({
       : range === "tomorrow"
         ? "Tomorrow's scope"
         : "Backlog";
+  const filterItems: MenuItem[] = [
+    {
+      label: `Show done (${doneCount})`,
+      checked: filter.done,
+      onSelect: () => onFilter({ ...filter, done: !filter.done }),
+    },
+    {
+      label: `Show approved and merged (${waitingCount})`,
+      checked: filter.waiting,
+      hint: "Pull requests waiting for a merge or a release",
+      onSelect: () => onFilter({ ...filter, waiting: !filter.waiting }),
+    },
+    {
+      label: "Collapse to systems",
+      divider: true,
+      disabled: view === "grid",
+      hint: view === "grid" ? "The grid has no system groups" : undefined,
+      onSelect: () => onFold(new Set(groups.map((g) => g.system))),
+    },
+    {
+      label: "Expand all",
+      disabled: view === "grid",
+      onSelect: () => onFold(new Set()),
+    },
+  ];
+  const hidden = inRange.length - tasks.length;
 
   return (
     <div className="console-missions">
@@ -128,24 +197,64 @@ export function MissionsList({
         scope={dayScope(inScope, range, today, tomorrow)}
         title={scopeTitle}
       />
+      <div className="console-search">
+        <input
+          type="search"
+          className="console-search-input"
+          aria-label="Search tasks"
+          placeholder="Search tasks"
+          value={query}
+          onChange={(event) => onQuery(event.target.value)}
+        />
+        <ConsoleMenu label="Filter" name="the task list" items={filterItems} />
+      </div>
+      {hidden > 0 ? (
+        <p className="console-hidden-note">
+          {hidden} hidden by the search or the filter
+        </p>
+      ) : null}
       {tasks.length === 0 ? (
         <p className="console-empty">
-          Nothing in {rangeNames[range].toLowerCase()}.
+          {inRange.length
+            ? "No task matches."
+            : `Nothing in ${rangeNames[range].toLowerCase()}.`}
         </p>
       ) : view === "list" ? (
-        groupBySystem(tasks).map((group) => (
-          <section
-            key={group.system}
-            className="console-group"
-            aria-label={systemName(group.system)}
-          >
-            <h2 className="console-group-title">
-              {systemName(group.system)}
-              <span className="console-group-count">{group.tasks.length}</span>
-            </h2>
-            <ul className="console-tasks">{group.tasks.map(row)}</ul>
-          </section>
-        ))
+        groups.map((group) => {
+          const isFolded = folded.has(group.system);
+          return (
+            <section
+              key={group.system}
+              className="console-group"
+              aria-label={systemName(group.system)}
+            >
+              <h2 className="console-group-title">
+                <button
+                  type="button"
+                  className="console-group-toggle"
+                  aria-expanded={!isFolded}
+                  onClick={() => {
+                    const next = new Set(folded);
+                    if (isFolded) next.delete(group.system);
+                    else next.add(group.system);
+                    onFold(next);
+                  }}
+                >
+                  <span className="console-group-chevron" aria-hidden="true">
+                    {isFolded ? "▸" : "▾"}
+                  </span>
+                  {systemName(group.system)}
+                </button>
+                <span className="console-group-count">
+                  {group.tasks.length}
+                </span>
+              </h2>
+              {isFolded ? null : (
+                <ul className="console-tasks">{group.tasks.map(row)}</ul>
+              )}
+            </section>
+          );
+        })
       ) : (
         <GridView tasks={tasks} row={row} />
       )}

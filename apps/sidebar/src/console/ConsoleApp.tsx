@@ -2,35 +2,39 @@ import type { Runtime } from "@atlas/runtime";
 import {
   ConsoleFrame,
   MissionsList,
-  MoveSheet,
   movesFor,
   scopeChoices,
   ScopeSheet,
   SectionHeading,
+  sectionNames,
+  sectionPurposes,
   ShieldDetail,
   shieldAlerts,
   shieldRows,
   ShieldsList,
-  type IntegrationInput,
-  type ShieldRow,
-  sectionNames,
-  sectionPurposes,
   taskKey,
-  TaskSummary,
+  TaskDetail,
+  type IntegrationInput,
+  type MenuItem,
+  type MissionsFilter,
   type MissionsView,
   type Range,
   type Section,
+  type ShieldRow,
 } from "@atlas/ui/console";
-import type { WorkItem } from "@atlas/ui/sidebar";
+import { referenceText, type WorkItem } from "@atlas/ui/sidebar";
 import { useMemo, useState } from "react";
 
 import type { SidebarConfig } from "../config";
 import { dayKey } from "../day";
+import { PENDING_NOTE } from "../moves";
 import { useCommander } from "../useCommander";
+import { readDetailsIndex, useDetails } from "../useDetails";
 import { useHosts } from "../useHosts";
-import { useStored } from "../useStored";
 import { useNow } from "../useNow";
-import { useTaskActions } from "../useTaskActions";
+import { usePullRequests } from "../usePullRequests";
+import { useStored } from "../useStored";
+import { copyText, useTaskActions } from "../useTaskActions";
 import { useWorklist } from "../useWorklist";
 import { relayStateOf } from "./relay";
 
@@ -67,17 +71,14 @@ function keepScope(scope: string | null): void {
   }
 }
 
-const TO: Record<Range, string> = {
-  today: "today",
-  tomorrow: "tomorrow",
-  backlog: "backlog",
-};
+const rangeWord = (range: Range) =>
+  `${range[0]!.toUpperCase()}${range.slice(1)}`;
 
 /**
  * The full-page console on real data: the worklist the sidebar reads, its
- * task actions and the Commander inbox. Only Missions is built; the other
- * sections say what they will hold. This page is published as a separate
- * test artifact, beside the sidebar, until it can replace it.
+ * task actions, the Commander inbox, the details pages and pull requests,
+ * and host statistics. Missions and Shields are built; the other sections
+ * say what they will hold.
  */
 export function ConsoleApp({
   runtime,
@@ -97,6 +98,7 @@ export function ConsoleApp({
   const hosts = useHosts(runtime);
   const jiraSynced = useStored(runtime, "board/jira", syncedAtOf);
   const eventsSynced = useStored(runtime, "board/events", syncedAtOf);
+  const detailsIndex = useStored(runtime, "board/details", readDetailsIndex);
 
   const [section, setSection] = useState<Section>("missions");
   const [range, setRange] = useState<Range>("today");
@@ -104,7 +106,13 @@ export function ConsoleApp({
   const [scope, setScope] = useState<string | null>(readScope);
   const [picking, setPicking] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
-  const [moving, setMoving] = useState<WorkItem | null>(null);
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<MissionsFilter>({
+    done: false,
+    waiting: false,
+  });
+  const [folded, setFolded] = useState<ReadonlySet<string>>(new Set());
+  const [note, setNote] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [shield, setShield] = useState<ShieldRow | null>(null);
 
@@ -114,7 +122,57 @@ export function ConsoleApp({
   );
   const systemName = (key: string) => names.get(key) ?? key;
   const task = items.find((t) => taskKey(t) === selected) ?? null;
+  const details = useDetails(runtime, task, detailsIndex?.items ?? {});
+  const pulls = usePullRequests(runtime, task);
   const relay = relayStateOf(worklist.liveAt, Object.values(commander.records));
+
+  const copyReference = async (t: WorkItem) => {
+    const text = referenceText(t.title, t.key);
+    setNote(
+      (await copyText(text))
+        ? `Copied: ${text}`
+        : "Could not copy to the clipboard in this view.",
+    );
+  };
+  const fromDatabase = (t: WorkItem) => String(t.ref ?? "").startsWith("db:");
+  const actionsFor = (t: WorkItem): MenuItem[] => {
+    if (t.done || !t.ref) return [];
+    const open = Boolean(commander.open(t.ref));
+    return [
+      { label: "Copy reference", onSelect: () => void copyReference(t) },
+      {
+        label: "Done",
+        divider: true,
+        onSelect: () => void actions.act(t, "task_done"),
+      },
+      ...(fromDatabase(t)
+        ? movesFor(range).map((to) => ({
+            label: `Move to ${rangeWord(to)}`,
+            onSelect: () => void actions.act(t, "task_move", { to }),
+          }))
+        : []),
+      {
+        label: "Status",
+        divider: true,
+        disabled: open,
+        hint: open ? PENDING_NOTE : undefined,
+        onSelect: () => void commander.send(t, "status"),
+      },
+      {
+        label: "Execute",
+        disabled: open,
+        hint: open ? PENDING_NOTE : undefined,
+        onSelect: () => void commander.send(t, "execute"),
+      },
+    ];
+  };
+  const actionsFooterFor = (t: WorkItem) =>
+    commander.open(t.ref)
+      ? `${PENDING_NOTE}.`
+      : relay.kind === "live"
+        ? undefined
+        : "The relay is not live, so changes wait for the Mac mini.";
+
   const database = worklist.doc?.database;
   const integrations: IntegrationInput[] = [
     {
@@ -148,8 +206,13 @@ export function ConsoleApp({
     integrations,
     now,
   };
-  const canMove = (t: WorkItem) =>
-    String(t.ref ?? "").startsWith("db:") && commander.open(t.ref) === null;
+
+  const latest = task ? commander.latest(task.ref) : null;
+  const requestLine = latest
+    ? [latest.summary ?? `${latest.action} ${latest.state}`, latest.worker]
+        .filter(Boolean)
+        .join(" · ")
+    : null;
 
   const list =
     section === "shields" ? (
@@ -161,8 +224,13 @@ export function ConsoleApp({
     ) : section === "missions" ? (
       <>
         {actions.error ? (
-          <p className="console-sheet-note" role="alert">
+          <p className="console-request" role="alert">
             {actions.error}
+          </p>
+        ) : null}
+        {note ? (
+          <p className="console-request" role="status">
+            {note}
           </p>
         ) : null}
         {worklist.pending ? (
@@ -175,9 +243,13 @@ export function ConsoleApp({
             range={range}
             view={view}
             scope={scope}
+            query={query}
+            filter={filter}
+            folded={folded}
             selectedKey={selected}
             systemName={systemName}
-            canMove={canMove}
+            actionsFor={actionsFor}
+            actionsFooterFor={actionsFooterFor}
             onRangeChange={(next) => {
               setRange(next);
               setSelected(null);
@@ -185,21 +257,22 @@ export function ConsoleApp({
             onViewChange={setView}
             onScope={() => setPicking(true)}
             onTriage={() => {}}
-            onSelect={(t) => setSelected(taskKey(t))}
-            onMove={setMoving}
+            onSelect={(t) => {
+              setSelected(taskKey(t));
+              setNote(null);
+            }}
+            onQuery={setQuery}
+            onFilter={setFilter}
+            onFold={setFolded}
           />
         )}
       </>
     ) : (
       <>
-        <SectionHeading
-          title={sectionNames[section]}
-          scope={null}
-          onScope={() => {}}
-        />
+        <SectionHeading title={sectionNames[section]} />
         <p className="console-empty">
-          {sectionPurposes[section]}. Not built yet in this test page; the
-          sidebar still has it.
+          {sectionPurposes[section]}. Not built yet in this page; the sidebar
+          still has it.
         </p>
       </>
     );
@@ -215,7 +288,7 @@ export function ConsoleApp({
       settingsOpen={settingsOpen}
       settings={
         <>
-          <SectionHeading title="Settings" scope={null} onScope={() => {}} />
+          <SectionHeading title="Settings" />
           <p className="console-empty">Settings are in the sidebar for now.</p>
         </>
       }
@@ -238,11 +311,25 @@ export function ConsoleApp({
             now={now}
           />
         ) : task && section === "missions" ? (
-          <TaskSummary
+          <TaskDetail
             task={task}
             systemName={systemName(task.customer)}
+            details={details}
+            pulls={pulls.doc}
+            pullsCopy={pulls.copy}
+            mondayPrefix={
+              config.trackers.find((t) => t.monday)?.monday?.keyPrefix
+            }
+            request={note ?? requestLine}
+            commanderBusy={commander.open(task.ref) ? PENDING_NOTE : null}
+            moves={fromDatabase(task) ? movesFor(range) : []}
+            now={now}
             onDone={(t) => void actions.act(t, "task_done")}
-            onMove={setMoving}
+            onMove={(t, to) => void actions.act(t, "task_move", { to })}
+            onStatus={(t) => void commander.send(t, "status")}
+            onExecute={(t) => void commander.send(t, "execute")}
+            onPlan={(t) => void commander.plan(t)}
+            onCopyReference={(t) => void copyReference(t)}
           />
         ) : null
       }
@@ -258,17 +345,6 @@ export function ConsoleApp({
               setPicking(false);
             }}
             onCancel={() => setPicking(false)}
-          />
-        ) : moving ? (
-          <MoveSheet
-            task={moving}
-            to={movesFor(range)}
-            queued={relay.kind !== "live"}
-            onMove={(t, to) => {
-              setMoving(null);
-              void actions.act(t, "task_move", { to: TO[to] });
-            }}
-            onCancel={() => setMoving(null)}
           />
         ) : null
       }

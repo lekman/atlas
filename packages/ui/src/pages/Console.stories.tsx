@@ -134,48 +134,119 @@ export const MissionsGrid: Story = {
 };
 
 /**
- * Moving a task: the Move control opens the sheet, Tomorrow moves it, and
- * it leaves Today's list. The sheet is a dialog, so focus starts on the
- * first choice.
+ * A task's Actions menu: Copy reference, Done, the two other ranges,
+ * Status and Execute. Move to Tomorrow takes it out of Today's list.
  */
-export const MoveATask: Story = {
-  name: "Move a Task",
+export const TaskActions: Story = {
+  name: "Task Actions",
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     const title = "Confirm the release notes with the depot leads";
     await userEvent.click(
-      canvas.getByRole("button", { name: `Move ${title}` }),
+      canvas.getByRole("button", { name: `Actions for ${title}` }),
     );
-    const sheet = within(
-      canvas.getByRole("dialog", { name: `Move “${title}”` }),
+    const menu = within(
+      canvas.getByRole("menu", { name: `Actions for ${title}` }),
     );
-    await expect(sheet.getByRole("button", { name: "Tomorrow" })).toHaveFocus();
-    await userEvent.click(sheet.getByRole("button", { name: "Tomorrow" }));
-    await expect(canvas.queryByRole("dialog")).toBeNull();
     await expect(
-      canvas.queryByRole("button", { name: new RegExp(title) }),
-    ).toBeNull();
-    await userEvent.click(canvas.getByRole("button", { name: "Tomorrow" }));
+      menu.getByRole("menuitem", { name: "Copy reference" }),
+    ).toHaveFocus();
     await expect(
-      canvas.getByRole("button", { name: `Move ${title}` }),
+      menu.getByRole("menuitem", { name: "Execute" }),
     ).toBeInTheDocument();
+    await userEvent.click(
+      menu.getByRole("menuitem", { name: "Move to Tomorrow" }),
+    );
+    await expect(canvas.queryByRole("menu")).toBeNull();
+    await expect(
+      canvas.queryByRole("button", { name: `Actions for ${title}` }),
+    ).toBeNull();
   },
 };
 
-/** Moving while the relay is down: the sheet says the move waits for the Mac mini. */
-export const MoveWhileQueued: Story = {
-  name: "Move While Queued",
+/** Search and the filter menu: words narrow the list; Show done brings done tasks back. */
+export const SearchAndFilter: Story = {
+  name: "Search and Filter",
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.type(
+      canvas.getByRole("searchbox", { name: "Search tasks" }),
+      "scanner",
+    );
+    await expect(
+      canvas.getByRole("button", { name: /^In progress: Cut the depots over/ }),
+    ).toBeInTheDocument();
+    await expect(
+      canvas.queryByRole("button", { name: /^Queued: Route planner timeout/ }),
+    ).toBeNull();
+    await userEvent.clear(
+      canvas.getByRole("searchbox", { name: "Search tasks" }),
+    );
+    await expect(
+      canvas.queryByText(/Archive last year's delivery notes/),
+    ).toBeNull();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Filter for the task list" }),
+    );
+    await userEvent.click(
+      canvas.getByRole("menuitemcheckbox", { name: /^Show done/ }),
+    );
+    await expect(
+      canvas.getByText(/Archive last year's delivery notes/),
+    ).toBeInTheDocument();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Filter for the task list" }),
+    );
+    await userEvent.click(
+      canvas.getByRole("menuitem", { name: "Collapse to systems" }),
+    );
+    await expect(
+      canvas.getByRole("button", { name: "Kestrel Freight" }),
+    ).toHaveAttribute("aria-expanded", "false");
+  },
+};
+
+/** The relay down: the Actions menu says moves wait for the Mac mini. */
+export const ActionsWhileQueued: Story = {
+  name: "Actions While Queued",
   args: { relay: { kind: "stored" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await userEvent.click(
-      canvas.getAllByRole("button", { name: /^Move (?!the menu)/ })[0]!,
+      canvas.getAllByRole("button", { name: /^Actions for / })[0]!,
     );
-    await expect(canvas.getByRole("dialog")).toHaveTextContent(
-      "The move is queued",
+    await expect(canvas.getByRole("menu")).toHaveTextContent(
+      "moves wait for the Mac mini",
     );
     await userEvent.keyboard("{Escape}");
-    await expect(canvas.queryByRole("dialog")).toBeNull();
+    await expect(canvas.queryByRole("menu")).toBeNull();
+  },
+};
+
+/**
+ * The task detail on a laptop: the actions at the top right, then the
+ * facts, the ticket, the pull requests and the details page.
+ */
+export const TaskDetailOnALaptop: Story = {
+  name: "Task Detail on a Laptop",
+  args: { width: 1440, height: 900, selectedKey: "db:1" },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const actions = within(canvas.getByRole("group", { name: "Task actions" }));
+    await expect(
+      actions.getByRole("button", { name: "Copy reference" }),
+    ).toBeInTheDocument();
+    await expect(
+      canvas.getByRole("region", { name: "Ticket" }),
+    ).toBeInTheDocument();
+    await expect(
+      canvas.getByRole("region", { name: "Pull requests" }),
+    ).toBeInTheDocument();
+    await expect(
+      canvas.getByRole("region", { name: "Details page" }),
+    ).toBeInTheDocument();
+    await userEvent.click(actions.getByRole("button", { name: "Status" }));
+    await expect(canvas.getByText(/Asked the owner about/)).toBeInTheDocument();
   },
 };
 

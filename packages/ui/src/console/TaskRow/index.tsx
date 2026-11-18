@@ -1,4 +1,5 @@
 import { quadrantOf, type WorkItem } from "../../sidebar/worklist/model";
+import { ConsoleMenu, type MenuItem } from "../ConsoleMenu";
 import { taskStateNames, taskStateOf } from "../missions";
 
 export interface TaskRowProps {
@@ -6,12 +7,12 @@ export interface TaskRowProps {
   task: WorkItem;
   /** Whether the task is the one open in the detail. */
   selected?: boolean;
-  /** Whether it can be moved: an open task from the task database. */
-  canMove?: boolean;
+  /** The task's actions: copy reference, Done, moves, Status, Execute. None shows no menu. */
+  actions?: readonly MenuItem[];
+  /** A line under the actions, such as why some are off. */
+  actionsFooter?: string;
   /** Called when the reader opens the task. */
   onSelect(task: WorkItem): void;
-  /** Called when the reader asks to move the task to another range. */
-  onMove(task: WorkItem): void;
 }
 
 const quadrantShort: Record<string, string> = {
@@ -23,16 +24,16 @@ const quadrantShort: Record<string, string> = {
 
 /**
  * One task: its state as a shape (filled circle done, ring in progress,
- * dashed ring queued, square blocked), its title, its grade and the move
- * control. The title opens the task; the move control is a separate button
- * so a thumb cannot open one when it means the other.
+ * dashed ring queued, square blocked), its title, its grade and its
+ * Actions menu. The title opens the task; Actions is a separate button so
+ * a thumb cannot open one when it means the other.
  */
 export function TaskRow({
   task,
   selected = false,
-  canMove = true,
+  actions = [],
+  actionsFooter,
   onSelect,
-  onMove,
 }: TaskRowProps) {
   const state = taskStateOf(task);
   const quadrant = quadrantShort[quadrantOf(task)];
@@ -60,15 +61,14 @@ export function TaskRow({
           {task.key ? <span>{task.key}</span> : null}
         </span>
       </button>
-      {canMove && !task.done ? (
-        <button
-          type="button"
-          className="console-task-move"
-          aria-label={`Move ${task.title}`}
-          onClick={() => onMove(task)}
-        >
-          Move
-        </button>
+      {actions.length ? (
+        <ConsoleMenu
+          label="Actions"
+          name={task.title}
+          items={actions}
+          footer={actionsFooter}
+          buttonClassName="console-task-move"
+        />
       ) : null}
     </li>
   );

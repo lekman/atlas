@@ -22,7 +22,6 @@ import {
   type MissionsView,
   type Range,
 } from "../missions";
-import { MoveSheet } from "../MoveSheet";
 import { ScopeSheet } from "../ScopeSheet";
 import { SectionHeading } from "../SectionHeading";
 import { ShieldDetail } from "../ShieldDetail";
@@ -31,7 +30,11 @@ import { shieldAlerts, type ShieldRow } from "../shields";
 import { storyHosts, storyIntegrations } from "./shields";
 import { STORY_NOW } from "../../sidebar/stories/examples";
 import { sectionNames, sectionPurposes, type Section } from "../sections";
-import { TaskSummary } from "../TaskSummary";
+import { TaskDetail } from "../TaskDetail";
+import type { MenuItem } from "../ConsoleMenu";
+import type { MissionsFilter } from "../MissionsList";
+import { detailsPage } from "../../sidebar/stories/details";
+import { pullsDoc } from "../../sidebar/stories/pulls";
 import type { Fleet } from "../TopBar";
 
 /** Two invented fleets: the reader's work account and a personal one. */
@@ -91,10 +94,16 @@ export function ConsoleStoryFrame({
   const [selected, setSelected] = useState<string | null>(
     initialSelected ?? null,
   );
-  const [moving, setMoving] = useState<WorkItem | null>(null);
   const [scope, setScope] = useState<string | null>(null);
   const [picking, setPicking] = useState(false);
   const [shield, setShield] = useState<ShieldRow | null>(null);
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<MissionsFilter>({
+    done: false,
+    waiting: false,
+  });
+  const [folded, setFolded] = useState<ReadonlySet<string>>(new Set());
+  const [note, setNote] = useState<string | null>(null);
   const [fleetId, setFleetId] = useState("work");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const task = items.find((candidate) => taskKey(candidate) === selected);
@@ -107,6 +116,33 @@ export function ConsoleStoryFrame({
           : candidate,
       ),
     );
+  const actionsFor = (target: WorkItem): MenuItem[] =>
+    target.done
+      ? []
+      : [
+          {
+            label: "Copy reference",
+            onSelect: () => setNote(`Copied: ${target.key ?? target.title}`),
+          },
+          {
+            label: "Done",
+            divider: true,
+            onSelect: () => change(target, { done: true }),
+          },
+          ...movesFor(range).map((to) => ({
+            label: `Move to ${to[0]!.toUpperCase()}${to.slice(1)}`,
+            onSelect: () => change(target, bandPatch[to]),
+          })),
+          {
+            label: "Status",
+            divider: true,
+            onSelect: () => setNote(`Asked the owner about “${target.title}”`),
+          },
+          {
+            label: "Execute",
+            onSelect: () => setNote(`Dispatched “${target.title}”`),
+          },
+        ];
   const bandPatch: Record<Range, Partial<WorkItem>> = {
     today: { band: "today", day: STORY_TODAY },
     tomorrow: { band: "tomorrow", day: STORY_TOMORROW },
@@ -138,7 +174,18 @@ export function ConsoleStoryFrame({
         scope={scope}
         selectedKey={selected}
         systemName={systemName}
-        canMove={(candidate) => String(candidate.ref ?? "").startsWith("db:")}
+        query={query}
+        filter={filter}
+        folded={folded}
+        actionsFor={actionsFor}
+        actionsFooterFor={() =>
+          relay.kind === "live"
+            ? undefined
+            : "The relay is not live, so moves wait for the Mac mini."
+        }
+        onQuery={setQuery}
+        onFilter={setFilter}
+        onFold={setFolded}
         onRangeChange={(next) => {
           setRange(next);
           setSelected(null);
@@ -147,7 +194,6 @@ export function ConsoleStoryFrame({
         onScope={() => setPicking(true)}
         onTriage={() => {}}
         onSelect={(candidate) => setSelected(taskKey(candidate))}
-        onMove={setMoving}
       />
     ) : (
       <>
@@ -210,11 +256,32 @@ export function ConsoleStoryFrame({
               now={STORY_NOW}
             />
           ) : task && section === "missions" ? (
-            <TaskSummary
+            <TaskDetail
               task={task}
               systemName={systemName(task.customer)}
+              details={
+                task.ref === "db:1"
+                  ? { state: "ready", page: detailsPage }
+                  : task.details
+                    ? { state: "missing" }
+                    : { state: "none" }
+              }
+              pulls={task.ref === "db:1" ? pullsDoc : null}
+              request={note}
+              moves={movesFor(range)}
+              now={STORY_NOW}
               onDone={(target) => change(target, { done: true })}
-              onMove={setMoving}
+              onMove={(target, to) => change(target, bandPatch[to])}
+              onStatus={(target) =>
+                setNote(`Asked the owner about “${target.title}”`)
+              }
+              onExecute={(target) => setNote(`Dispatched “${target.title}”`)}
+              onPlan={(target) =>
+                setNote(`Asked Commander to plan “${target.title}”`)
+              }
+              onCopyReference={(target) =>
+                setNote(`Copied: ${target.key ?? target.title}`)
+              }
             />
           ) : null
         }
@@ -247,17 +314,6 @@ export function ConsoleStoryFrame({
                 setPicking(false);
               }}
               onCancel={() => setPicking(false)}
-            />
-          ) : moving ? (
-            <MoveSheet
-              task={moving}
-              to={movesFor(range)}
-              queued={relay.kind !== "live"}
-              onMove={(target, to) => {
-                change(target, bandPatch[to]);
-                setMoving(null);
-              }}
-              onCancel={() => setMoving(null)}
             />
           ) : null
         }
