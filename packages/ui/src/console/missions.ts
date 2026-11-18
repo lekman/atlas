@@ -188,3 +188,43 @@ export function ungradedCount(items: readonly WorkItem[]): number {
     (t) => !t.done && !t.meeting && quadrantOf(t) === "unsized",
   ).length;
 }
+
+/**
+ * The systems to offer in the scope picker: the configured ones in their
+ * order, then any other system that has tasks, each with its open tasks in
+ * the range.
+ */
+export function scopeChoices(
+  items: readonly WorkItem[],
+  configured: ReadonlyArray<{ key: string; name: string }>,
+  range: Range,
+  today: string,
+  tomorrow: string,
+): {
+  systems: Array<{ system: string; name: string; count: number }>;
+  total: number;
+} {
+  const open = tasksIn(items, range, today, tomorrow).filter((t) => !t.done);
+  const counts = new Map<string, number>();
+  for (const task of open)
+    counts.set(task.customer, (counts.get(task.customer) ?? 0) + 1);
+  const known = new Set(configured.map((c) => c.key));
+  const others = [...new Set(items.map((t) => t.customer))]
+    .filter((key) => !known.has(key))
+    .sort();
+  return {
+    systems: [
+      ...configured.map((c) => ({
+        system: c.key,
+        name: c.name,
+        count: counts.get(c.key) ?? 0,
+      })),
+      ...others.map((key) => ({
+        system: key,
+        name: key,
+        count: counts.get(key) ?? 0,
+      })),
+    ],
+    total: open.length,
+  };
+}

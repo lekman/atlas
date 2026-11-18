@@ -718,3 +718,23 @@
   gap: 8px;
   margin-top: 16px;
 }
+
+/* Scope sheet: a long list of systems scrolls inside the sheet. */
+
+.console-sheet-tall {
+  max-height: min(80vh, 560px);
+  overflow-y: auto;
+}
+
+.console-scope-choice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  text-align: left;
+}
+
+.console-scope-choice[aria-pressed="true"] {
+  border-color: var(--amber);
+  color: var(--amber);
+}

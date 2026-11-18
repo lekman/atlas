@@ -5,6 +5,7 @@ import {
   dayScope,
   groupBySystem,
   minutesWords,
+  scopeChoices,
   movesFor,
   taskStateOf,
   tasksIn,
@@ -151,5 +152,31 @@ describe("day scope", () => {
     expect(minutesWords(45)).toBe("45 min");
     expect(minutesWords(120)).toBe("2 h");
     expect(minutesWords(105)).toBe("1 h 45 min");
+  });
+});
+
+describe("scope choices", () => {
+  it("lists configured systems in order, then others with tasks, with open counts", () => {
+    const { systems, total } = scopeChoices(
+      [
+        task({ customer: "kestrel" }),
+        task({ customer: "kestrel", done: true }),
+        task({ customer: "zephyr" }),
+        task({ customer: "halcyon", band: "tomorrow", day: TOMORROW }),
+      ],
+      [
+        { key: "halcyon", name: "Halcyon Labs" },
+        { key: "kestrel", name: "Kestrel Freight" },
+      ],
+      "today",
+      TODAY,
+      TOMORROW,
+    );
+    expect(systems).toEqual([
+      { system: "halcyon", name: "Halcyon Labs", count: 0 },
+      { system: "kestrel", name: "Kestrel Freight", count: 1 },
+      { system: "zephyr", name: "zephyr", count: 1 },
+    ]);
+    expect(total).toBe(2);
   });
 });

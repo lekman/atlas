@@ -179,6 +179,46 @@ export const MoveWhileQueued: Story = {
   },
 };
 
+/**
+ * Narrowing to one system: the scope button opens the picker with each
+ * system's open tasks, picking one narrows the list and names it on the
+ * button, and All systems widens it again.
+ */
+export const PickASystem: Story = {
+  name: "Pick a System",
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      canvas.getByRole("button", { name: /^Scope: All systems/ }),
+    );
+    const sheet = within(
+      canvas.getByRole("dialog", { name: "Show one system" }),
+    );
+    await expect(
+      sheet.getByRole("button", { name: /^All systems/ }),
+    ).toHaveFocus();
+    await userEvent.click(sheet.getByRole("button", { name: /^Halcyon Labs/ }));
+    await expect(canvas.queryByRole("dialog")).toBeNull();
+    await expect(
+      canvas.getByRole("button", { name: /^Scope: Halcyon Labs/ }),
+    ).toBeInTheDocument();
+    await expect(
+      canvas.queryByRole("region", { name: "Kestrel Freight" }),
+    ).toBeNull();
+    await userEvent.click(
+      canvas.getByRole("button", { name: /^Scope: Halcyon Labs/ }),
+    );
+    await userEvent.click(
+      within(canvas.getByRole("dialog")).getByRole("button", {
+        name: /^All systems/,
+      }),
+    );
+    await expect(
+      canvas.getByRole("region", { name: "Kestrel Freight" }),
+    ).toBeInTheDocument();
+  },
+};
+
 /** Settings opened from the rail fills the panes, and the rail marks it as current. */
 export const SettingsOpen: Story = {
   name: "Settings Open",

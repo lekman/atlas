@@ -4,6 +4,8 @@ import {
   MissionsList,
   MoveSheet,
   movesFor,
+  scopeChoices,
+  ScopeSheet,
   SectionHeading,
   sectionNames,
   sectionPurposes,
@@ -29,6 +31,26 @@ export interface ConsoleAppProps {
   config: SidebarConfig;
   /** A fixed time, for tests. */
   now?: Date;
+}
+
+const SCOPE_KEY = "atlas-console-scope";
+
+/** The system this device last narrowed to. Storage can be blocked. */
+function readScope(): string | null {
+  try {
+    return globalThis.localStorage?.getItem(SCOPE_KEY) || null;
+  } catch {
+    return null;
+  }
+}
+
+function keepScope(scope: string | null): void {
+  try {
+    if (scope) globalThis.localStorage?.setItem(SCOPE_KEY, scope);
+    else globalThis.localStorage?.removeItem(SCOPE_KEY);
+  } catch {
+    // Not kept; the choice holds until the page closes.
+  }
 }
 
 const TO: Record<Range, string> = {
@@ -62,7 +84,8 @@ export function ConsoleApp({
   const [section, setSection] = useState<Section>("missions");
   const [range, setRange] = useState<Range>("today");
   const [view, setView] = useState<MissionsView>("list");
-  const [scope] = useState<string | null>(null);
+  const [scope, setScope] = useState<string | null>(readScope);
+  const [picking, setPicking] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [moving, setMoving] = useState<WorkItem | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -103,7 +126,7 @@ export function ConsoleApp({
               setSelected(null);
             }}
             onViewChange={setView}
-            onScope={() => {}}
+            onScope={() => setPicking(true)}
             onTriage={() => {}}
             onSelect={(t) => setSelected(taskKey(t))}
             onMove={setMoving}
@@ -150,7 +173,19 @@ export function ConsoleApp({
         ) : null
       }
       overlay={
-        moving ? (
+        picking ? (
+          <ScopeSheet
+            {...scopeChoices(items, config.clients, range, today, tomorrow)}
+            scope={scope}
+            onPick={(next) => {
+              setScope(next);
+              keepScope(next);
+              setSelected(null);
+              setPicking(false);
+            }}
+            onCancel={() => setPicking(false)}
+          />
+        ) : moving ? (
           <MoveSheet
             task={moving}
             to={movesFor(range)}
