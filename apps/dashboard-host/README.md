@@ -78,5 +78,22 @@ set on the server never reaches this process. Set it inside the command with
 ATLAS_DASHBOARD_MCP_COMMAND='/usr/bin/env "DASHBOARD_HOME=/path/to/vault/_Dashboard Sync" /usr/bin/python3 /path/to/atlas/apps/dashboard-host/dashboard_mcp.py'
 ```
 
-Quit and reopen the Claude desktop app after a change: it starts the server
-once, when it opens.
+Quit and reopen the Claude desktop app after a change, because it starts the
+server once, when it opens.
+
+### More Than One Desktop App
+
+Each copy of the desktop app has its own configuration folder and its own
+`claude_desktop_config.json`. A second copy made with a tool such as Duplex
+runs with its own `--user-data-dir`, so it does not read the main app's
+`mcpServers`. Register `dashboard` in every copy that opens Atlas, then quit
+and reopen that copy.
+
+Without it, the page in that copy cannot reach this server and shows the
+stored copy. That happened on 18 Nov 2026 with a Duplex copy whose folder
+was `~/Library/Application Support/Duplex/claude-2/data`.
+
+Each copy is also signed in to its own Claude account, with its own
+claude.ai connectors (Google Calendar, Microsoft 365, monday.com, GitHub,
+Cloudflare D1). A panel that needs a connector says it "isn't connected"
+until that account connects it, even when `dashboard` works.
