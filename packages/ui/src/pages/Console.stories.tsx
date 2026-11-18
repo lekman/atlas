@@ -219,6 +219,47 @@ export const PickASystem: Story = {
   },
 };
 
+/**
+ * Shields on a laptop: hosts, the relay and integrations in the list, and a
+ * host's figures and last 24 hours beside it. The rail counts the rows that
+ * need a look.
+ */
+export const ShieldsOnALaptop: Story = {
+  name: "Shields on a Laptop",
+  args: { width: 1440, height: 900, section: "shields" },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      canvas.getByRole("button", { name: /^Needs a look: laptop/ }),
+    );
+    await expect(
+      canvas.getByRole("heading", { name: "laptop" }),
+    ).toBeInTheDocument();
+    await expect(
+      canvas.getByRole("img", { name: /CPU % over the last 24 hours/ }),
+    ).toBeInTheDocument();
+  },
+};
+
+/** Shields in the sidebar: one pane, a row opens with a back link. */
+export const ShieldsInTheSidebar: Story = {
+  name: "Shields in the Sidebar",
+  args: { section: "shields" },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      canvas.getByRole("button", { name: /^Alert: Calendars/ }),
+    );
+    await expect(
+      canvas.getByText(/Asked to slow down/, { selector: "dd" }),
+    ).toBeInTheDocument();
+    await userEvent.click(canvas.getByRole("button", { name: "Back" }));
+    await expect(
+      canvas.getByRole("heading", { name: "Shields" }),
+    ).toBeInTheDocument();
+  },
+};
+
 /** Settings opened from the rail fills the panes, and the rail marks it as current. */
 export const SettingsOpen: Story = {
   name: "Settings Open",

@@ -7,6 +7,12 @@ import {
   scopeChoices,
   ScopeSheet,
   SectionHeading,
+  ShieldDetail,
+  shieldAlerts,
+  shieldRows,
+  ShieldsList,
+  type IntegrationInput,
+  type ShieldRow,
   sectionNames,
   sectionPurposes,
   taskKey,
@@ -21,6 +27,8 @@ import { useMemo, useState } from "react";
 import type { SidebarConfig } from "../config";
 import { dayKey } from "../day";
 import { useCommander } from "../useCommander";
+import { useHosts } from "../useHosts";
+import { useStored } from "../useStored";
 import { useNow } from "../useNow";
 import { useTaskActions } from "../useTaskActions";
 import { useWorklist } from "../useWorklist";
@@ -32,6 +40,12 @@ export interface ConsoleAppProps {
   /** A fixed time, for tests. */
   now?: Date;
 }
+
+/** A stored sync document's time, from its `syncedAt`. */
+const syncedAtOf = (value: unknown): string | null => {
+  const at = (value as { syncedAt?: unknown } | null)?.syncedAt;
+  return typeof at === "string" ? at : null;
+};
 
 const SCOPE_KEY = "atlas-console-scope";
 
@@ -80,6 +94,9 @@ export function ConsoleApp({
   const commander = useCommander(runtime, config.inbox);
   const actions = useTaskActions(runtime, commander, worklist.apply);
   const items = worklist.doc?.items ?? [];
+  const hosts = useHosts(runtime);
+  const jiraSynced = useStored(runtime, "board/jira", syncedAtOf);
+  const eventsSynced = useStored(runtime, "board/events", syncedAtOf);
 
   const [section, setSection] = useState<Section>("missions");
   const [range, setRange] = useState<Range>("today");
@@ -89,6 +106,7 @@ export function ConsoleApp({
   const [selected, setSelected] = useState<string | null>(null);
   const [moving, setMoving] = useState<WorkItem | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [shield, setShield] = useState<ShieldRow | null>(null);
 
   const names = useMemo(
     () => new Map(config.clients.map((c) => [c.key, c.name])),
@@ -97,11 +115,50 @@ export function ConsoleApp({
   const systemName = (key: string) => names.get(key) ?? key;
   const task = items.find((t) => taskKey(t) === selected) ?? null;
   const relay = relayStateOf(worklist.liveAt, Object.values(commander.records));
+  const database = worklist.doc?.database;
+  const integrations: IntegrationInput[] = [
+    {
+      id: "tasks",
+      name: "Task database",
+      syncedAt: worklist.doc?.syncedAt ?? null,
+      error:
+        database && database.ok === false
+          ? (database.error ?? "The task database did not answer")
+          : null,
+    },
+    { id: "jira", name: "Jira", syncedAt: jiraSynced ?? null },
+    { id: "calendar", name: "Calendars", syncedAt: eventsSynced ?? null },
+    {
+      id: "hosts",
+      name: "Host statistics",
+      syncedAt:
+        hosts.data?.hosts
+          .map((h) => h.lastSeen ?? "")
+          .sort()
+          .at(-1) || null,
+      error: hosts.error?.tone === "err" ? hosts.error.text : null,
+    },
+  ];
+  const storedAt = hosts.data?.storedAt ? new Date(hosts.data.storedAt) : null;
+  const shieldData = {
+    hosts: hosts.data?.hosts ?? null,
+    hostsLive: hosts.live,
+    hostsStoredAt: storedAt,
+    relay,
+    integrations,
+    now,
+  };
   const canMove = (t: WorkItem) =>
     String(t.ref ?? "").startsWith("db:") && commander.open(t.ref) === null;
 
   const list =
-    section === "missions" ? (
+    section === "shields" ? (
+      <ShieldsList
+        {...shieldData}
+        selectedId={shield?.id ?? null}
+        onSelect={setShield}
+      />
+    ) : section === "missions" ? (
       <>
         {actions.error ? (
           <p className="console-sheet-note" role="alert">
@@ -154,6 +211,7 @@ export function ConsoleApp({
       score={null}
       relay={relay}
       section={section}
+      counts={{ shields: shieldAlerts(shieldRows(shieldData)) }}
       settingsOpen={settingsOpen}
       settings={
         <>
@@ -163,7 +221,23 @@ export function ConsoleApp({
       }
       list={list}
       detail={
-        task && section === "missions" ? (
+        section === "shields" && shield ? (
+          <ShieldDetail
+            row={
+              shieldRows(shieldData).find((r) => r.id === shield.id) ?? shield
+            }
+            host={hosts.data?.hosts.find((h) => `host:${h.host}` === shield.id)}
+            hostsLive={hosts.live}
+            hostsStoredAt={storedAt}
+            relay={relay}
+            liveAt={worklist.liveAt}
+            syncedAt={worklist.doc?.syncedAt ?? null}
+            integration={integrations.find(
+              (i) => `integration:${i.id}` === shield.id,
+            )}
+            now={now}
+          />
+        ) : task && section === "missions" ? (
           <TaskSummary
             task={task}
             systemName={systemName(task.customer)}
@@ -202,9 +276,13 @@ export function ConsoleApp({
       onSelectSection={(next) => {
         setSection(next);
         setSelected(null);
+        setShield(null);
         setSettingsOpen(false);
       }}
-      onBack={() => setSelected(null)}
+      onBack={() => {
+        setSelected(null);
+        setShield(null);
+      }}
       onSettings={() => setSettingsOpen((open) => !open)}
     />
   );

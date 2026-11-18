@@ -53,3 +53,19 @@ export {
   type ScopeChoice,
   type ScopeSheetProps,
 } from "./ScopeSheet";
+export { ShieldDetail, type ShieldDetailProps } from "./ShieldDetail";
+export { shieldRows, ShieldsList, type ShieldsListProps } from "./ShieldsList";
+export {
+  hostState,
+  hostSummary,
+  integrationRow,
+  integrationState,
+  relayRow,
+  shieldAlerts,
+  shieldStateNames,
+  SYNC_ALERT_MS,
+  SYNC_WARN_MS,
+  type IntegrationInput,
+  type ShieldRow,
+  type ShieldState,
+} from "./shields";

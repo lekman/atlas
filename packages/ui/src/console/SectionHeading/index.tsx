@@ -4,9 +4,9 @@ export interface SectionHeadingProps {
   /** The section's or the screen's name. */
   title: string;
   /** The system the lists are narrowed to, or null for all systems. */
-  scope: string | null;
-  /** Called when the reader opens the scope picker. */
-  onScope(): void;
+  scope?: string | null;
+  /** Called when the reader opens the scope picker. Without it there is no scope button, as on Shields. */
+  onScope?(): void;
   /** Controls after the scope button, such as a view switch. */
   children?: ReactNode;
 }
@@ -18,21 +18,23 @@ export interface SectionHeadingProps {
  */
 export function SectionHeading({
   title,
-  scope,
+  scope = null,
   onScope,
   children,
 }: SectionHeadingProps) {
   return (
     <div className="console-heading">
       <h1>{title}</h1>
-      <button
-        type="button"
-        className="console-chip"
-        aria-label={`Scope: ${scope ?? "All systems"}. Change`}
-        onClick={onScope}
-      >
-        {scope ?? "All systems"}
-      </button>
+      {onScope ? (
+        <button
+          type="button"
+          className="console-chip"
+          aria-label={`Scope: ${scope ?? "All systems"}. Change`}
+          onClick={onScope}
+        >
+          {scope ?? "All systems"}
+        </button>
+      ) : null}
       {children}
     </div>
   );

@@ -5,7 +5,8 @@
  * with the stand-in `window.claude` (see harness-runtime.ts). Fails on any
  * console or page error, any network request, and when the build is more
  * than one file. At each of the four sizes it checks the layout, that
- * today's task shows, and that Done and Move reach the local server; then
+ * today's task shows, that Done and Move reach the local server, and
+ * that Shields shows the host with its breach; then
  * that a move with the server unreachable is queued for the Mac mini.
  *
  * Run with `bun run check:console`. With SHOTS=<folder> it also saves a
@@ -95,6 +96,27 @@ try {
       );
     if (!calls.some((c) => c.tool === "task_done" && c.args.ref === "db:1"))
       problems.push(`${at}: Done did not reach the local server`);
+    await tab
+      .getByRole("button", { name: /Shields/ })
+      .first()
+      .click();
+    const hostRow = tab.getByRole("button", {
+      name: /^Needs a look: harness-host/,
+    });
+    if (!(await hostRow.isVisible({ timeout: 5000 }).catch(() => false)))
+      problems.push(
+        `${at}: Shields does not show the host with its CPU warning`,
+      );
+    else {
+      await hostRow.click();
+      if (
+        !(await tab
+          .getByText(/over its warning limit/)
+          .isVisible({ timeout: 3000 })
+          .catch(() => false))
+      )
+        problems.push(`${at}: the host's detail does not name the breach`);
+    }
     if (errors.length) problems.push(`${at}: ${errors.join(" | ")}`);
     await tab.close();
   }
@@ -132,5 +154,5 @@ if (problems.length) {
   process.exit(1);
 }
 console.log(
-  `✓ one file, ${Math.round(source.length / 1024)} KB; sidebar, folding phone closed and open, and laptop render with no errors; Done, Move and an offline move work`,
+  `✓ one file, ${Math.round(source.length / 1024)} KB; sidebar, folding phone closed and open, and laptop render with no errors; Done, Move, Shields and an offline move work`,
 );
