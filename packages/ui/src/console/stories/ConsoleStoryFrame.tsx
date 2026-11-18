@@ -25,6 +25,11 @@ import {
 import { MoveSheet } from "../MoveSheet";
 import { ScopeSheet } from "../ScopeSheet";
 import { SectionHeading } from "../SectionHeading";
+import { ShieldDetail } from "../ShieldDetail";
+import { shieldRows, ShieldsList } from "../ShieldsList";
+import { shieldAlerts, type ShieldRow } from "../shields";
+import { storyHosts, storyIntegrations } from "./shields";
+import { STORY_NOW } from "../../sidebar/stories/examples";
 import { sectionNames, sectionPurposes, type Section } from "../sections";
 import { TaskSummary } from "../TaskSummary";
 import type { Fleet } from "../TopBar";
@@ -89,6 +94,7 @@ export function ConsoleStoryFrame({
   const [moving, setMoving] = useState<WorkItem | null>(null);
   const [scope, setScope] = useState<string | null>(null);
   const [picking, setPicking] = useState(false);
+  const [shield, setShield] = useState<ShieldRow | null>(null);
   const [fleetId, setFleetId] = useState("work");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const task = items.find((candidate) => taskKey(candidate) === selected);
@@ -107,8 +113,22 @@ export function ConsoleStoryFrame({
     backlog: { band: "unscheduled", day: undefined },
   };
 
+  const shieldData = {
+    hosts: storyHosts,
+    hostsLive: true,
+    hostsStoredAt: null,
+    relay,
+    integrations: storyIntegrations,
+    now: STORY_NOW,
+  };
   const list =
-    section === "missions" ? (
+    section === "shields" ? (
+      <ShieldsList
+        {...shieldData}
+        selectedId={shield?.id ?? null}
+        onSelect={setShield}
+      />
+    ) : section === "missions" ? (
       <MissionsList
         items={items}
         today={STORY_TODAY}
@@ -158,7 +178,11 @@ export function ConsoleStoryFrame({
         score={21}
         relay={relay}
         section={section}
-        counts={{ beam: 3, radar: 5 }}
+        counts={{
+          beam: 3,
+          radar: 5,
+          shields: shieldAlerts(shieldRows(shieldData)),
+        }}
         settingsOpen={settingsOpen}
         settings={
           <>
@@ -170,7 +194,22 @@ export function ConsoleStoryFrame({
         }
         list={list}
         detail={
-          task && section === "missions" ? (
+          section === "shields" && shield ? (
+            <ShieldDetail
+              row={shield}
+              host={storyHosts.find((h) => `host:${h.host}` === shield.id)}
+              hostsLive
+              relay={relay}
+              liveAt={
+                relay.kind === "live" ? STORY_NOW.getTime() - 60000 : null
+              }
+              syncedAt={new Date(STORY_NOW.getTime() - 60000).toISOString()}
+              integration={storyIntegrations.find(
+                (i) => `integration:${i.id}` === shield.id,
+              )}
+              now={STORY_NOW}
+            />
+          ) : task && section === "missions" ? (
             <TaskSummary
               task={task}
               systemName={systemName(task.customer)}
@@ -183,9 +222,13 @@ export function ConsoleStoryFrame({
         onSelectSection={(next) => {
           setSection(next);
           setSelected(null);
+          setShield(null);
           setSettingsOpen(false);
         }}
-        onBack={() => setSelected(null)}
+        onBack={() => {
+          setSelected(null);
+          setShield(null);
+        }}
         onSettings={() => setSettingsOpen((open) => !open)}
         overlay={
           picking ? (

@@ -738,3 +738,93 @@
   border-color: var(--amber);
   color: var(--amber);
 }
+
+/* Shields: state shapes, 24-hour lines and notes */
+
+.console-shield {
+  display: flex;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--card);
+}
+
+.console-shield[data-selected] {
+  border-color: var(--amber);
+}
+
+.console-shield-state {
+  grid-row: 1 / span 2;
+  width: 10px;
+  height: 10px;
+}
+
+.console-shield[data-state="ok"] .console-shield-state {
+  border-radius: 50%;
+  background: var(--mint);
+}
+
+.console-shield[data-state="warn"] .console-shield-state {
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-bottom: 10px solid var(--amber);
+}
+
+.console-shield[data-state="alert"] .console-shield-state {
+  border-radius: 1px;
+  background: var(--coral);
+}
+
+.console-shield[data-state="unknown"] .console-shield-state {
+  border-radius: 50%;
+  border: 1.5px dashed var(--secondary);
+}
+
+.console-shield-none {
+  margin: 0 0 8px;
+  color: var(--label);
+}
+
+.console-lines {
+  margin-top: 18px;
+  display: grid;
+  gap: 10px;
+}
+
+.console-line {
+  margin: 0;
+}
+
+.console-line figcaption {
+  margin-bottom: 2px;
+  font: 400 11px/1.4 var(--face-label);
+  color: var(--secondary);
+}
+
+.console-line svg {
+  display: block;
+  width: 100%;
+  max-width: 360px;
+  height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--card);
+}
+
+.console-line-value {
+  fill: none;
+  stroke: var(--blue);
+  stroke-width: 1.5;
+}
+
+.console-line-limit {
+  stroke: var(--coral);
+  stroke-width: 1;
+  stroke-dasharray: 4 3;
+}
+
+.console-note {
+  margin: 16px 0 0;
+  color: var(--secondary);
+}
