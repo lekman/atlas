@@ -102,3 +102,43 @@ export function tailscaleNodeLookup(
     return node;
   };
 }
+
+/** Looks up the short MagicDNS name of the Tailscale node that owns an address. */
+export type NodeNameLookup = (address: string) => Promise<string | undefined>;
+
+/**
+ * Names nodes with `tailscale whois`: the first label of the node's MagicDNS
+ * name, lower case (`macbook.tailnet.ts.net.` is `macbook`), remembered for
+ * a minute as the stable id is.
+ */
+export function tailscaleNodeNameLookup(
+  command = "tailscale",
+  rememberFor = 60_000,
+): NodeNameLookup {
+  const remembered = new Map<string, { name?: string; until: number }>();
+  return async (address) => {
+    const now = Date.now();
+    const known = remembered.get(address);
+    if (known && known.until > now) return known.name;
+    let name: string | undefined;
+    try {
+      const child = Bun.spawn([command, "whois", "--json", address], {
+        stdout: "pipe",
+        stderr: "ignore",
+      });
+      const output = await new Response(child.stdout).text();
+      if ((await child.exited) === 0) {
+        const parsed = JSON.parse(output) as { Node?: { Name?: unknown } };
+        if (typeof parsed.Node?.Name === "string" && parsed.Node.Name)
+          name = parsed.Node.Name.split(".")[0]!.toLowerCase();
+      }
+    } catch {
+      name = undefined;
+    }
+    remembered.set(address, {
+      name,
+      until: now + (name ? rememberFor : 5_000),
+    });
+    return name;
+  };
+}

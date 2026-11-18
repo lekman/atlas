@@ -79,3 +79,11 @@ export {
   type ShieldRow,
   type ShieldState,
 } from "./shields";
+export {
+  isHostNetworkDoc,
+  networkFor,
+  type HostNetwork,
+  type HostNetworkDoc,
+  type NetworkReport,
+  type TailscaleDevice,
+} from "./network";

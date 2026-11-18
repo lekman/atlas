@@ -108,6 +108,7 @@ describe("the dashboard tool route", () => {
       "commander_requests",
       "commander_send",
       "details_read",
+      "host_network",
       "host_stats",
       "release_status",
       "sync_now",

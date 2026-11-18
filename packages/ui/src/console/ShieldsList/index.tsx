@@ -1,5 +1,6 @@
 import type { HostStat } from "../../sidebar/hosts/model";
 import type { RelayState } from "../layout";
+import type { HostNetworkDoc } from "../network";
 import { SectionHeading } from "../SectionHeading";
 import {
   hostState,
@@ -21,6 +22,8 @@ export interface ShieldsListProps {
   relay: RelayState;
   /** Each integration that feeds Atlas. */
   integrations: readonly IntegrationInput[];
+  /** Each host's network and Tailscale device; devices with no figures join the hosts. */
+  network?: HostNetworkDoc | null;
   now: Date;
   /** The row open in the detail. */
   selectedId?: string | null;
@@ -35,9 +38,22 @@ export function shieldRows({
   hostsStoredAt,
   relay,
   integrations,
+  network,
   now,
 }: Omit<ShieldsListProps, "selectedId" | "onSelect">): ShieldRow[] {
   const options = { now, storedAt: hostsStoredAt, live: hostsLive };
+  const reported = new Set((hosts ?? []).map((h) => h.host.toLowerCase()));
+  const tailnetOnly = (network?.hosts ?? [])
+    .filter((entry) => !reported.has(entry.host.toLowerCase()))
+    .map((entry): ShieldRow => ({
+      id: `host:${entry.host}`,
+      kind: "host",
+      name: entry.host,
+      state: entry.tailscale?.online ? "ok" : "unknown",
+      summary: entry.tailscale
+        ? `${entry.tailscale.os || "Device"} on the tailnet, ${entry.tailscale.online ? "online" : "offline"}; no figures`
+        : "Reports its network; no figures",
+    }));
   return [
     ...(hosts ?? []).map((host): ShieldRow => ({
       id: `host:${host.host}`,
@@ -46,6 +62,7 @@ export function shieldRows({
       state: hostState(host, options),
       summary: hostSummary(host),
     })),
+    ...tailnetOnly,
     relayRow(relay),
     ...integrations.map((input) => integrationRow(input, now)),
   ];

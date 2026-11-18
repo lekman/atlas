@@ -1,3 +1,5 @@
+import type { JSX } from "react";
+
 import { formatAgo } from "../../sidebar/format";
 import {
   HOST_LINES,
@@ -8,6 +10,7 @@ import {
   type HostStat,
 } from "../../sidebar/hosts/model";
 import { relayWords, type RelayState } from "../layout";
+import type { HostNetwork } from "../network";
 import {
   shieldStateNames,
   type IntegrationInput,
@@ -19,6 +22,8 @@ export interface ShieldDetailProps {
   row: ShieldRow;
   /** The host, when the row is one. */
   host?: HostStat;
+  /** The host's network report and Tailscale device, when Atlas has them. */
+  network?: HostNetwork;
   /** Whether host figures are live, and when a stored copy was saved. */
   hostsLive?: boolean;
   hostsStoredAt?: Date | null;
@@ -51,6 +56,7 @@ export function ShieldDetail({
   liveAt = null,
   syncedAt = null,
   integration,
+  network,
   now,
 }: ShieldDetailProps) {
   const facts: Array<[string, string]> = [
@@ -164,6 +170,158 @@ export function ShieldDetail({
         ))}
       </dl>
       {body}
+      {row.kind === "host" && network ? (
+        <NetworkSections network={network} now={now} />
+      ) : null}
     </article>
+  );
+}
+
+/** A label and its value list, as a definition row. */
+function Facts({ rows }: { rows: Array<[string, string | JSX.Element]> }) {
+  return (
+    <dl className="console-facts">
+      {rows.map(([term, value]) => (
+        <div key={term}>
+          <dt>{term}</dt>
+          <dd>{value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+/**
+ * What a host reports about its network, and what Tailscale knows of it:
+ * addresses, DNS and Wi-Fi; its tailnet device, addresses, name and served
+ * URLs; its own background jobs; and the ports it listens on.
+ */
+function NetworkSections({
+  network,
+  now,
+}: {
+  network: HostNetwork;
+  now: Date;
+}) {
+  const report = network.report;
+  const tailscale = network.tailscale;
+  return (
+    <>
+      <section className="console-detail-section" aria-label="Network">
+        <h3 className="console-label">
+          Network
+          {network.reportedAt
+            ? ` · reported ${formatAgo(new Date(network.reportedAt), now)}`
+            : ""}
+        </h3>
+        {report ? (
+          <Facts
+            rows={[
+              [
+                "Local",
+                report.localAddresses.length
+                  ? report.localAddresses
+                      .map((a) => `${a.address} (${a.interface})`)
+                      .join(", ")
+                  : "None",
+              ],
+              ["External", report.externalAddress ?? "Not known"],
+              ["DNS", report.dns.length ? report.dns.join(", ") : "Not known"],
+              ["Wi-Fi", report.wifi ?? "Not on Wi-Fi, or the name is hidden"],
+            ]}
+          />
+        ) : (
+          <p className="console-note">
+            This host has not reported its network yet.
+          </p>
+        )}
+      </section>
+      {tailscale ? (
+        <section className="console-detail-section" aria-label="Tailscale">
+          <h3 className="console-label">Tailscale</h3>
+          <Facts
+            rows={[
+              [
+                "State",
+                tailscale.online
+                  ? "Online"
+                  : `Offline${tailscale.lastSeen ? `, last seen ${formatAgo(new Date(tailscale.lastSeen), now)}` : ""}`,
+              ],
+              ["Device id", tailscale.id],
+              ["Name", tailscale.dnsName],
+              ["Addresses", tailscale.addresses.join(", ")],
+              ...(tailscale.os
+                ? ([["System", tailscale.os]] as Array<[string, string]>)
+                : []),
+              ...(tailscale.serveUrls.length
+                ? ([
+                    [
+                      "Serves",
+                      <span className="console-urls">
+                        {tailscale.serveUrls.map((url) => (
+                          <a
+                            key={url}
+                            href={url}
+                            target="_blank"
+                            rel="noreferrer noopener"
+                          >
+                            {url}
+                          </a>
+                        ))}
+                      </span>,
+                    ],
+                  ] as Array<[string, JSX.Element]>)
+                : []),
+            ]}
+          />
+        </section>
+      ) : null}
+      {report?.services.length ? (
+        <section
+          className="console-detail-section"
+          aria-label="Background jobs"
+        >
+          <h3 className="console-label">
+            Background jobs · {report.services.filter((s) => s.running).length}{" "}
+            running of {report.services.length}
+          </h3>
+          <ul className="console-plain-list">
+            {report.services.map((service) => (
+              <li
+                key={service.label}
+                data-running={service.running || undefined}
+              >
+                <span className="console-job-state" aria-hidden="true" />
+                <span className="console-mono">{service.label}</span>
+                <span className="console-list-note">
+                  {service.running
+                    ? "running"
+                    : `not running${typeof service.lastExit === "number" ? `, last exit ${service.lastExit}` : ""}`}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+      {report?.ports.length ? (
+        <section
+          className="console-detail-section"
+          aria-label="Listening ports"
+        >
+          <h3 className="console-label">
+            Listening ports · {report.ports.length}
+          </h3>
+          <ul className="console-plain-list">
+            {report.ports.map((port) => (
+              <li key={`${port.port}-${port.address}-${port.process}`}>
+                <span className="console-mono console-port">{port.port}</span>
+                <span className="console-mono">{port.address}</span>
+                <span className="console-list-note">{port.process}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+    </>
   );
 }
