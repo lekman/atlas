@@ -9,7 +9,18 @@ const meta = {
   title: "Components/Console/Task Row",
   tags: ["autodocs"],
   component: TaskRow,
-  args: { task: worklistItems[0]!, onSelect: fn(), onMove: fn() },
+  args: {
+    task: worklistItems[0]!,
+    onSelect: fn(),
+    actions: [
+      { label: "Copy reference" },
+      { label: "Done", divider: true },
+      { label: "Move to Tomorrow" },
+      { label: "Move to Backlog" },
+      { label: "Status", divider: true },
+      { label: "Execute" },
+    ],
+  },
   render: (args) => (
     <ConsoleComponentFrame>
       <ul className="console-tasks">
@@ -43,9 +54,9 @@ export const Done: Story = {
 /** Selected, as it is while its detail is open. */
 export const Selected: Story = { args: { selected: true } };
 
-/** The title opens the task and the move control asks to move it; they are separate buttons. */
-export const OpenOrMove: Story = {
-  name: "Open or Move",
+/** The title opens the task; Actions opens the menu, a separate button. */
+export const OpenOrActions: Story = {
+  name: "Open or Actions",
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
     await userEvent.click(
@@ -53,8 +64,10 @@ export const OpenOrMove: Story = {
     );
     await expect(args.onSelect).toHaveBeenCalledWith(args.task);
     await userEvent.click(
-      canvas.getByRole("button", { name: `Move ${args.task.title}` }),
+      canvas.getByRole("button", { name: `Actions for ${args.task.title}` }),
     );
-    await expect(args.onMove).toHaveBeenCalledWith(args.task);
+    await expect(
+      canvas.getByRole("menuitem", { name: "Execute" }),
+    ).toBeInTheDocument();
   },
 };

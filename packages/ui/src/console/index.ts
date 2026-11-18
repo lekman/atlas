@@ -43,11 +43,21 @@ export {
   type SystemGroup,
   type TaskState,
 } from "./missions";
-export { MissionsList, taskKey, type MissionsListProps } from "./MissionsList";
-export { MoveSheet, type MoveSheetProps } from "./MoveSheet";
+export {
+  ConsoleMenu,
+  type ConsoleMenuProps,
+  type MenuItem,
+} from "./ConsoleMenu";
+export {
+  matchesQuery,
+  MissionsList,
+  taskKey,
+  type MissionsFilter,
+  type MissionsListProps,
+} from "./MissionsList";
 export { SegmentedSwitch, type SegmentedSwitchProps } from "./SegmentedSwitch";
 export { TaskRow, type TaskRowProps } from "./TaskRow";
-export { TaskSummary, type TaskSummaryProps } from "./TaskSummary";
+export { TaskDetail, type TaskDetailProps } from "./TaskDetail";
 export {
   ScopeSheet,
   type ScopeChoice,

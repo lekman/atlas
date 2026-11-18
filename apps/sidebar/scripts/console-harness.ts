@@ -78,13 +78,34 @@ try {
         path: join(process.env.SHOTS, `console-${size.width}.png`),
       });
 
-    await tab.getByRole("button", { name: "Move Harness second task" }).click();
     await tab
-      .getByRole("dialog")
-      .getByRole("button", { name: "Tomorrow" })
+      .getByRole("button", { name: "Actions for Harness second task" })
       .click();
+    await tab.getByRole("menuitem", { name: "Move to Tomorrow" }).click();
     await task.click();
-    await tab.getByRole("button", { name: "Done", exact: true }).click();
+    const detail = tab.getByRole("group", { name: "Task actions" });
+    if (
+      !(await tab
+        .getByRole("region", { name: "Details page" })
+        .isVisible({ timeout: 5000 })
+        .catch(() => false))
+    )
+      problems.push(`${at}: the task detail has no details page section`);
+    if (
+      !(await tab
+        .getByText("Harness heading")
+        .isVisible({ timeout: 5000 })
+        .catch(() => false))
+    )
+      problems.push(`${at}: the details page body is not shown`);
+    if (
+      !(await tab
+        .getByText("Harness pull request")
+        .isVisible({ timeout: 5000 })
+        .catch(() => false))
+    )
+      problems.push(`${at}: the task's pull request is not shown`);
+    await detail.getByRole("button", { name: "Done", exact: true }).click();
     await tab.waitForTimeout(200);
     const calls = (await tab.evaluate(
       () => (window as unknown as { __calls?: Calls }).__calls ?? [],
@@ -126,15 +147,12 @@ try {
   await tab.route("**/*", (route) => route.abort());
   await tab.setContent(wrapPage(source), { waitUntil: "load" });
   await tab
-    .getByRole("button", { name: "Move Harness second task" })
+    .getByRole("button", { name: "Actions for Harness second task" })
     .click({ timeout: 5000 });
   await tab.evaluate(() => {
     (window as unknown as { __offline: boolean }).__offline = true;
   });
-  await tab
-    .getByRole("dialog")
-    .getByRole("button", { name: "Backlog" })
-    .click();
+  await tab.getByRole("menuitem", { name: "Move to Backlog" }).click();
   await tab.waitForTimeout(300);
   const docs = await tab.evaluate(() =>
     JSON.stringify([
@@ -154,5 +172,5 @@ if (problems.length) {
   process.exit(1);
 }
 console.log(
-  `✓ one file, ${Math.round(source.length / 1024)} KB; sidebar, folding phone closed and open, and laptop render with no errors; Done, Move, Shields and an offline move work`,
+  `✓ one file, ${Math.round(source.length / 1024)} KB; sidebar, folding phone closed and open, and laptop render with no errors; Done, Move, the task detail with its page and pull request, Shields and an offline move work`,
 );
