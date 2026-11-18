@@ -188,6 +188,7 @@
         "@fontsource/ibm-plex-sans": "^5.3.0",
         "@fontsource/im-fell-english": "^5.2.0",
         "@fontsource/im-fell-english-sc": "^5.2.0",
+        "@fontsource/inter": "^5.2.0",
         "@fontsource/shippori-mincho": "^5.2.0",
         "@fontsource/zen-kaku-gothic-new": "^5.2.0",
       },
@@ -384,6 +385,8 @@
     "@fontsource/im-fell-english": ["@fontsource/im-fell-english@5.3.0", "", {}, "sha512-FcgdWfY9WeUM2gQkfmwhn4Ed9LVtlll8LSSZvHfbsUrnHK5tHHnGg6BgwAfHogp52adU3eE89J/3B52qV3b+Vw=="],
 
     "@fontsource/im-fell-english-sc": ["@fontsource/im-fell-english-sc@5.3.0", "", {}, "sha512-jKnCJ22tgVwxWVs1YQ/GCWmP60ulVq49IJZ7c0wgv0MXHe8T8LPbl0sOteYLOkCURW5+ZKwFiLNU2h/l9fHgrg=="],
+
+    "@fontsource/inter": ["@fontsource/inter@5.3.0", "", {}, "sha512-RofMylZmjlJEfELXeNHFWBRcSs75rGU/6bV2S2jfnvv/3rPXPGe0LgUJTklcHZ9lM4OZmAVFhcJPnACfb91A3g=="],
 
     "@fontsource/shippori-mincho": ["@fontsource/shippori-mincho@5.3.0", "", {}, "sha512-S41kRxQuubAaYss+LeXu0IOc02RQwsPaJbR1cWZx4VV15hXaYZViH3WAve9HpDVFqKYd/BVk86Bg7lp9ytV3KQ=="],
 
