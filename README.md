@@ -1,95 +1,136 @@
 # Atlas
 
-A live map of your AI agents, your clients and the work between them, drawn
-as a world you choose.
+Atlas is a personal console for someone who works across several clients with
+AI agents. It shows your work for the day, the agents doing part of it, and
+what is waiting for your answer, in one dark view built for a phone, a laptop
+or a sidebar.
 
-Atlas shows groups of agents (Claude sessions on several accounts, Gemini,
-n8n workflows, scripts), which client each one works for, and the
-requirements, backlog items, open questions and decisions they connect to.
-It is the graphical, game-like interface for a task database you own, on a
-machine you own, reachable only inside your own private network.
+Atlas is personal. Shared work stays in Jira, GitHub or Monday. Atlas keeps a
+pointer to each shared item together with your own grade, effort and notes. It
+runs on a computer you own and is reachable only inside your own private
+network.
 
-| World      | Home          | Clients      | Agents    | Open questions       | Decisions          |
-| ---------- | ------------- | ------------ | --------- | -------------------- | ------------------ |
-| Astronomer | Terra         | star systems | probes    | comets               | charted stars      |
-| Mariner    | Turtle Bay    | islands      | vessels   | fog banks            | lighthouses        |
-| Woodsman   | Base Camp     | clearings    | scouts    | unmarked forks       | blazed trees       |
-| Gardener   | The Homestead | beds         | bees      | dandelion clocks     | trellises          |
-| Samurai    | The Castle    | clans        | retainers | scouts' reports      | seals              |
-| Doctor     | The Practice  | hospitals    | staff     | pending test results | recorded diagnoses |
+![Atlas on a folding phone held open: the Missions list on the left of the fold and the selected task on the right](docs/images/console-folding-phone-open.png)
 
-Astronomer and Mariner are the first release; the other four are built and
-in Storybook. See [Worlds](docs/worlds.md).
+The screenshots use invented clients.
 
-## Screenshots
+## What You Can Do
 
-The full page in Astronomer:
+| Section  | What it holds                                                   | Status    |
+| -------- | --------------------------------------------------------------- | --------- |
+| Missions | Today, tomorrow and the backlog, by client or by Covey quadrant | Available |
+| Triage   | Grading new tasks by value and effort, one at a time            | Next      |
+| Beam     | Approvals and questions from your agents, answered in place     | Planned   |
+| Agents   | Every agent by the machine it runs on, and what it is doing     | Planned   |
+| Radar    | Alerts, tickets and meetings that are not yet your work         | Planned   |
+| Shields  | Host health, the link to your server, and each integration      | Planned   |
+| Log      | Scores by day and week, and completed work                      | Planned   |
 
-![The full page in the Astronomer world: four client star systems around Terra, with probes for agents, the comms log and the HUD](docs/images/astronomer-full-page.jpg)
+In Missions you can:
 
-The sidebar in Astronomer:
+- see the day's scope, which is the number of tasks, their effort by size,
+  meeting time and the blocked tasks left out (Atlas sets no limit, because
+  what fits a day is your call);
+- narrow the list to one client with the scope button;
+- open a task, mark it done, or move it to today, tomorrow or the backlog.
 
-<img src="docs/images/astronomer-sidebar.png" width="420" alt="The sidebar in the Astronomer world: next meeting, tabs per tracker, the worklist with Waiting on you, and tasks grouped by client">
+On a phone away from your server, moves are queued and applied when the
+server is back. The top bar always says which state you are in: Live, Stored
+copy, or Queued with a count.
 
-Both screenshots come from Storybook, with the invented clients.
+## Where It Runs
 
-Status reads the same in every world: green running, blue watching, amber
-needs you, red blocked, grey idle. Animation comes from real events (agents
-messaging each other, status changes, events from GitHub, CI, calendars and
-trackers), and sound plays only when you turn it on.
+Atlas lays itself out from the space it is given, so one page serves:
 
-## Status
+| Where                              | Layout                                          |
+| ---------------------------------- | ----------------------------------------------- |
+| A sidebar beside a Claude artifact | One pane, the list or the task with a back link |
+| A folding phone, closed            | One pane                                        |
+| A folding phone, open              | The list and the task meet at the fold          |
+| A laptop browser                   | The list at reading width, the task beside it   |
 
-In use. The pieces are:
+<img src="docs/images/console-sidebar.png" width="420" alt="Atlas at sidebar width: one pane with the Missions list and the menu down the right edge">
 
-- the data model and six worlds;
-- the full page, served by `apps/server` on a machine you own;
-- the sidebar, `apps/sidebar`, which builds to one HTML file for the Claude
-  artifact, the phone and the VS Code view.
+The menu sits on one edge of the screen. The swap button at its top moves it
+to the other edge, and Atlas remembers your choice for each layout.
 
-Everything is built and tested in Storybook. See
-[Architecture](docs/architecture.md). How Atlas is meant to judge signals
-and run work as experiments is in [The Standard Workflow](docs/workflow/README.md).
+## Install
 
-## Quick Start
+### What You Need
 
-```sh
-if ! command -v mise &>/dev/null; then
-  if command -v brew &>/dev/null; then brew install mise; else curl https://mise.run | sh; fi
-fi
-mise install && task setup && task storybook
-```
+- A computer that stays on, to run the Atlas server. Atlas is used on macOS.
+- [Tailscale](https://tailscale.com) on that computer and on every device you
+  open Atlas from. Atlas is never exposed to the internet.
+- [Bun](https://bun.sh) 1.3 and Git.
+- The local dashboard server from the
+  [live dashboard](https://github.com/lekman/ai-toolkit/tree/main/practices/live-dashboard)
+  practice in lekman/ai-toolkit. Atlas reads your worklist through it.
 
-## Stack
+### Steps
 
-- **Runtime:** Bun, TypeScript 6 (strict)
-- **Validation:** Zod
-- **UI:** React 19, a canvas renderer per world, Storybook 10
-- **Tests:** `bun test`; stories as browser tests through Vitest and Playwright, with axe
-- **Tooling:** Turbo, go-task, mise, Trunk, Husky
-- **CI:** GitHub Actions on hosted runners, CodeQL, dependency review,
-  OpenSSF Scorecard, Storybook on GitHub Pages, Release Please
+1. Get Atlas.
+
+   ```sh
+   git clone https://github.com/lekman/atlas.git
+   cd atlas
+   bun install
+   ```
+
+2. Describe your clients. Copy the example configuration and replace the
+   invented clients with your own. Keep the file outside the repository.
+
+   ```sh
+   cp apps/sidebar/sidebar.config.example.json ~/atlas.config.json
+   ```
+
+3. Build the page with your configuration.
+
+   ```sh
+   (cd apps/sidebar && SIDEBAR_CONFIG=~/atlas.config.json bun run build:console)
+   ```
+
+4. Start the server. Point it at the page and at the command that starts the
+   dashboard server.
+
+   ```sh
+   ATLAS_CONSOLE_FILE="$PWD/apps/sidebar/dist-console/console.html" \
+   ATLAS_DASHBOARD_MCP_COMMAND="python3 /path/to/dashboard_mcp.py" \
+   bun run --cwd apps/server start
+   ```
+
+   The server listens on `127.0.0.1:7400`. Set `ATLAS_PORT` to use another
+   port.
+
+5. Share it on your tailnet.
+
+   ```sh
+   tailscale serve --bg 7400
+   ```
+
+6. Open `https://<computer>.<tailnet>.ts.net/console` on your phone or laptop.
+   On a phone, add it to the home screen.
+
+To keep Atlas running after a restart, start the command in step 4 from a
+launchd agent on macOS or a systemd service on Linux.
+
+### In the Claude Desktop App
+
+The built page is a single HTML file. You can publish
+`apps/sidebar/dist-console/console.html` as a Claude artifact and keep it open
+in the sidebar beside your chat. In the desktop app the page reads your
+worklist through the same local dashboard server. Declare it as
+`host:dashboard`, with the tools `worklist`, `task_done`, `task_move` and
+`commander_requests`.
 
 ## Privacy
 
-Atlas is for client work, so the repository holds none. Every example runs
-on an invented consultancy and four invented clients. Commits are scanned
-for client names before they exist, and again in CI. See
-[No Client Content, Ever](.claude/rules/client-content.md).
+Your tasks, clients and notes stay on your own computer and travel only
+inside your tailnet. The repository holds no client content. Every example
+uses an invented consultancy and four invented clients.
 
-## Related
+## Building or Changing Atlas
 
-- [lekman/ai-toolkit](https://github.com/lekman/ai-toolkit) holds the rest of
-  the setup:
-  - the planner VS Code extension (`packages/vscode-planner`), which shows the
-    sidebar in a VS Code view;
-  - the tasks server (`packages/tasks-mcp`), which holds the worklist;
-  - the [live dashboard](https://github.com/lekman/ai-toolkit/tree/main/practices/live-dashboard)
-    practice, with the sync scripts and the local MCP server the sidebar reads.
-
-## Contributing
-
-See [Contributing](docs/CONTRIBUTING.md) and [Security](SECURITY.md).
+See [Maintainers](MAINTAINERS.md).
 
 ## Licence
 
