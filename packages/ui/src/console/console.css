@@ -418,9 +418,11 @@
 
 /* Segmented switches and the toolbar */
 
+/* Range at the left edge, view at the right, lined up with the boxes below. */
 .console-toolbar {
   display: flex;
   flex-wrap: wrap;
+  justify-content: space-between;
   gap: 8px;
   margin-bottom: 12px;
 }
