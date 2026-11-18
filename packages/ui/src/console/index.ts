@@ -32,6 +32,7 @@ export {
   movesFor,
   rangeNames,
   ranges,
+  scopeChoices,
   taskStateNames,
   taskStateOf,
   tasksIn,
@@ -47,3 +48,8 @@ export { MoveSheet, type MoveSheetProps } from "./MoveSheet";
 export { SegmentedSwitch, type SegmentedSwitchProps } from "./SegmentedSwitch";
 export { TaskRow, type TaskRowProps } from "./TaskRow";
 export { TaskSummary, type TaskSummaryProps } from "./TaskSummary";
+export {
+  ScopeSheet,
+  type ScopeChoice,
+  type ScopeSheetProps,
+} from "./ScopeSheet";

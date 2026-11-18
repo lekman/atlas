@@ -16,8 +16,14 @@ import type { WorkItem } from "../../sidebar/worklist/model";
 import { ConsoleFrame } from "../ConsoleFrame";
 import type { RelayState } from "../layout";
 import { MissionsList, taskKey } from "../MissionsList";
-import { movesFor, type MissionsView, type Range } from "../missions";
+import {
+  movesFor,
+  scopeChoices,
+  type MissionsView,
+  type Range,
+} from "../missions";
 import { MoveSheet } from "../MoveSheet";
+import { ScopeSheet } from "../ScopeSheet";
 import { SectionHeading } from "../SectionHeading";
 import { sectionNames, sectionPurposes, type Section } from "../sections";
 import { TaskSummary } from "../TaskSummary";
@@ -81,6 +87,8 @@ export function ConsoleStoryFrame({
     initialSelected ?? null,
   );
   const [moving, setMoving] = useState<WorkItem | null>(null);
+  const [scope, setScope] = useState<string | null>(null);
+  const [picking, setPicking] = useState(false);
   const [fleetId, setFleetId] = useState("work");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const task = items.find((candidate) => taskKey(candidate) === selected);
@@ -107,7 +115,7 @@ export function ConsoleStoryFrame({
         tomorrow={STORY_TOMORROW}
         range={range}
         view={view}
-        scope={null}
+        scope={scope}
         selectedKey={selected}
         systemName={systemName}
         canMove={(candidate) => String(candidate.ref ?? "").startsWith("db:")}
@@ -116,7 +124,7 @@ export function ConsoleStoryFrame({
           setSelected(null);
         }}
         onViewChange={setView}
-        onScope={() => {}}
+        onScope={() => setPicking(true)}
         onTriage={() => {}}
         onSelect={(candidate) => setSelected(taskKey(candidate))}
         onMove={setMoving}
@@ -180,7 +188,24 @@ export function ConsoleStoryFrame({
         onBack={() => setSelected(null)}
         onSettings={() => setSettingsOpen((open) => !open)}
         overlay={
-          moving ? (
+          picking ? (
+            <ScopeSheet
+              {...scopeChoices(
+                items,
+                exampleClients.map((c) => ({ key: c.key, name: c.name })),
+                range,
+                STORY_TODAY,
+                STORY_TOMORROW,
+              )}
+              scope={scope}
+              onPick={(next) => {
+                setScope(next);
+                setSelected(null);
+                setPicking(false);
+              }}
+              onCancel={() => setPicking(false)}
+            />
+          ) : moving ? (
             <MoveSheet
               task={moving}
               to={movesFor(range)}
