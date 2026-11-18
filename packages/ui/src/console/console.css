@@ -802,11 +802,11 @@
   color: var(--secondary);
 }
 
+/* Three times the sidebar's height, stretched to the pane, so a day's swings show. */
 .console-line svg {
   display: block;
   width: 100%;
-  max-width: 360px;
-  height: 44px;
+  height: 132px;
   border: 1px solid var(--line);
   border-radius: 6px;
   background: var(--card);

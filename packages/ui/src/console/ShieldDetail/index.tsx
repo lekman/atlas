@@ -83,13 +83,14 @@ export function ShieldDetail({
       ...sparkline(host.samples ?? [], line, now),
     })).filter((l) => l.points);
     body = lines.length ? (
-      <section className="console-lines" aria-label="The last 24 hours">
-        <h3 className="console-label">The last 24 hours</h3>
+      <section className="console-lines" aria-label="Last 24 hours">
+        <h3 className="console-label">Last 24 hours</h3>
         {lines.map(({ line, points, limitY }) => (
           <figure key={line.key} className="console-line">
             <figcaption>{line.name}</figcaption>
             <svg
               viewBox={`0 0 ${SPARK.width} ${SPARK.height}`}
+              preserveAspectRatio="none"
               role="img"
               aria-label={`${line.name} over the last 24 hours, limit ${line.limit}`}
             >
@@ -100,9 +101,14 @@ export function ShieldDetail({
                   y1={limitY}
                   y2={limitY}
                   className="console-line-limit"
+                  vectorEffect="non-scaling-stroke"
                 />
               ) : null}
-              <polyline points={points} className="console-line-value" />
+              <polyline
+                points={points}
+                className="console-line-value"
+                vectorEffect="non-scaling-stroke"
+              />
             </svg>
           </figure>
         ))}
