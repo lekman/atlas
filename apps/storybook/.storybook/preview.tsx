@@ -104,7 +104,14 @@ const preview: Preview = {
           "Components",
           [
             "Console",
-            ["Top Bar", "Section Rail"],
+            [
+              "Top Bar",
+              "Section Rail",
+              "Missions List",
+              "Task Row",
+              "Move Sheet",
+              "Task Summary",
+            ],
             "Atlas Shell",
             "World Canvas",
             "Needs You List",

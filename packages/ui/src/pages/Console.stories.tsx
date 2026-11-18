@@ -31,14 +31,18 @@ export const InTheSidebar: Story = {
     const frame = canvasElement.querySelector(".atlas-console")!;
     await expect(frame.getAttribute("data-layout")).toBe("single");
     await expect(frame.getAttribute("data-rail")).toBe("right");
-    const tasks = within(canvas.getByRole("list", { name: "Tasks" }));
-    await userEvent.click(tasks.getAllByRole("button")[0]!);
+    const first = canvas.getByRole("button", {
+      name: /^In progress: Cut the depots over to the new scanner API/,
+    });
+    await userEvent.click(first);
     await expect(
-      canvas.getByRole("article", { name: "Task" }),
+      canvas.getByRole("heading", {
+        name: "Cut the depots over to the new scanner API",
+      }),
     ).toBeInTheDocument();
     await userEvent.click(canvas.getByRole("button", { name: "Back" }));
     await expect(
-      canvas.getByRole("list", { name: "Tasks" }),
+      canvas.getByRole("group", { name: "Range" }),
     ).toBeInTheDocument();
     await userEvent.click(
       canvas.getByRole("button", { name: "Move the menu to the left edge" }),
@@ -74,7 +78,7 @@ export const FoldingPhoneClosed: Story = {
  */
 export const FoldingPhoneOpen: Story = {
   name: "Folding Phone Open",
-  args: { width: 890, height: 626, selectedId: undefined },
+  args: { width: 890, height: 626 },
   play: async ({ canvasElement }) => {
     const frame = canvasElement.querySelector(".atlas-console")!;
     await expect(frame.getAttribute("data-layout")).toBe("split");
@@ -114,6 +118,64 @@ export const Laptop: Story = {
   play: async ({ canvasElement }) => {
     const frame = canvasElement.querySelector(".atlas-console")!;
     await expect(frame.getAttribute("data-layout")).toBe("wide");
+  },
+};
+
+/** The open phone with a task selected: the list stays on the left of the fold, the task on the right. */
+export const FoldingPhoneOpenWithATask: Story = {
+  name: "Folding Phone Open, With a Task",
+  args: { width: 890, height: 626, selectedKey: "db:1" },
+};
+
+/** The quadrant grid on a laptop: four cells side by side, ungraded tasks under them. */
+export const MissionsGrid: Story = {
+  name: "Missions Grid",
+  args: { width: 1440, height: 900, view: "grid", range: "backlog" },
+};
+
+/**
+ * Moving a task: the Move control opens the sheet, Tomorrow moves it, and
+ * it leaves Today's list. The sheet is a dialog, so focus starts on the
+ * first choice.
+ */
+export const MoveATask: Story = {
+  name: "Move a Task",
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const title = "Confirm the release notes with the depot leads";
+    await userEvent.click(
+      canvas.getByRole("button", { name: `Move ${title}` }),
+    );
+    const sheet = within(
+      canvas.getByRole("dialog", { name: `Move “${title}”` }),
+    );
+    await expect(sheet.getByRole("button", { name: "Tomorrow" })).toHaveFocus();
+    await userEvent.click(sheet.getByRole("button", { name: "Tomorrow" }));
+    await expect(canvas.queryByRole("dialog")).toBeNull();
+    await expect(
+      canvas.queryByRole("button", { name: new RegExp(title) }),
+    ).toBeNull();
+    await userEvent.click(canvas.getByRole("button", { name: "Tomorrow" }));
+    await expect(
+      canvas.getByRole("button", { name: `Move ${title}` }),
+    ).toBeInTheDocument();
+  },
+};
+
+/** Moving while the relay is down: the sheet says the move waits for the Mac mini. */
+export const MoveWhileQueued: Story = {
+  name: "Move While Queued",
+  args: { relay: { kind: "stored" } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      canvas.getAllByRole("button", { name: /^Move (?!the menu)/ })[0]!,
+    );
+    await expect(canvas.getByRole("dialog")).toHaveTextContent(
+      "The move is queued",
+    );
+    await userEvent.keyboard("{Escape}");
+    await expect(canvas.queryByRole("dialog")).toBeNull();
   },
 };
 

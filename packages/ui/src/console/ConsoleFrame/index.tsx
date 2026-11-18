@@ -29,6 +29,8 @@ export interface ConsoleFrameProps extends Omit<TopBarProps, "compact"> {
   settings?: ReactNode;
   /** Shown in the item pane when nothing is selected, where there is a second pane. */
   emptyDetail?: ReactNode;
+  /** A sheet or dialog shown over the panes, such as the move sheet. */
+  overlay?: ReactNode;
   /** The width to lay out for before the frame has measured itself. */
   initialWidth?: number;
   /** Called with the section the reader picks. */
@@ -57,6 +59,7 @@ export function ConsoleFrame({
   detail,
   settings,
   emptyDetail,
+  overlay,
   initialWidth = 420,
   onSelectSection,
   onBack,
@@ -142,6 +145,7 @@ export function ConsoleFrame({
         />
         <main className="console-panes">{panes}</main>
       </div>
+      {overlay}
     </div>
   );
 }
