@@ -26,10 +26,10 @@ export function DayScopePanel({ scope, title }: DayScopePanelProps) {
         <div>
           <dt>Effort</dt>
           <dd>
-            {sizes.length
-              ? sizes.map((size) => `${scope.bySize[size]} ${size}`).join(" · ")
-              : "–"}
-            {scope.ungraded ? ` · ${scope.ungraded} ungraded` : ""}
+            {[
+              ...sizes.map((size) => `${scope.bySize[size]} ${size}`),
+              ...(scope.ungraded ? [`${scope.ungraded} ungraded`] : []),
+            ].join(" · ") || "–"}
           </dd>
         </div>
         <div>
