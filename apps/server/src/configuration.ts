@@ -5,7 +5,7 @@
  */
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 import { dispatchRules, Identifier } from "@atlas/core";
 import { z } from "zod/v4";
@@ -76,6 +76,11 @@ export interface Configuration {
    * `ATLAS_SIDEBAR_FILE`. Without it `/sidebar` is not found.
    */
   sidebarFile?: string;
+  /**
+   * The console's built page, served at `/console`. Defaults to
+   * `dist-console/console.html` beside the sidebar's `dist/`.
+   */
+  consoleFile?: string;
 }
 
 /** An HTTP endpoint and the command that prints its token. */
@@ -438,6 +443,11 @@ export function readConfiguration(
   );
   const dashboardCommand = environment.ATLAS_DASHBOARD_MCP_COMMAND?.trim();
   const sidebarFile = environment.ATLAS_SIDEBAR_FILE?.trim();
+  const consoleFile =
+    environment.ATLAS_CONSOLE_FILE?.trim() ||
+    (sidebarFile
+      ? join(dirname(dirname(sidebarFile)), "dist-console", "console.html")
+      : undefined);
   return {
     databasePath:
       environment.ATLAS_DATABASE ??
@@ -454,5 +464,6 @@ export function readConfiguration(
     ...(messages ? { messages } : {}),
     ...(dashboardCommand ? { dashboardCommand } : {}),
     ...(sidebarFile ? { sidebarFile } : {}),
+    ...(consoleFile ? { consoleFile } : {}),
   };
 }

@@ -15,7 +15,7 @@
  * | POST /api/questions/:id/answer | Answers an agent's question; the first wins     |
  * | POST /api/questions/:id/close  | Closes one: answered elsewhere, or withdrawn   |
  * | POST /mcp               | The MCP tools agents call (see `mcp.ts`)              |
- * | GET  /sidebar, /api/host/dashboard/:tool, /api/sidebar/doc | The sidebar as a web page (see `sidebar-routes.ts`) |
+ * | GET  /sidebar, /console, /api/host/dashboard/:tool, /api/sidebar/doc | The sidebar and the console as web pages (see `sidebar-routes.ts`) |
  *
  * With a task source, every read lays the task database's clients,
  * workstreams and tasks over SQLite (see `task-source.ts`), and the stream
@@ -196,6 +196,8 @@ export interface ApiOptions {
   dashboard?: DashboardHost;
   /** The marked sidebar page `/sidebar` serves, or undefined while there is none. */
   sidebarPage?: () => string | undefined;
+  /** The built console page, served at `/console` beside the sidebar. */
+  consolePage?: () => string | undefined;
 }
 
 export interface Api {
@@ -238,6 +240,7 @@ export function createApi({
   idle,
   dashboard,
   sidebarPage,
+  consolePage,
 }: ApiOptions): Api {
   const streams = new Set<(text: string) => void>();
   const closers = new Set<() => void>();
@@ -246,6 +249,7 @@ export function createApi({
     database,
     ...(dashboard ? { dashboard } : {}),
     ...(sidebarPage ? { page: sidebarPage } : {}),
+    ...(consolePage ? { consolePage } : {}),
     broadcast: (frame) => {
       for (const write of streams) write(frame);
     },
@@ -559,6 +563,7 @@ export function createApi({
       if (
         !isMcp &&
         url.pathname !== "/sidebar" &&
+        url.pathname !== "/console" &&
         !url.pathname.startsWith("/api/")
       )
         return undefined;

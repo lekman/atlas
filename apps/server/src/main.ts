@@ -216,6 +216,9 @@ const api = createApi({
   ...(configuration.sidebarFile
     ? { sidebarPage: sidebarPageFile(configuration.sidebarFile) }
     : {}),
+  ...(configuration.consoleFile
+    ? { consolePage: sidebarPageFile(configuration.consoleFile) }
+    : {}),
 });
 // Answers to agents' questions go out, and their delivery is read back,
 // every 30 seconds, besides straight after each answer.
@@ -256,7 +259,7 @@ const server = Bun.serve({
 });
 
 console.log(
-  `atlas ${rootPackage.version} listening on ${server.url}, tokens ${configuration.requireTokens ? "required" : "optional"}, tasks from ${tasks ? "the task database" : "SQLite"}${github ? ", GitHub state from gh-events" : ""}${signalDispatcher ? ", dispatcher on" : ""}${sessions ? ", agent status from Claude Code sessions" : ""}${idle ? `, idle-with-work nudges ${configuration.dispatcher?.settings.rules["nudge-idle-with-work"] ?? "off"}` : ""}${configuration.messages ? ", answers to agents through the tasks server" : ""}${accounts ? `, ${accounts.settings.accounts.length} accounts, switch ${accounts.settings.mode}` : ""}${configuration.fakeDevelopment ? ", development tracking fake" : ""}${configuration.sidebarFile ? ", sidebar page on" : ""}${dashboard ? ", dashboard server for the sidebar" : ""}`,
+  `atlas ${rootPackage.version} listening on ${server.url}, tokens ${configuration.requireTokens ? "required" : "optional"}, tasks from ${tasks ? "the task database" : "SQLite"}${github ? ", GitHub state from gh-events" : ""}${signalDispatcher ? ", dispatcher on" : ""}${sessions ? ", agent status from Claude Code sessions" : ""}${idle ? `, idle-with-work nudges ${configuration.dispatcher?.settings.rules["nudge-idle-with-work"] ?? "off"}` : ""}${configuration.messages ? ", answers to agents through the tasks server" : ""}${accounts ? `, ${accounts.settings.accounts.length} accounts, switch ${accounts.settings.mode}` : ""}${configuration.fakeDevelopment ? ", development tracking fake" : ""}${configuration.sidebarFile ? ", sidebar page on" : ""}${configuration.consoleFile ? ", console page on" : ""}${dashboard ? ", dashboard server for the sidebar" : ""}`,
 );
 
 function shutdown() {
