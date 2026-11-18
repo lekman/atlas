@@ -47,12 +47,16 @@ import {
 } from "./agent-questions";
 import type { AtlasDatabase } from "./database";
 import {
+  callerAddress,
   CallerRefused,
   identify,
   tailscaleNodeLookup,
+  tailscaleNodeNameLookup,
   type Caller,
   type NodeLookup,
+  type NodeNameLookup,
 } from "./identity";
+import { NetworkReport, type HostNetworkStore } from "./host-network";
 import { withFakeDevelopment } from "./fake-development";
 import type { Dispatcher } from "./dispatcher";
 import { noGithubSource, type GithubReader } from "./github-reader";
@@ -133,6 +137,9 @@ const jsonHeaders = {
   "x-content-type-options": "nosniff",
 };
 
+/** The most a network report may weigh: a few hundred jobs and ports fit well under it. */
+const maximumReportBytes = 256 * 1024;
+
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: jsonHeaders });
 }
@@ -164,6 +171,10 @@ export interface ApiOptions {
   requireTokens?: boolean;
   /** How a caller's address becomes a Tailscale node. `tailscale whois` by default. */
   lookupNode?: NodeLookup;
+  /** How a caller's address becomes a host name, for network reports. `tailscale whois` by default. */
+  lookupNodeName?: NodeNameLookup;
+  /** Each host's network for Shields. Leave out and the network routes answer 404. */
+  hostNetwork?: HostNetworkStore;
   /** The task database's clients, workstreams and tasks. Leave out to serve SQLite alone. */
   tasks?: TaskCache;
   /**
@@ -230,6 +241,8 @@ export function createApi({
   version,
   requireTokens = false,
   lookupNode = tailscaleNodeLookup(),
+  lookupNodeName = tailscaleNodeNameLookup(),
+  hostNetwork,
   tasks,
   build,
   fakeDevelopment = false,
@@ -623,6 +636,36 @@ export function createApi({
       const itemLogMatch = itemLogPath.exec(url.pathname);
       if (itemLogMatch?.[1] && request.method === "GET")
         return itemLog(itemLogMatch[1]);
+      if (url.pathname === "/api/hosts/network") {
+        if (!hostNetwork)
+          return problem(404, "network reports are off on this server");
+        if (request.method === "GET")
+          return json({ hosts: await hostNetwork.list() });
+        if (request.method === "POST") {
+          const text = await request.text();
+          if (text.length > maximumReportBytes)
+            return problem(413, "the report is too large");
+          let body: unknown;
+          try {
+            body = JSON.parse(text);
+          } catch {
+            return problem(400, "the report is not JSON");
+          }
+          const report = NetworkReport.safeParse(body);
+          if (!report.success)
+            return problem(400, "the report has another shape");
+          const address = callerAddress(request, socketAddress);
+          const host = address ? await lookupNodeName(address) : undefined;
+          if (!host)
+            return problem(
+              400,
+              "the calling device is not a known tailnet node",
+            );
+          hostNetwork.record(host, report.data);
+          return json({ host, recorded: true });
+        }
+        return problem(405, "read with GET, report with POST");
+      }
       switch (route) {
         case "GET /api/dataset": {
           // Read together, so the page knows which events the dataset holds.

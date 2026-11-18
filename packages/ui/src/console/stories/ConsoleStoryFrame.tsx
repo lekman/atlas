@@ -27,7 +27,7 @@ import { SectionHeading } from "../SectionHeading";
 import { ShieldDetail } from "../ShieldDetail";
 import { shieldRows, ShieldsList } from "../ShieldsList";
 import { shieldAlerts, type ShieldRow } from "../shields";
-import { storyHosts, storyIntegrations } from "./shields";
+import { storyHosts, storyIntegrations, storyNetwork } from "./shields";
 import { STORY_NOW } from "../../sidebar/stories/examples";
 import { sectionNames, sectionPurposes, type Section } from "../sections";
 import { TaskDetail } from "../TaskDetail";
@@ -155,6 +155,7 @@ export function ConsoleStoryFrame({
     hostsStoredAt: null,
     relay,
     integrations: storyIntegrations,
+    network: storyNetwork,
     now: STORY_NOW,
   };
   const list =
@@ -244,6 +245,9 @@ export function ConsoleStoryFrame({
             <ShieldDetail
               row={shield}
               host={storyHosts.find((h) => `host:${h.host}` === shield.id)}
+              network={storyNetwork.hosts.find(
+                (n) => `host:${n.host}` === shield.id,
+              )}
               hostsLive
               relay={relay}
               liveAt={

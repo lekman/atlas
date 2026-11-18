@@ -673,6 +673,29 @@ def host_stats(args: dict) -> dict:
         h["customer"] = conf["clients"].get(h.get("clientId"), "other")
     return result
 
+def host_network(args: dict) -> dict:
+    """Each host's network from the Atlas server: {hosts: [{host, reportedAt, report, tailscale}]}.
+
+    The server's tailnet address behind Tailscale Serve comes from atlas.json ({"url": ...}) in the
+    configuration folder. Serve names the caller, so no token is sent.
+    """
+    conf = host_config.config_file("atlas.json")
+    if not conf.exists():
+        raise RuntimeError("atlas.json isn't in _Dashboard Sync yet")
+    url = str(json.loads(conf.read_text(encoding="utf-8")).get("url") or "").rstrip("/")
+    if not url.startswith("https://"):
+        raise RuntimeError("atlas.json needs an https url")
+    req = urllib.request.Request(url + "/api/hosts/network", headers={"Accept": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=10) as r:
+            return json.loads(r.read() or b"{}")
+    except urllib.error.HTTPError as ex:
+        raise RuntimeError(f"Atlas answered HTTP {ex.code}") from None
+    except (urllib.error.URLError, TimeoutError, OSError):
+        raise RuntimeError("Atlas didn't answer; is the Mac mini awake and on the tailnet?") from None
+    except ValueError:
+        raise RuntimeError("Atlas's answer wasn't JSON") from None
+
 TOOLS = [{
     "name": "release_status",
     "title": "Release status",
@@ -802,6 +825,14 @@ TOOLS = [{
                     "to": {"type": "string"}}, "additionalProperties": False},
     "annotations": {"readOnlyHint": True, "openWorldHint": True},
 }, {
+    "name": "host_network",
+    "title": "Host network",
+    "description": "Each host's network from the Atlas server: local and external addresses, DNS servers, Wi-Fi "
+                   "network, its own launchd jobs and listening ports as the host last reported them, and its "
+                   "Tailscale device (id, addresses, MagicDNS name, online, served URLs). Changes nothing.",
+    "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
+    "annotations": {"readOnlyHint": True, "openWorldHint": True},
+}, {
     "name": "commander_answer",
     "title": "Answer an ask",
     "description": "Send Tobias's answer to a Waiting on you ask to Commander, as an 'answer' request: a chosen option, "
@@ -886,11 +917,11 @@ def handle(msg: dict):
                 log(name, "failed:", ex)
                 return {"content": [{"type": "text", "text": str(ex)[:300]}], "isError": True}
         if name in ("commander_send", "commander_requests", "commander_plan", "details_read", "task_prs", "host_stats",
-                    "waiting_on_you", "commander_answer"):
+                    "host_network", "waiting_on_you", "commander_answer"):
             try:
                 fn = {"commander_send": commander_send, "commander_requests": commander_requests,
                       "commander_plan": commander_plan, "details_read": details_read, "task_prs": task_prs,
-                      "host_stats": host_stats, "waiting_on_you": waiting_on_you, "commander_answer": commander_answer}[name]
+                      "host_stats": host_stats, "host_network": host_network, "waiting_on_you": waiting_on_you, "commander_answer": commander_answer}[name]
                 result = fn(params.get("arguments") or {})
                 return {"content": [{"type": "text", "text": json.dumps(result)}], "structuredContent": result, "isError": False}
             except Exception as ex:

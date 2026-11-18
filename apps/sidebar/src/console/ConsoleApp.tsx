@@ -8,6 +8,7 @@ import {
   SectionHeading,
   sectionNames,
   sectionPurposes,
+  networkFor,
   ShieldDetail,
   shieldAlerts,
   shieldRows,
@@ -37,6 +38,7 @@ import { useStored } from "../useStored";
 import { copyText, useTaskActions } from "../useTaskActions";
 import { useWorklist } from "../useWorklist";
 import { relayStateOf } from "./relay";
+import { useHostNetwork } from "./useHostNetwork";
 
 export interface ConsoleAppProps {
   runtime: Runtime;
@@ -96,6 +98,7 @@ export function ConsoleApp({
   const actions = useTaskActions(runtime, commander, worklist.apply);
   const items = worklist.doc?.items ?? [];
   const hosts = useHosts(runtime);
+  const network = useHostNetwork(runtime);
   const jiraSynced = useStored(runtime, "board/jira", syncedAtOf);
   const eventsSynced = useStored(runtime, "board/events", syncedAtOf);
   const detailsIndex = useStored(runtime, "board/details", readDetailsIndex);
@@ -204,6 +207,7 @@ export function ConsoleApp({
     hostsStoredAt: storedAt,
     relay,
     integrations,
+    network: network.data,
     now,
   };
 
@@ -300,6 +304,7 @@ export function ConsoleApp({
               shieldRows(shieldData).find((r) => r.id === shield.id) ?? shield
             }
             host={hosts.data?.hosts.find((h) => `host:${h.host}` === shield.id)}
+            network={networkFor(network.data, shield.name)}
             hostsLive={hosts.live}
             hostsStoredAt={storedAt}
             relay={relay}

@@ -49,7 +49,8 @@ export interface ConsoleFrameProps extends Omit<TopBarProps, "compact"> {
  * and on a laptop (see `layout.ts`). On one pane the selected item replaces
  * the list and offers a back link; on two, the list stays and the item
  * opens beside it. The rail's side is the reader's, kept per layout, since
- * a thumb and two hands want different edges.
+ * a thumb and two hands want different edges. Each pane scrolls on its own
+ * and can take focus, so it scrolls from the keyboard too.
  */
 export function ConsoleFrame({
   section,
@@ -95,11 +96,21 @@ export function ConsoleFrame({
   let panes: ReactNode;
   if (settingsOpen && settings)
     panes = (
-      <section className="console-pane console-pane-whole">{settings}</section>
+      <section
+        className="console-pane console-pane-whole"
+        aria-label="Settings"
+        tabIndex={0}
+      >
+        {settings}
+      </section>
     );
   else if (layout === "single")
     panes = (
-      <section className="console-pane console-pane-whole">
+      <section
+        className="console-pane console-pane-whole"
+        aria-label={detail ? "Detail" : "List"}
+        tabIndex={0}
+      >
         {detail ? (
           <>
             <button type="button" className="console-back" onClick={onBack}>
@@ -116,8 +127,18 @@ export function ConsoleFrame({
   else
     panes = (
       <>
-        <section className="console-pane console-pane-list">{list}</section>
-        <section className="console-pane console-pane-detail">
+        <section
+          className="console-pane console-pane-list"
+          aria-label="List"
+          tabIndex={0}
+        >
+          {list}
+        </section>
+        <section
+          className="console-pane console-pane-detail"
+          aria-label="Detail"
+          tabIndex={0}
+        >
           {detail ?? emptyDetail ?? (
             <p className="console-empty">Select an item to see it here.</p>
           )}

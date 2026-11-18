@@ -24,6 +24,7 @@ import { defaultDispatcherSettings } from "./dispatcher-rules";
 import { createGithubReader } from "./github-reader";
 import { createIdleWatcher } from "./idle-with-work";
 import { createSessionReader } from "./session-source";
+import { createHostNetwork, tailscaleDevices } from "./host-network";
 import { sidebarPageFile } from "./sidebar-routes";
 import { isEmpty, readSeedFile, seedDataset } from "./store";
 import { createTaskCache } from "./task-cache";
@@ -213,6 +214,7 @@ const api = createApi({
     : {}),
   ...(idle ? { idle } : {}),
   ...(dashboard ? { dashboard } : {}),
+  hostNetwork: createHostNetwork({ database, devices: tailscaleDevices() }),
   ...(configuration.sidebarFile
     ? { sidebarPage: sidebarPageFile(configuration.sidebarFile) }
     : {}),

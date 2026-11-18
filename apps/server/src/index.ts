@@ -1,3 +1,4 @@
+export * from "./host-network";
 export * from "./agent-activity";
 export {
   accountIsLimited,

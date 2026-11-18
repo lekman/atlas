@@ -2,10 +2,14 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
 
 import { STORY_NOW } from "../../sidebar/stories/examples";
-import { laptopWarning, serverCritical } from "../../sidebar/stories/hosts";
+import {
+  buildServer,
+  laptopWarning,
+  serverCritical,
+} from "../../sidebar/stories/hosts";
 import { relayRow } from "../shields";
 import { ConsoleComponentFrame } from "../stories/ConsoleComponentFrame";
-import { storyIntegrations } from "../stories/shields";
+import { storyIntegrations, storyNetwork } from "../stories/shields";
 import { ShieldDetail } from ".";
 
 const meta = {
@@ -45,6 +49,61 @@ export const HostWarning: Story = {
     await expect(
       canvas.getByRole("img", { name: /Disk free GB over the last 24 hours/ }),
     ).toBeInTheDocument();
+  },
+};
+
+/**
+ * A host with its network: local and external addresses, DNS, its Tailscale
+ * device with the URLs it serves, its background jobs and listening ports.
+ */
+export const HostNetwork: Story = {
+  name: "Host Network",
+  args: {
+    row: {
+      id: "host:build-01",
+      kind: "host",
+      name: "build-01",
+      state: "ok",
+      summary: "",
+    },
+    host: buildServer,
+    network: storyNetwork.hosts[0],
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole("region", { name: "Network" }),
+    ).toHaveTextContent("198.51.100.7");
+    await expect(
+      canvas.getByRole("region", { name: "Tailscale" }),
+    ).toHaveTextContent("nExample1CNTRL");
+    await expect(
+      canvas.getByRole("link", {
+        name: "https://build-01.example.ts.net/share",
+      }),
+    ).toBeInTheDocument();
+    await expect(
+      canvas.getByRole("region", { name: "Background jobs" }),
+    ).toHaveTextContent("1 running of 3");
+    await expect(
+      canvas.getByRole("region", { name: "Listening ports" }),
+    ).toHaveTextContent("5432");
+  },
+};
+
+/** A phone on the tailnet that reports no figures and no network: only its Tailscale device. */
+export const TailnetOnly: Story = {
+  name: "Tailnet Only",
+  args: {
+    row: {
+      id: "host:phone",
+      kind: "host",
+      name: "phone",
+      state: "unknown",
+      summary: "",
+    },
+    host: undefined,
+    network: storyNetwork.hosts[2],
   },
 };
 
