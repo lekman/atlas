@@ -92,7 +92,9 @@ const httpsOnly = (href: string) => /^https:\/\//i.test(href);
  * pane (they wrap under it on a narrow one): Done, Move, Status, Execute,
  * Plan when there is no page yet, and Copy reference. Then its facts, the
  * tracker ticket and its live status, its pull requests with review and
- * checks, and the details page from the vault.
+ * checks, and the details page from the vault. Stacked in that order on a
+ * narrow pane; from 820 px wide, the description sits on the left and the
+ * pull requests on the right.
  */
 export function TaskDetail({
   task,
@@ -222,110 +224,121 @@ export function TaskDetail({
           {request}
         </p>
       ) : null}
-      <dl className="console-facts">
-        {facts.map(([term, value]) => (
-          <div key={term}>
-            <dt>{term}</dt>
-            <dd>{value}</dd>
-          </div>
-        ))}
-      </dl>
+      <div className="console-detail-body">
+        <dl className="console-facts">
+          {facts.map(([term, value]) => (
+            <div key={term}>
+              <dt>{term}</dt>
+              <dd>{value}</dd>
+            </div>
+          ))}
+        </dl>
 
-      {key && system ? (
-        <section className="console-detail-section" aria-label="Ticket">
-          <h3 className="console-label">Ticket</h3>
-          <p className="console-ticket">
-            <span className="console-ticket-system">
-              {TRACKER_NAME[system]}
-            </span>{" "}
-            {trackerUrl ? (
-              <a href={trackerUrl} target="_blank" rel="noreferrer noopener">
-                {key}
-              </a>
-            ) : (
-              <span>{key}</span>
-            )}
-            <span className="console-ticket-status"> · {status.why}</span>
-          </p>
-        </section>
-      ) : null}
+        {key && system ? (
+          <section
+            className="console-detail-section console-detail-ticket"
+            aria-label="Ticket"
+          >
+            <h3 className="console-label">Ticket</h3>
+            <p className="console-ticket">
+              <span className="console-ticket-system">
+                {TRACKER_NAME[system]}
+              </span>{" "}
+              {trackerUrl ? (
+                <a href={trackerUrl} target="_blank" rel="noreferrer noopener">
+                  {key}
+                </a>
+              ) : (
+                <span>{key}</span>
+              )}
+              <span className="console-ticket-status"> · {status.why}</span>
+            </p>
+          </section>
+        ) : null}
 
-      {prs.length ? (
-        <section className="console-detail-section" aria-label="Pull requests">
+        {prs.length ? (
+          <section
+            className="console-detail-section console-detail-pulls"
+            aria-label="Pull requests"
+          >
+            <h3 className="console-label">
+              Pull requests
+              {pullsCopy && pulls?.fetchedAt
+                ? ` · copy from ${formatAgo(new Date(pulls.fetchedAt), now)}`
+                : ""}
+            </h3>
+            <ul className="console-pulls">
+              {prs.map((pull) => (
+                <li
+                  key={`${pull.repo}#${pull.number}`}
+                  className="console-pull"
+                  data-state={pull.state}
+                >
+                  <span className="console-pull-state">
+                    {pullStateWords[pull.state]}
+                  </span>
+                  <span className="console-pull-main">
+                    {safeUrl(pull.url) ? (
+                      <a
+                        href={safeUrl(pull.url)!}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                      >
+                        {pull.repo}#{pull.number}
+                      </a>
+                    ) : (
+                      `${pull.repo}#${pull.number}`
+                    )}{" "}
+                    {pull.title}
+                    {pullFacts(pull) ? (
+                      <span className="console-pull-facts">
+                        {pullFacts(pull)}
+                      </span>
+                    ) : null}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+
+        <section
+          className="console-detail-section console-detail-page"
+          aria-label="Details page"
+        >
           <h3 className="console-label">
-            Pull requests
-            {pullsCopy && pulls?.fetchedAt
-              ? ` · copy from ${formatAgo(new Date(pulls.fetchedAt), now)}`
+            Details page
+            {details.state === "ready" && details.copiedAt
+              ? ` · copy from ${formatAgo(new Date(details.copiedAt), now)}`
               : ""}
           </h3>
-          <ul className="console-pulls">
-            {prs.map((pull) => (
-              <li
-                key={`${pull.repo}#${pull.number}`}
-                className="console-pull"
-                data-state={pull.state}
-              >
-                <span className="console-pull-state">
-                  {pullStateWords[pull.state]}
-                </span>
-                <span className="console-pull-main">
-                  {safeUrl(pull.url) ? (
-                    <a
-                      href={safeUrl(pull.url)!}
-                      target="_blank"
-                      rel="noreferrer noopener"
-                    >
-                      {pull.repo}#{pull.number}
-                    </a>
-                  ) : (
-                    `${pull.repo}#${pull.number}`
-                  )}{" "}
-                  {pull.title}
-                  {pullFacts(pull) ? (
-                    <span className="console-pull-facts">
-                      {pullFacts(pull)}
-                    </span>
-                  ) : null}
-                </span>
-              </li>
-            ))}
-          </ul>
+          {details.state === "loading" ? (
+            <p className="console-note">Reading the page…</p>
+          ) : null}
+          {details.state === "none" ? (
+            <p className="console-note">
+              No details page yet. Plan asks Commander to write one with a test
+              plan.
+            </p>
+          ) : null}
+          {details.state === "missing" ? (
+            <p className="console-note">
+              The page is in the vault, but this device cannot read it and has
+              no copy yet.
+            </p>
+          ) : null}
+          {details.state === "ready" ? (
+            <div className="console-md">
+              <MarkdownBlocks blocks={blocks} allowLink={httpsOnly} />
+              {details.page.truncated ? (
+                <p className="console-note">
+                  Only the start of a long page is shown.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
         </section>
-      ) : null}
-
-      <section className="console-detail-section" aria-label="Details page">
-        <h3 className="console-label">
-          Details page
-          {details.state === "ready" && details.copiedAt
-            ? ` · copy from ${formatAgo(new Date(details.copiedAt), now)}`
-            : ""}
-        </h3>
-        {details.state === "loading" ? (
-          <p className="console-note">Reading the page…</p>
-        ) : null}
-        {details.state === "none" ? (
-          <p className="console-note">
-            No details page yet. Plan asks Commander to write one with a test
-            plan.
-          </p>
-        ) : null}
-        {details.state === "missing" ? (
-          <p className="console-note">
-            The page is in the vault, but this device cannot read it and has no
-            copy yet.
-          </p>
-        ) : null}
-        {details.state === "ready" ? (
-          <div className="console-md">
-            <MarkdownBlocks blocks={blocks} allowLink={httpsOnly} />
-            {details.page.truncated ? (
-              <p className="console-note">
-                Only the start of a long page is shown.
-              </p>
-            ) : null}
-          </div>
-        ) : null}
-      </section>
+      </div>
     </article>
   );
 }

@@ -68,6 +68,7 @@ export function TaskRow({
           items={actions}
           footer={actionsFooter}
           buttonClassName="console-task-move"
+          icon="more"
         />
       ) : null}
     </li>

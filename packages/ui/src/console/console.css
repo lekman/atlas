@@ -1226,4 +1226,62 @@
   align-items: center;
   min-height: 28px;
   overflow-wrap: anywhere;
+/* The row's Actions menu as a three-dot icon: a 44 px square target. */
+.console-task-move.console-menu-button {
+  display: grid;
+  place-items: center;
+  width: var(--target);
+  padding: 0;
+  border: 0;
+  border-left: 1px solid var(--line);
+  border-radius: 0 8px 8px 0;
+  background: transparent;
+}
+
+/*
+ * The task detail's body. Narrow: facts, ticket, pull requests, page, one
+ * under the other. From 820 px of pane: the description (facts, ticket,
+ * page) on the left, the pull requests down the right.
+ */
+.console-pane-detail {
+  container-type: inline-size;
+}
+
+.console-detail-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "facts" "ticket" "pulls" "page";
+  column-gap: 28px;
+  align-items: start;
+}
+
+.console-detail-body > .console-facts {
+  grid-area: facts;
+}
+
+.console-detail-ticket {
+  grid-area: ticket;
+}
+
+.console-detail-pulls {
+  grid-area: pulls;
+}
+
+.console-detail-page {
+  grid-area: page;
+}
+
+@container (min-width: 820px) {
+  .console-detail-body {
+    grid-template-columns: minmax(0, 1.4fr) minmax(320px, 1fr);
+    grid-template-rows: auto auto 1fr;
+    grid-template-areas:
+      "facts pulls"
+      "ticket pulls"
+      "page pulls";
+  }
+
+  .console-detail-pulls {
+    margin-top: 0;
+  }
 }

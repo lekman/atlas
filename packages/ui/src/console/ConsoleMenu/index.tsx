@@ -7,6 +7,9 @@ import {
   type KeyboardEvent,
 } from "react";
 
+import { ConsoleIcon } from "../ConsoleIcon";
+import type { ConsoleIconName } from "../sections";
+
 /** One entry in a console menu. */
 export interface MenuItem {
   label: string;
@@ -31,6 +34,8 @@ export interface ConsoleMenuProps {
   footer?: string;
   /** Extra class for the button, for where it sits. */
   buttonClassName?: string;
+  /** Draw this icon instead of the word; the word stays the button's accessible name. */
+  icon?: ConsoleIconName;
 }
 
 /**
@@ -45,6 +50,7 @@ export function ConsoleMenu({
   items,
   footer,
   buttonClassName,
+  icon,
 }: ConsoleMenuProps) {
   const [open, setOpen] = useState(false);
   const [place, setPlace] = useState<CSSProperties>({});
@@ -119,9 +125,10 @@ export function ConsoleMenu({
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={`${label} for ${name}`}
+        title={icon ? label : undefined}
         onClick={() => setOpen((was) => !was)}
       >
-        {label}
+        {icon ? <ConsoleIcon name={icon} /> : label}
       </button>
       {open ? (
         <div
