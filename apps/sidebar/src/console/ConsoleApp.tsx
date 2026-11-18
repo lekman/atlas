@@ -131,9 +131,10 @@ export function ConsoleApp({
 
   const copyReference = async (t: WorkItem) => {
     const text = referenceText(t.title, t.key);
+    // A copy that works says nothing; only a failed one needs the reader.
     setNote(
       (await copyText(text))
-        ? `Copied: ${text}`
+        ? null
         : "Could not copy to the clipboard in this view.",
     );
   };
@@ -325,7 +326,7 @@ export function ConsoleApp({
             mondayPrefix={
               config.trackers.find((t) => t.monday)?.monday?.keyPrefix
             }
-            request={note ?? requestLine}
+            request={requestLine}
             commanderBusy={commander.open(task.ref) ? PENDING_NOTE : null}
             moves={fromDatabase(task) ? movesFor(range) : []}
             now={now}
