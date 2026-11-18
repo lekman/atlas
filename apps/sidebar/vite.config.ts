@@ -25,19 +25,29 @@ function sidebarConfig(): unknown {
   return JSON.parse(readFileSync(file, "utf8"));
 }
 
+/**
+ * `ATLAS_VIEW=console` builds the full-page console from `console.html`
+ * into `dist-console/`, beside the sidebar's `dist/`, so the two can be
+ * published as separate artifacts while the console is tested.
+ */
+const consoleView = process.env.ATLAS_VIEW === "console";
+
 export default defineConfig({
   root: directory,
   base: "./",
   plugins: [react(), fontsWoff2Only(), inlineBundle()],
   define: { __SIDEBAR_CONFIG__: JSON.stringify(sidebarConfig()) },
   build: {
-    outDir: "dist",
+    outDir: consoleView ? "dist-console" : "dist",
     emptyOutDir: true,
     // Everything ends up in the one HTML file: fonts and images as data
     // URIs, one script, one stylesheet.
     assetsInlineLimit: Number.MAX_SAFE_INTEGER,
     cssCodeSplit: false,
     modulePreload: false,
-    rollupOptions: { output: { inlineDynamicImports: true } },
+    rollupOptions: {
+      ...(consoleView ? { input: join(directory, "console.html") } : {}),
+      output: { inlineDynamicImports: true },
+    },
   },
 });

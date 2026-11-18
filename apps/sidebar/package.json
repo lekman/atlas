@@ -10,7 +10,9 @@
     "typecheck": "tsc --noEmit",
     "test": "bun test tests/",
     "harness": "bun scripts/harness.ts",
-    "check": "SIDEBAR_CONFIG=sidebar.config.example.json vite build && bun scripts/harness.ts"
+    "check": "SIDEBAR_CONFIG=sidebar.config.example.json vite build && bun scripts/harness.ts",
+    "build:console": "ATLAS_VIEW=console vite build",
+    "check:console": "SIDEBAR_CONFIG=sidebar.config.example.json ATLAS_VIEW=console vite build && bun scripts/console-harness.ts"
   },
   "dependencies": {
     "@atlas/runtime": "workspace:*",

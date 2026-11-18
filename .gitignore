@@ -29,3 +29,4 @@ scripts/client-terms.txt
 
 # Agent worktrees made by Claude Code.
 .claude/worktrees/
+dist-console/

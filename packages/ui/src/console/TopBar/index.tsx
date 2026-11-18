@@ -15,7 +15,7 @@ export interface Fleet {
 }
 
 export interface TopBarProps {
-  /** The reader's fleets, in the order the switcher shows them. */
+  /** The reader's fleets, in the order the switcher shows them. With fewer than two there is no switcher. */
   fleets: readonly Fleet[];
   /** The fleet whose work is shown. */
   fleetId: string;
@@ -49,34 +49,36 @@ export function TopBar({
           <ConsoleIcon name="logo" />
           <span>Atlas</span>
         </span>
-        <div className="console-fleets" role="group" aria-label="Fleet">
-          {fleets.map((fleet) => (
-            <button
-              key={fleet.id}
-              type="button"
-              className="console-fleet"
-              data-tone={fleet.tone}
-              aria-pressed={fleet.id === fleetId}
-              onClick={() => onFleetChange(fleet.id)}
-            >
-              <span
-                className="console-mark"
-                data-mark={fleet.mark}
-                aria-hidden="true"
-              />
-              {compact ? (
-                <>
-                  {fleet.shortLabel}
-                  <span className="console-visually-hidden">
-                    , {fleet.label}
-                  </span>
-                </>
-              ) : (
-                fleet.label
-              )}
-            </button>
-          ))}
-        </div>
+        {fleets.length > 1 ? (
+          <div className="console-fleets" role="group" aria-label="Fleet">
+            {fleets.map((fleet) => (
+              <button
+                key={fleet.id}
+                type="button"
+                className="console-fleet"
+                data-tone={fleet.tone}
+                aria-pressed={fleet.id === fleetId}
+                onClick={() => onFleetChange(fleet.id)}
+              >
+                <span
+                  className="console-mark"
+                  data-mark={fleet.mark}
+                  aria-hidden="true"
+                />
+                {compact ? (
+                  <>
+                    {fleet.shortLabel}
+                    <span className="console-visually-hidden">
+                      , {fleet.label}
+                    </span>
+                  </>
+                ) : (
+                  fleet.label
+                )}
+              </button>
+            ))}
+          </div>
+        ) : null}
       </div>
       <div className="console-top-end">
         <span className="console-score">
