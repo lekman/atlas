@@ -62,7 +62,7 @@ const preview: Preview = {
         order: [
           "Introduction",
           "Pages",
-          ["Atlas", "Day Plan", "Sidebar"],
+          ["Atlas", "Console", "Day Plan", "Sidebar"],
           "Sidebar",
           [
             "Foundations",
@@ -103,6 +103,8 @@ const preview: Preview = {
           ],
           "Components",
           [
+            "Console",
+            ["Top Bar", "Section Rail"],
             "Atlas Shell",
             "World Canvas",
             "Needs You List",
