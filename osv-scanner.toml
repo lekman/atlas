@@ -10,3 +10,8 @@
 # id = "GHSA-xxxx-xxxx-xxxx"
 # ignoreUntil = 2026-12-01
 # reason = "Only reachable through the CLI parser, which we do not call."
+
+[[IgnoredVulns]]
+id = "GHSA-fc5q-39xc-vjpf"
+ignoreUntil = 2026-12-18
+reason = "picomatch 4.0.7 is the latest release and has no fix. It is reached only through build and test tools (Vite, Vitest, Storybook, Rollup plugin utilities), which match glob patterns from our own configuration, never from a user. Upgrade as soon as a fixed release is out."
