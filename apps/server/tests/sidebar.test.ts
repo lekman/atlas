@@ -296,6 +296,32 @@ describe("stored documents", () => {
   });
 });
 
+describe("the console page", () => {
+  test("is not found when no console is built", async () => {
+    const response = await send(apiWith(), "/console");
+    expect(response?.status).toBe(404);
+    expect(await response?.text()).toContain("console");
+  });
+
+  test("is the built console, marked as served by Atlas", async () => {
+    const api = apiWith({
+      consolePage: () =>
+        markPage("<html><head><title>Atlas Console</title></head></html>"),
+    });
+    const response = await send(api, "/console");
+    expect(response?.status).toBe(200);
+    expect(await response?.text()).toContain(
+      '<meta name="atlas-runtime" content="server" />',
+    );
+  });
+
+  test("is read with GET only", async () => {
+    const api = apiWith({ consolePage: () => "<html></html>" });
+    const response = await send(api, "/console", { method: "POST" });
+    expect(response?.status).toBe(405);
+  });
+});
+
 describe("the sidebar page", () => {
   test("is not found when no built page is configured", async () => {
     const response = await send(apiWith(), "/sidebar");
@@ -408,5 +434,19 @@ describe("configuration", () => {
       '/usr/bin/python3 "/srv/dash board/server.py"',
     );
     expect(configured.sidebarFile).toBe("/srv/sidebar/index.html");
+  });
+
+  test("finds the console beside the sidebar's build unless told otherwise", () => {
+    expect(readConfiguration({}).consoleFile).toBeUndefined();
+    expect(
+      readConfiguration({ ATLAS_SIDEBAR_FILE: "/srv/sidebar/dist/index.html" })
+        .consoleFile,
+    ).toBe("/srv/sidebar/dist-console/console.html");
+    expect(
+      readConfiguration({
+        ATLAS_SIDEBAR_FILE: "/srv/sidebar/dist/index.html",
+        ATLAS_CONSOLE_FILE: "/elsewhere/console.html",
+      }).consoleFile,
+    ).toBe("/elsewhere/console.html");
   });
 });

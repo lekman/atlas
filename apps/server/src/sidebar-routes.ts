@@ -6,6 +6,7 @@
  * | Route                            | What it does                                           |
  * | -------------------------------- | ------------------------------------------------------ |
  * | GET    /sidebar                  | The built sidebar page, marked as served by Atlas      |
+ * | GET    /console                  | The built console page, marked the same way            |
  * | POST   /api/host/dashboard/:tool | Calls one allowed tool on the dashboard MCP server     |
  * | GET    /api/sidebar/doc?path=    | One stored document, with its version                  |
  * | PUT    /api/sidebar/doc?path=    | Replaces it, and tells open pages its new version      |
@@ -97,6 +98,8 @@ export interface SidebarRoutesOptions {
   dashboard?: DashboardHost;
   /** The marked page, or undefined when there is none to serve. */
   page?: () => string | undefined;
+  /** The marked console page, which uses the same tool and document routes. */
+  consolePage?: () => string | undefined;
   /** Sends a stream frame to every open page. */
   broadcast: (frame: string) => void;
 }
@@ -132,6 +135,7 @@ export function createSidebarRoutes({
   database,
   dashboard,
   page,
+  consolePage,
   broadcast,
 }: SidebarRoutesOptions): SidebarRoutes {
   function readDocument(path: string) {
@@ -230,12 +234,20 @@ export function createSidebarRoutes({
 
   return {
     async handle(request, url) {
-      if (url.pathname === "/sidebar") {
+      const pages: Record<
+        string,
+        [(() => string | undefined) | undefined, string]
+      > = {
+        "/sidebar": [page, "sidebar"],
+        "/console": [consolePage, "console"],
+      };
+      const served = pages[url.pathname];
+      if (served) {
         if (request.method !== "GET" && request.method !== "HEAD")
           return refusal(405, "tool_error", "the page is read with GET");
-        const html = page?.();
+        const html = served[0]?.();
         if (html === undefined)
-          return new Response("The sidebar is not built on this server.", {
+          return new Response(`The ${served[1]} is not built on this server.`, {
             status: 404,
             headers: { "content-type": "text/plain; charset=utf-8" },
           });
