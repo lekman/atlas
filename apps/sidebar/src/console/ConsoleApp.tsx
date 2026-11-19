@@ -333,6 +333,21 @@ export function ConsoleApp({
       )
       .finally(() => setAgentPending(null));
   };
+  /** The agent a task's claim names: by id, by name, or as a docked session. */
+  const agentFor = (claim: string | undefined) => {
+    if (!claim) return null;
+    const key = claim.trim().toLowerCase();
+    const slug = key.replace(/[^a-z0-9]+/g, "-");
+    return (
+      agentsFeed.data?.agents.find(
+        (a) =>
+          a.id === key ||
+          a.id === slug ||
+          a.id === `session-${slug}` ||
+          a.name.trim().toLowerCase() === key,
+      ) ?? null
+    );
+  };
   const agentTask = (ref: string) =>
     items.find((t) => t.ref === ref && !t.meeting) ?? null;
   const openAgentTask = (ref: string) => {
@@ -788,6 +803,19 @@ export function ConsoleApp({
             onExecute={(t) => void commander.send(t, "execute")}
             onPlan={(t) => void commander.plan(t)}
             onCopyReference={(t) => void copyReference(t)}
+            {...(() => {
+              const agent = agentFor(task.claimedBy);
+              return agent
+                ? {
+                    agentName: agent.name,
+                    onOpenAgent: () => {
+                      setSection("agents");
+                      setSelected(null);
+                      setAgentSelected(agent.id);
+                    },
+                  }
+                : {};
+            })()}
           />
         ) : null
       }

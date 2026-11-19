@@ -406,6 +406,18 @@
   letter-spacing: 0.04em;
 }
 
+/* An icon in a chip, such as the Filter beside the scope button. */
+.console-chip.console-icon-chip {
+  justify-content: center;
+  min-width: var(--target);
+  padding: 0;
+}
+
+.console-chip.console-icon-chip .console-icon {
+  width: 18px;
+  height: 18px;
+}
+
 .console-chip {
   display: inline-flex;
   align-items: center;
@@ -1516,6 +1528,18 @@
   text-decoration: underline;
 }
 
+/* A plain-text link, such as a task's agent. */
+.console-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--blue);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
 /* Agents: a row's note is one line; the detail's note reads whole. */
 .console-agent-note {
   margin-top: 2px;
@@ -1603,8 +1627,17 @@
 }
 
 .console-beam-actions [aria-disabled="true"] {
-  opacity: 0.55;
   cursor: default;
+}
+
+/* A primary action that cannot be pressed yet: outlined, with readable text, not faded amber. */
+.console-beam-actions .console-primary[aria-disabled="true"] {
+  background: transparent;
+  color: var(--label);
+}
+
+.console-beam-actions .console-secondary[aria-disabled="true"] {
+  color: var(--label);
 }
 
 /* Log: each finished mission's points, in the row's right column. */
