@@ -25,8 +25,10 @@ export interface AgentActivity {
   overlay(dataset: Dataset): Dataset;
   /**
    * How many readings of each activity an agent's current run of fresh
-   * readings holds: about the minutes it spent on each, since the collector
-   * reads once a minute. A run starts again after a stale gap.
+   * readings holds. The collector sends a reading when the activity or the
+   * context changes, and again after 10 minutes without a change, so a
+   * count is about how often the agent turned to that activity. A run
+   * starts again after a stale gap.
    */
   counts(agentId: string): Partial<Record<Activity, number>>;
 }

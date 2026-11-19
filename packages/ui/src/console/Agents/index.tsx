@@ -120,7 +120,11 @@ export function AgentsList({
         <p className="console-empty">Reading the agents…</p>
       ) : shown.length === 0 ? (
         <p className="console-empty">
-          {inScope.length ? "No agent is online." : "No agents to show."}
+          {!inScope.length
+            ? "No agents to show."
+            : hideIdle && idle > 0
+              ? "No agent is active."
+              : "No agent is online."}
         </p>
       ) : (
         agentsBySystem(shown, clientOrder).map((group) => {

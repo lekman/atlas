@@ -1,12 +1,13 @@
 #!/usr/bin/env bun
 /**
- * The Atlas collector for one machine. Every minute it reads the Claude Code
+ * The Atlas collector for one machine. Every 15 seconds (ATLAS_COLLECTOR_SECONDS)
+ * it reads the Claude Code
  * sessions here (their records, or for a screen-run session its command
  * line) and the tail of each transcript, works out what each is doing with
  * @atlas/collector, and reports a change to Atlas with report_status.
  *
  *   bun apps/collector/src/main.ts            print what it would report, once
- *   bun apps/collector/src/main.ts --apply    report, every minute
+ *   bun apps/collector/src/main.ts --apply    report, every 15 seconds
  *   bun apps/collector/src/main.ts --apply --once
  *   bun apps/collector/src/main.ts --list     each session as read here, without calling Atlas
  *
@@ -36,6 +37,9 @@ import {
 import { decide, type AtlasAgent } from "./decide";
 
 const HOME = homedir();
+const EVERY_SECONDS = Number(process.env.ATLAS_COLLECTOR_SECONDS ?? 15);
+if (!Number.isFinite(EVERY_SECONDS) || EVERY_SECONDS < 5)
+  throw new Error("ATLAS_COLLECTOR_SECONDS must be 5 or more");
 const URL_ = process.env.ATLAS_MCP_URL ?? "https://server.tail051b7.ts.net/mcp";
 const APPLY = process.argv.includes("--apply");
 const ONCE = process.argv.includes("--once") || !APPLY;
@@ -312,5 +316,5 @@ if (!ONCE)
       tick().catch((e) =>
         log("tick failed:", String((e as Error).message ?? e).slice(0, 200)),
       ),
-    60_000,
+    EVERY_SECONDS * 1000,
   );
