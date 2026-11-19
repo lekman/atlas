@@ -248,7 +248,7 @@ try {
     else {
       await ask.click();
       await tab.getByRole("radio", { name: /Thursday/ }).check();
-      await tab.getByRole("button", { name: /^Send to/ }).click();
+      await tab.getByRole("button", { name: "Send", exact: true }).click();
       await tab.waitForTimeout(300);
       const answered = (
         (await tab.evaluate(
