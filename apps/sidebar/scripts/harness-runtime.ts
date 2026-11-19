@@ -93,6 +93,15 @@ export const shim = `(() => {
       const list = tools["host:dashboard/worklist"]().structuredContent;
       return { structuredContent: { tasks: { ...list, items: list.items.map((t) => t.ref === "db:1" ? { ...t, done: true } : t) } } };
     },
+    "host:dashboard/agents": () => ({ structuredContent: { fetchedAt: new Date().toISOString(), agents: [
+      { id: "ops-desk", name: "Ops Desk", clientId: "kestrel-co", customer: "kestrel", host: "Mac mini", status: "running",
+        note: "Moving the depot alerts to the new queue", refs: ["db:1"],
+        session: { state: "busy", since: new Date(Date.now() - 600000).toISOString(),
+          activity: { startedAt: new Date(Date.now() - 7200000).toISOString(), toolCalls: 132, lastCallAt: new Date(Date.now() - 60000).toISOString() } } },
+      { id: "field", name: "Field Laptop", clientId: "kestrel-co", customer: "kestrel", host: "MacBook", status: "idle", note: "Idle" },
+      { id: "gone", name: "Gone Agent", clientId: "kestrel-co", customer: "kestrel", host: "Mac mini", status: "idle", note: "Session offline",
+        session: { state: "offline", since: new Date().toISOString() } }] } }),
+    "host:dashboard/agent_message": (args) => ({ structuredContent: { sent: true, to: args.to, nudge: Boolean(args.nudge) } }),
     "host:dashboard/task_log": () => {
       const day = (n) => { const d = new Date(); d.setDate(d.getDate() - n);
         return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };

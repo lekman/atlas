@@ -2,6 +2,10 @@ import { describeError, type Runtime, type RuntimeError } from "@atlas/runtime";
 import {
   ConsoleFrame,
   ConsoleSettings,
+  AgentDetail,
+  AgentsList,
+  readAgents,
+  type AgentRecord,
   BeamDetail,
   BeamList,
   beamKey,
@@ -257,6 +261,84 @@ export function ConsoleApp({
     if (!last || last.state === "failed") return null;
     return last.answer?.choice === DISMISS_CHOICE ? "Dismissed" : "Answered";
   };
+  // Agents: every agent from Atlas through the dashboard host, stored for the phone.
+  const agentsFeed = useFeed(
+    runtime,
+    {
+      server: "host:dashboard",
+      tool: "agents",
+      path: "board/agents",
+      accept: readAgents,
+      watch: {
+        refetchInterval: 60000,
+        cache: { staleTime: 30000, gcTime: 86400000 },
+      },
+    },
+    "The dashboard host",
+  );
+  const [agentSelected, setAgentSelected] = useState<string | null>(null);
+  const [showOffline, setShowOffline] = useState(false);
+  const [agentPending, setAgentPending] = useState<string | null>(null);
+  const [agentResult, setAgentResult] = useState<{
+    id: string;
+    text: string;
+    tone: "ok" | "bad";
+  } | null>(null);
+  const agentRow =
+    agentsFeed.data?.agents.find((a) => a.id === agentSelected) ?? null;
+  const tellAgent = (
+    agent: AgentRecord,
+    args: { text?: string; nudge?: boolean },
+  ) => {
+    if (!agent.clientId) {
+      setAgentResult({
+        id: agent.id,
+        tone: "bad",
+        text: "This agent has no client to message through.",
+      });
+      return;
+    }
+    setAgentResult(null);
+    setAgentPending(agent.id);
+    runtime
+      .call(
+        "host:dashboard",
+        "agent_message",
+        { to: agent.name, clientId: agent.clientId, ...args },
+        { cache: false },
+      )
+      .then(() =>
+        setAgentResult({
+          id: agent.id,
+          tone: "ok",
+          text: args.nudge ? `Nudged ${agent.name}.` : `Sent to ${agent.name}.`,
+        }),
+      )
+      .catch((err: { message?: string }) =>
+        setAgentResult({
+          id: agent.id,
+          tone: "bad",
+          text: `Not sent: ${(err?.message || "the dashboard host refused it").replace(/[.\s]+$/, "")}.`,
+        }),
+      )
+      .finally(() => setAgentPending(null));
+  };
+  const agentTask = (ref: string) =>
+    items.find((t) => t.ref === ref && !t.meeting) ?? null;
+  const openAgentTask = (ref: string) => {
+    const t = agentTask(ref);
+    if (!t) return;
+    setRange(
+      t.band === "tomorrow"
+        ? "tomorrow"
+        : t.band === "today"
+          ? "today"
+          : "backlog",
+    );
+    setSection("missions");
+    setSelected(taskKey(t));
+    setAgentSelected(null);
+  };
   const [askPending, setAskPending] = useState<string | null>(null);
   const [askFailed, setAskFailed] = useState<string | null>(null);
   const answerAsk = (
@@ -464,6 +546,32 @@ export function ConsoleApp({
           />
         )}
       </>
+    ) : section === "agents" ? (
+      <AgentsList
+        agents={agentsFeed.data?.agents ?? (agentsFeed.failure ? [] : null)}
+        notes={agentsFeed.error ? [agentsFeed.error.text] : []}
+        systemName={systemName}
+        scope={scope}
+        onScope={() => setPicking(true)}
+        selectedId={agentSelected}
+        onSelect={(a) => {
+          setAgentResult(null);
+          setAgentSelected(a.id);
+        }}
+        showOffline={showOffline}
+        onShowOffline={setShowOffline}
+        onMessage={(a) => {
+          setAgentResult(null);
+          setAgentSelected(a.id);
+        }}
+        onNudge={(a) => tellAgent(a, { nudge: true })}
+        openTask={(a) => {
+          const ref = a.refs?.find((r) => agentTask(r));
+          return ref ? () => openAgentTask(ref) : null;
+        }}
+        pendingId={agentPending}
+        now={now}
+      />
     ) : section === "beam" ? (
       <BeamList
         rows={beamRows}
@@ -601,6 +709,19 @@ export function ConsoleApp({
             )}
             now={now}
           />
+        ) : section === "agents" && agentRow ? (
+          <AgentDetail
+            key={agentRow.id}
+            agent={agentRow}
+            systemName={systemName}
+            taskTitle={(ref) => agentTask(ref)?.title ?? null}
+            onOpenTask={openAgentTask}
+            onMessage={(text) => tellAgent(agentRow, { text })}
+            onNudge={() => tellAgent(agentRow, { nudge: true })}
+            pending={agentPending === agentRow.id}
+            result={agentResult?.id === agentRow.id ? agentResult : null}
+            now={now}
+          />
         ) : section === "beam" && askRow ? (
           <BeamDetail
             key={beamKey(askRow.item)}
@@ -676,12 +797,14 @@ export function ConsoleApp({
         setSelected(null);
         setShield(null);
         setAskSelected(null);
+        setAgentSelected(null);
         setSettingsOpen(false);
       }}
       onBack={() => {
         setSelected(null);
         setShield(null);
         setAskSelected(null);
+        setAgentSelected(null);
       }}
       onSettings={() => setSettingsOpen((open) => !open)}
       soundOn={prefs.sound.enabled}
