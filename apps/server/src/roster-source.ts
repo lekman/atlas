@@ -74,7 +74,7 @@ export const rosterId = (name: string): string =>
   name
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+    .replace(/^-|-$/g, "");
 
 const shorten = (text: string, length: number) =>
   text.length <= length ? text : `${text.slice(0, length - 1)}…`;

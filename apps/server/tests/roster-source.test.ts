@@ -108,6 +108,9 @@ describe("syncRoster", () => {
     expect(rosterId("Ops Portal")).toBe("ops-portal");
     expect(rosterId("DevSecOps")).toBe("devsecops");
     expect(rosterId("AI Productivity")).toBe("ai-productivity");
+    expect(rosterId("--Ops  Portal!!")).toBe("ops-portal");
+    // A long run of other characters stays quick: it collapses to one "-" first.
+    expect(rosterId(`a${"-".repeat(50_000)}b`)).toBe("a-b");
   });
 });
 
