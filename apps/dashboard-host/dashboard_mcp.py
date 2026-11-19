@@ -439,8 +439,10 @@ def commander_send(args: dict) -> dict:
     return {"ok": True, "request": out}
 
 
-ASK_KINDS = ("task", "commander", "question")
-ANSWER_REF = re.compile(r"^(db:[a-z0-9][a-z0-9-]{0,127}|ask:(task|commander|question):[A-Za-z0-9:._-]{1,128})$")
+ASK_KINDS = ("task", "commander", "question", "atlas")
+ANSWER_REF = re.compile(r"^(db:[a-z0-9][a-z0-9-]{0,127}|ask:(task|commander|question|atlas):[A-Za-z0-9:._-]{1,128})$")
+# The choice Beam sends to remove an ask as redundant; an Atlas question is then withdrawn.
+DISMISS = "Dismiss as redundant"
 
 
 def commander_answer(args: dict) -> dict:
@@ -462,6 +464,8 @@ def commander_answer(args: dict) -> dict:
     rid = str(args.get("id") or "")
     if not REQ_ID.match(rid):
         rid = f"dash-{uuid.uuid4()}"
+    if ask["kind"] == "atlas":
+        return answer_atlas_question(ask, choice, text, rid, ref)
     sent_ask = {"kind": ask["kind"], "ask": clean(ask.get("ask"), 300)}
     for key, n in (("id", 80), ("ref", 140), ("worker", 80), ("customer", 40), ("title", 300)):
         if ask.get(key):
@@ -482,6 +486,78 @@ def commander_answer(args: dict) -> dict:
         if warning:
             result["warning"] = warning
     return result
+
+
+def answer_atlas_question(ask: dict, choice: str, text: str, rid: str, ref: str) -> dict:
+    """An answer to a question asked through Atlas: posted to the Atlas server, which hands it to the
+    session that asked. Dismiss withdraws the question instead. The first answer wins there."""
+    qid = str(ask.get("id") or "")
+    if not re.match(r"^[a-z0-9][a-z0-9-]{0,127}$", qid):
+        raise ValueError("an Atlas question needs its id")
+    if choice == DISMISS:
+        path, body = "close", {"resolution": "withdrawn", **({"note": text} if text else {})}
+    else:
+        path, body = "answer", {"answer": (choice or text)[:1000], **({"note": text} if choice and text else {})}
+    req = urllib.request.Request(f"{_atlas_url()}/api/questions/{qid}/{path}", method="POST",
+                                 data=json.dumps(body).encode("utf-8"),
+                                 headers={"Content-Type": "application/json", "Accept": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=10) as r:
+            json.loads(r.read() or b"{}")
+    except urllib.error.HTTPError as ex:
+        detail = ""
+        try:
+            detail = str(json.loads(ex.read() or b"{}").get("error") or "")
+        except ValueError:
+            pass
+        raise RuntimeError(f"Atlas refused the answer ({ex.code}){': ' + detail if detail else ''}") from None
+    except (urllib.error.URLError, TimeoutError, OSError):
+        raise RuntimeError("Atlas didn't answer; is the Mac mini awake and on the tailnet?") from None
+    now = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+    who = clean_name(ask.get("worker")) or "the session that asked"
+    return {"ok": True, "request": {
+        "id": rid, "action": "answer", "state": "answered", "ref": ref, "requestedAt": now, "updatedAt": now,
+        "worker": None, "answer": {k: v for k, v in (("choice", choice), ("text", text)) if v},
+        "summary": "Withdrawn." if choice == DISMISS else f"Atlas has your answer and hands it to {who}."}}
+
+
+def clean_name(value) -> str:
+    return " ".join(str(value or "").split())[:80]
+
+
+def atlas_questions(conf) -> list:
+    """Questions agents asked through Atlas that are still open, in the waiting list's shape."""
+    req = urllib.request.Request(_atlas_url() + "/api/questions?state=open", headers={"Accept": "application/json"})
+    with urllib.request.urlopen(req, timeout=10) as r:
+        rows = json.loads(r.read() or b"[]")
+    clients = (conf or {}).get("clients") or {}
+    items = []
+    for q in rows if isinstance(rows, list) else []:
+        if not isinstance(q, dict) or q.get("cardOnly") or not q.get("questions"):
+            continue
+        first = q["questions"][0] if isinstance(q["questions"][0], dict) else {}
+        text = " ".join(str(first.get("question") or q.get("title") or "").split())
+        if not text:
+            continue
+        item = {"kind": "atlas", "id": str(q.get("id"))[:80], "ask": text[:300],
+                "worker": clean_name((q.get("session") or {}).get("address")) or "an agent",
+                "customer": clients.get(q.get("clientId"), "other"),
+                "since": str(q.get("askedAt") or "")[:10] or None}
+        options = []
+        for o in first.get("options") or []:
+            if isinstance(o, dict) and o.get("label"):
+                label = " ".join(str(o["label"]).split())[:120]
+                recommended = "(recommended)" in label.lower()
+                options.append({"label": re.sub(r"\s*\(recommended\)\s*", " ", label, flags=re.I).strip() or label,
+                                **({"description": " ".join(str(o["description"]).split())[:300]}
+                                   if o.get("description") else {}),
+                                **({"recommended": True} if recommended else {})})
+        if options:
+            item["options"] = options[:4]
+        if q.get("taskId"):
+            item["ref"] = "db:" + str(q["taskId"])[:120]
+        items.append(item)
+    return items
 
 
 def clear_answered_task(task_id: str, rid: str, said: str) -> str | None:
@@ -651,6 +727,11 @@ def waiting_on_you(args: dict) -> dict:
                 items.append(item)
     except Exception as ex:
         errors.append(f"questions: {str(ex)[:120]}")
+    # Questions agents asked through Atlas, answered in Beam and handed back by Atlas.
+    try:
+        items.extend(atlas_questions(conf))
+    except Exception as ex:
+        errors.append(f"atlas: {str(ex)[:120]}")
     items.sort(key=lambda i: i.get("since") or "")
     return {"items": items, "errors": errors}
 

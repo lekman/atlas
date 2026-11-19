@@ -242,7 +242,8 @@ export function ConsoleApp({
     ? waiting.data.items.map((item) => ({
         item,
         client:
-          item.kind === "task"
+          item.kind === "task" ||
+          (item.kind === "atlas" && item.customer && item.customer !== "other")
             ? (item.customer ?? null)
             : askClient(item, config),
       }))

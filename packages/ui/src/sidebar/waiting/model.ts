@@ -17,7 +17,8 @@ export interface AskOption {
 }
 
 export interface WaitingItem {
-  kind: "task" | "commander" | "question";
+  /** `atlas`: a question an agent asked through Atlas, answered back through it. */
+  kind: "task" | "commander" | "question" | "atlas";
   /** A task's reference, to open its details. */
   ref?: string;
   /** A Commander request's or question's id. */
@@ -108,7 +109,9 @@ export function waitingSource(item: WaitingItem, clientName: string): string[] {
       ? clientName
       : item.kind === "question"
         ? "Commander asks"
-        : `Commander · ${item.worker || "worker"}`;
+        : item.kind === "atlas"
+          ? `Atlas · ${item.worker || "an agent"}`
+          : `Commander · ${item.worker || "worker"}`;
   const since = item.since ? new Date(item.since) : null;
   return [
     who,
