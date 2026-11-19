@@ -96,7 +96,9 @@ export function AgentsList({
       {agents === null ? (
         <p className="console-empty">Reading the agents…</p>
       ) : shown.length === 0 ? (
-        <p className="console-empty">No agent is online.</p>
+        <p className="console-empty">
+          {inScope.length ? "No agent is online." : "No agents to show."}
+        </p>
       ) : (
         agentsByHost(shown).map((group) => (
           <section

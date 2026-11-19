@@ -363,16 +363,32 @@ try {
   });
   await noLog.route("**/*", (route) => route.abort());
   await noLog.setContent(
-    wrapPage(source).replace(
-      '"host:dashboard/task_log"',
-      '"host:dashboard/task_log_missing"',
-    ),
+    wrapPage(source)
+      .replace('"host:dashboard/task_log"', '"host:dashboard/task_log_missing"')
+      .replace('"host:dashboard/agents"', '"host:dashboard/agents_missing"'),
     { waitUntil: "load" },
   );
   await noLog.getByRole("button", { name: /^Log/ }).first().click();
   await noLog.waitForTimeout(1500);
   if (await noLog.getByText("Reading the log…").isVisible())
     problems.push("no log: Log keeps reading when the host has no log");
+  // The same host without the agent list: Agents says why, not "none online".
+  await noLog
+    .getByRole("button", { name: /^Agents/ })
+    .first()
+    .click();
+  await noLog.waitForTimeout(1500);
+  if (await noLog.getByText("No agent is online.").isVisible())
+    problems.push(
+      "no agents: Agents claims none is online when it could not read them",
+    );
+  if (
+    !(await noLog
+      .getByText(/agent list comes from the dashboard server|dashboard server/i)
+      .first()
+      .isVisible())
+  )
+    problems.push("no agents: Agents does not say why it shows none");
   await noLog.close();
 } finally {
   await browser.close();
