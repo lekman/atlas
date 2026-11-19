@@ -49,7 +49,7 @@ import {
 } from "@atlas/ui/sidebar";
 import { useEffect, useMemo, useState } from "react";
 
-import { classify, type SidebarConfig } from "../config";
+import { askClient, type SidebarConfig } from "../config";
 import { dayKey } from "../day";
 import { PENDING_NOTE } from "../moves";
 import { useCommander } from "../useCommander";
@@ -238,12 +238,14 @@ export function ConsoleApp({
         client:
           item.kind === "task"
             ? (item.customer ?? null)
-            : classify(item.worker ?? "", null, config),
+            : askClient(item, config),
       }))
     : waiting.failure
       ? []
       : null;
   const [askSelected, setAskSelected] = useState<string | null>(null);
+  const [beamQuery, setBeamQuery] = useState("");
+  const [beamShowAnswered, setBeamShowAnswered] = useState(false);
   const askRow = beamRows?.find((r) => beamKey(r.item) === askSelected) ?? null;
   const lastAnswer = (item: Parameters<typeof askKey>[0]) => {
     const sent = commander.latest(askKey(item) ?? undefined);
@@ -265,6 +267,12 @@ export function ConsoleApp({
             tone: "warn" as const,
             text: last.summary || `Sent; Commander hands it to ${from}.`,
           };
+  };
+  /** "Answered" or "Dismissed" once an answer went out, and not for a failed one. */
+  const isAnswered = (item: Parameters<typeof askKey>[0]) => {
+    const last = lastAnswer(item);
+    if (!last || last.state === "failed") return null;
+    return last.answer?.choice === DISMISS_CHOICE ? "Dismissed" : "Answered";
   };
   const answerAsk = (
     item: Parameters<typeof askKey>[0],
@@ -474,10 +482,11 @@ export function ConsoleApp({
         onScope={() => setPicking(true)}
         selectedKey={askSelected}
         onSelect={(item) => setAskSelected(beamKey(item))}
-        answered={(item) => {
-          const last = lastAnswer(item);
-          return last && last.state !== "failed" ? "Answered" : null;
-        }}
+        answered={isAnswered}
+        query={beamQuery}
+        onQuery={setBeamQuery}
+        showAnswered={beamShowAnswered}
+        onShowAnswered={setBeamShowAnswered}
         now={now}
       />
     ) : section === "log" ? (
@@ -557,7 +566,7 @@ export function ConsoleApp({
       section={section}
       counts={{
         shields: shieldAlerts(shieldRows(shieldData)),
-        beam: beamRows?.length ?? 0,
+        beam: (beamRows ?? []).filter((r) => !isAnswered(r.item)).length,
       }}
       settingsOpen={settingsOpen}
       settings={

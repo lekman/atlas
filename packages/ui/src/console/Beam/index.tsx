@@ -9,6 +9,7 @@ import {
   waitingSource,
   type WaitingItem,
 } from "../../sidebar/waiting/model";
+import { ConsoleMenu } from "../ConsoleMenu";
 import { SectionHeading } from "../SectionHeading";
 
 /** One ask on the beam, with the client it belongs to, if any. */
@@ -43,13 +44,41 @@ export interface BeamListProps {
   onSelect(item: WaitingItem): void;
   /** What happened to the last answer to an ask, in a few words, if one was sent. */
   answered?(item: WaitingItem): string | null;
+  /** The words in the search box. */
+  query?: string;
+  onQuery?(query: string): void;
+  /** Whether asks already answered or dismissed show too. */
+  showAnswered?: boolean;
+  onShowAnswered?(show: boolean): void;
   now: Date;
+}
+
+/** Whether an ask matches the search words: every word in its question, asker, task or system. */
+export function matchesAsk(
+  row: BeamRow,
+  query: string,
+  operator: string,
+  systemName: string,
+): boolean {
+  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+  if (!words.length) return true;
+  const text = [
+    askText(row.item, operator).ask,
+    row.item.worker,
+    row.item.title,
+    systemName,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  return words.every((w) => text.includes(w));
 }
 
 /**
  * Beam: the approvals and questions that wait on the operator, from
  * Commander, its workers and the tasks, grouped by system with the oldest
- * first. Opening one shows the answer form beside the list, or over it on
+ * first. Asks already answered or dismissed are hidden until the filter
+ * shows them; the search matches the question, the asker and the task. Opening one shows the answer form beside the list, or over it on
  * a phone.
  */
 export function BeamList({
@@ -63,11 +92,22 @@ export function BeamList({
   selectedKey,
   onSelect,
   answered = () => null,
+  query = "",
+  onQuery = () => {},
+  showAnswered = false,
+  onShowAnswered = () => {},
   now,
 }: BeamListProps) {
-  const shown = (rows ?? []).filter(
+  const inScope = (rows ?? []).filter(
     (r) => !scope || r.client === scope || r.client === null,
   );
+  const answeredCount = inScope.filter((r) => answered(r.item)).length;
+  const shown = inScope.filter(
+    (r) =>
+      (showAnswered || !answered(r.item)) &&
+      matchesAsk(r, query, operator, r.client ? systemName(r.client) : "Other"),
+  );
+  const hidden = inScope.length - shown.length;
   const groups = new Map<string, BeamRow[]>();
   for (const r of shown) {
     const key = r.client ?? "";
@@ -94,10 +134,39 @@ export function BeamList({
           {n}
         </p>
       ))}
+      <div className="console-search">
+        <input
+          type="search"
+          className="console-search-input"
+          aria-label="Search asks"
+          placeholder="Search asks"
+          value={query}
+          onChange={(event) => onQuery(event.target.value)}
+        />
+        <ConsoleMenu
+          label="Filter"
+          name="the asks"
+          items={[
+            {
+              label: `Show answered (${answeredCount})`,
+              checked: showAnswered,
+              hint: "Asks you answered or dismissed, until Commander closes them",
+              onSelect: () => onShowAnswered(!showAnswered),
+            },
+          ]}
+        />
+      </div>
+      {hidden > 0 && rows !== null ? (
+        <p className="console-hidden-note">
+          {hidden} hidden by the search or the filter
+        </p>
+      ) : null}
       {rows === null ? (
         <p className="console-empty">Reading what waits on you…</p>
       ) : shown.length === 0 ? (
-        <p className="console-empty">Nothing waits on you.</p>
+        <p className="console-empty">
+          {inScope.length ? "No ask matches." : "Nothing waits on you."}
+        </p>
       ) : (
         ordered.map(([client, list]) => (
           <section

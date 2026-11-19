@@ -61,6 +61,7 @@ export {
   BeamDetail,
   beamKey,
   BeamList,
+  matchesAsk,
   type BeamDetailProps,
   type BeamListProps,
   type BeamRow,
