@@ -11,6 +11,7 @@
  * | GET  /api/stream        | Server-sent events after `?after=`, then each new one |
  * | GET  /api/items/:id/log | One item's log from the task database, newest first   |
  * | GET  /api/agents        | Every agent, its client, work, and live session       |
+ * | GET  /api/agents/:id/feed | What an agent reported and asked, newest first      |
  * | GET  /api/digest        | Open questions, idle agents with work, then alerts    |
  * | GET  /api/questions     | Agents' questions, `?state=open,answered,delivered`    |
  * | POST /api/questions/:id/answer | Answers an agent's question; the first wins     |
@@ -70,6 +71,7 @@ import {
   appendEvent,
   EventRejected,
   listEvents,
+  listRecentEvents,
   readDataset,
   readSnapshot,
   type Overlay,
@@ -89,6 +91,18 @@ const keepAliveMilliseconds = 25_000;
 const itemLogPath = /^\/api\/items\/([^/]+)\/log$/;
 
 /** An agent question's action routes: `/api/questions/<id>/answer` and `/close`. */
+/** One agent's feed: `/api/agents/<id>/feed`. */
+const agentFeedPath = /^\/api\/agents\/([a-z0-9][a-z0-9-]*)\/feed$/;
+
+/** The notes the session reader writes itself; a feed shows only what agents say. */
+const automaticNotes = new Set([
+  "Session busy",
+  "Session waiting on you",
+  "Session idle",
+  "Session offline",
+  "Usage limit reached",
+]);
+
 const questionActionPath =
   /^\/api\/questions\/([a-z0-9][a-z0-9-]*)\/(answer|close)$/;
 
@@ -366,6 +380,59 @@ export function createApi({
    * client, a task or a claimer; the unknown claimers' names are in the
    * list_agents reply, which needs a token.
    */
+  /**
+   * What one agent reported and asked, newest first: its own status
+   * reports (done, error, waiting, with its note) from the event log, and
+   * its questions with their state. The session reader's automatic notes
+   * are left out.
+   */
+  function agentFeed(agentId: string) {
+    const agent = readDataset(database).agents.find((a) => a.id === agentId);
+    if (!agent) return { agentId, items: [] };
+    const names = new Set(
+      [agent.id, agent.name, agent.id.replace(/^session-/, "")].map((n) =>
+        n
+          .trim()
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-"),
+      ),
+    );
+    const items: Array<Record<string, unknown>> = [];
+    for (const stored of listRecentEvents(database, 3000)) {
+      const event = stored.event;
+      if (
+        event.type === "status-change" &&
+        event.agentId === agentId &&
+        !automaticNotes.has(event.text) &&
+        !/^Usage limit/.test(event.text)
+      )
+        items.push({
+          kind: "status",
+          to: event.to,
+          text: event.text,
+          at: stored.receivedAt,
+          sequence: stored.sequence,
+        });
+      if (items.length >= 40) break;
+    }
+    for (const q of questions.list({}, everything)) {
+      if (!names.has(q.session.address)) continue;
+      items.push({
+        kind: "question",
+        id: q.id,
+        title: q.title,
+        state: q.state,
+        at: q.askedAt,
+        ...(q.answeredAt ? { answeredAt: q.answeredAt } : {}),
+        ...(q.answers
+          ? { answer: Object.values(q.answers).join("; ").slice(0, 300) }
+          : {}),
+      });
+    }
+    items.sort((a, b) => String(b.at).localeCompare(String(a.at)));
+    return { agentId, items: items.slice(0, 50) };
+  }
+
   function health() {
     const development = fakeDevelopment ? { development: "fake" } : {};
     const githubHealth = github
@@ -633,6 +700,9 @@ export function createApi({
       const sidebarResponse = await sidebar.handle(request, url);
       if (sidebarResponse) return sidebarResponse;
       const route = `${request.method} ${url.pathname}`;
+      const feedMatch = agentFeedPath.exec(url.pathname);
+      if (feedMatch?.[1] && request.method === "GET")
+        return json(agentFeed(feedMatch[1]));
       const questionMatch = questionActionPath.exec(url.pathname);
       if (questionMatch?.[1] && questionMatch[2] && request.method === "POST")
         return questionAction(
@@ -710,6 +780,12 @@ export function createApi({
                 status: agent.status,
                 note: agent.note,
                 workingOn: agent.workingOn,
+                ...(agent.activity ? { activity: agent.activity } : {}),
+                ...(agent.contextTokens !== undefined
+                  ? { contextTokens: agent.contextTokens }
+                  : {}),
+                ...(agent.activityAt ? { activityAt: agent.activityAt } : {}),
+                activityCounts: activity.counts(agent.id),
                 ...(live?.get(agent.id) ? { session: live.get(agent.id) } : {}),
               })),
           });

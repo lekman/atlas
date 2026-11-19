@@ -23,6 +23,12 @@ export interface AgentActivity {
   set(agentId: string, reading: ActivityReading): boolean;
   /** The agents with their fresh readings laid over them. */
   overlay(dataset: Dataset): Dataset;
+  /**
+   * How many readings of each activity an agent's current run of fresh
+   * readings holds: about the minutes it spent on each, since the collector
+   * reads once a minute. A run starts again after a stale gap.
+   */
+  counts(agentId: string): Partial<Record<Activity, number>>;
 }
 
 /** How long a reading counts: the collector's own "stopped" window. */
@@ -40,11 +46,17 @@ export function createAgentActivity({
   freshFor = ACTIVITY_FRESH_MS,
 }: { now?: () => Date; freshFor?: number } = {}): AgentActivity {
   const readings = new Map<string, ActivityReading & { at: number }>();
+  const tallies = new Map<string, Partial<Record<Activity, number>>>();
   const fresh = (at: number) => now().getTime() - at < freshFor;
 
   return {
     set(agentId, reading) {
       const before = readings.get(agentId);
+      const tally =
+        before && fresh(before.at) ? (tallies.get(agentId) ?? {}) : {};
+      if (reading.activity)
+        tally[reading.activity] = (tally[reading.activity] ?? 0) + 1;
+      tallies.set(agentId, tally);
       readings.set(agentId, { ...reading, at: now().getTime() });
       if (!before || !fresh(before.at))
         return reading.activity !== null || reading.contextTokens !== null;
@@ -61,6 +73,7 @@ export function createAgentActivity({
         if (!reading) return agent;
         if (!fresh(reading.at)) {
           readings.delete(agent.id);
+          tallies.delete(agent.id);
           return agent;
         }
         changed = true;
@@ -74,6 +87,12 @@ export function createAgentActivity({
         };
       });
       return changed ? { ...dataset, agents } : dataset;
+    },
+    counts(agentId) {
+      const reading = readings.get(agentId);
+      return reading && fresh(reading.at)
+        ? { ...(tallies.get(agentId) ?? {}) }
+        : {};
     },
   };
 }
