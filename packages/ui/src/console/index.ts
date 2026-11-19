@@ -65,6 +65,7 @@ export {
   VALUE_CHOICES,
   TaskDetail,
   ticketStatusOf,
+  ticketTone,
   type DatabaseState,
   type TaskDetailProps,
 } from "./TaskDetail";

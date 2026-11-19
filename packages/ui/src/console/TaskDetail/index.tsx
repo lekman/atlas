@@ -114,16 +114,25 @@ export function databaseStateOf(task: WorkItem): DatabaseState {
 }
 
 /**
- * The status the ticket line shows: Jira's own status when the Jira sync
- * has the issue, otherwise the task's status in Atlas.
+ * The ticket's own status, for its badge: Jira's status when the Jira sync
+ * has the issue, otherwise none.
  */
 export function ticketStatusOf(
   key: string | undefined,
   system: string | null,
   jiraStatuses: ReadonlyMap<string, string> | null | undefined,
-  fallback: string,
-): string {
-  return (system === "jira" && key && jiraStatuses?.get(key)) || fallback;
+): string | null {
+  return (system === "jira" && key && jiraStatuses?.get(key)) || null;
+}
+
+/** The badge's colour group, from the status's words. */
+export function ticketTone(
+  status: string,
+): "blocked" | "done" | "moving" | "waiting" {
+  if (/block|reject/i.test(status)) return "blocked";
+  if (/done|complete|closed|resolved/i.test(status)) return "done";
+  if (/progress|review|test|dev/i.test(status)) return "moving";
+  return "waiting";
 }
 
 function pullFacts(pull: PullRequest): string {
@@ -198,7 +207,7 @@ export function TaskDetail({
   const trackerUrl = safeUrl(field(fields, "url")) ?? safeUrl(task.link);
   const busy = Boolean(commanderBusy);
   const statusWord = `${status.label[0]!.toUpperCase()}${status.label.slice(1)}`;
-  const ticketStatus = ticketStatusOf(key, system, jiraStatuses, statusWord);
+  const ticketStatus = ticketStatusOf(key, system, jiraStatuses);
 
   const fromDatabase = Boolean(task.ref?.startsWith("db:"));
   const state = databaseStateOf(task);
@@ -294,6 +303,24 @@ export function TaskDetail({
   ];
   if (task.due) facts.push(["Due", task.due]);
   if (task.day) facts.push(["Planned", task.day]);
+  if (key && system)
+    facts.push([
+      "Ticket",
+      <span className="console-ticket" title={TRACKER_NAME[system]}>
+        {trackerUrl ? (
+          <a href={trackerUrl} target="_blank" rel="noreferrer noopener">
+            {key}
+          </a>
+        ) : (
+          <span>{key}</span>
+        )}
+        {ticketStatus ? (
+          <span className="console-badge" data-tone={ticketTone(ticketStatus)}>
+            {ticketStatus}
+          </span>
+        ) : null}
+      </span>,
+    ]);
   if (task.claimedBy) facts.push(["Agent", task.claimedBy]);
 
   return (
@@ -359,28 +386,6 @@ export function TaskDetail({
             </div>
           ))}
         </dl>
-
-        {key && system ? (
-          <section
-            className="console-detail-section console-detail-ticket"
-            aria-label="Ticket"
-          >
-            <h3 className="console-label">Ticket</h3>
-            <p className="console-ticket">
-              <span className="console-ticket-system">
-                {TRACKER_NAME[system]}
-              </span>{" "}
-              {trackerUrl ? (
-                <a href={trackerUrl} target="_blank" rel="noreferrer noopener">
-                  {key}
-                </a>
-              ) : (
-                <span>{key}</span>
-              )}
-              <span className="console-ticket-status"> · {ticketStatus}</span>
-            </p>
-          </section>
-        ) : null}
 
         {prs.length ? (
           <section

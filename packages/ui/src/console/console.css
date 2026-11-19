@@ -568,8 +568,28 @@
   color: var(--label);
 }
 
+/* A task row: the title takes the width; the state and Actions stack on the right. */
+.console-task .console-task-open {
+  grid-template-columns: minmax(0, 1fr);
+  padding-right: 6px;
+}
+
+.console-task .console-task-meta {
+  grid-column: 1;
+}
+
+.console-task-side {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  width: 36px;
+  padding: 10px 0 4px;
+}
+
 .console-task-state {
-  grid-row: 1 / span 2;
   width: 10px;
   height: 10px;
   border-radius: 50%;
@@ -1135,15 +1155,32 @@
 }
 
 .console-ticket {
-  margin: 0;
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
 }
 
-.console-ticket-system {
-  font: 600 13px/1.3 var(--face-heading);
+.console-badge {
+  --tone: var(--secondary);
+  padding: 1px 8px;
+  border: 1px solid var(--tone);
+  border-radius: 4px;
+  color: var(--tone);
+  font: 500 12px/1.5 var(--face-body);
+  white-space: nowrap;
 }
 
-.console-ticket-status {
-  color: var(--secondary);
+.console-badge[data-tone="moving"] {
+  --tone: var(--blue);
+}
+
+.console-badge[data-tone="done"] {
+  --tone: var(--mint);
+}
+
+.console-badge[data-tone="blocked"] {
+  --tone: var(--coral);
 }
 
 .console-pulls {
@@ -1263,8 +1300,6 @@
   clip-path: inset(50%);
 }
 
-
-
 /* Shields: network lists */
 
 .console-plain-list {
@@ -1324,22 +1359,30 @@
   align-items: center;
   min-height: 28px;
   overflow-wrap: anywhere;
-/* The row's Actions menu as a three-dot icon: a 44 px square target. */
+}
+
+/* The row's Actions menu as a three-dot icon under the state shape. */
 .console-task-move.console-menu-button {
   display: grid;
   place-items: center;
-  width: var(--target);
+  width: 32px;
+  min-width: 0;
+  height: 32px;
+  min-height: 0;
   padding: 0;
   border: 0;
-  border-left: 1px solid var(--line);
-  border-radius: 0 8px 8px 0;
+  border-radius: 6px;
   background: transparent;
 }
 
+.console-task-move.console-menu-button:hover {
+  background: var(--panel);
+}
+
 /*
- * The task detail's body. Narrow: facts, ticket, pull requests, page, one
- * under the other. From 820 px of pane: the description (facts, ticket,
- * page) on the left, the pull requests down the right.
+ * The task detail's body. Narrow: facts (the ticket among them), pull
+ * requests, details, one under the other. From 820 px of pane: the facts
+ * and details on the left, the pull requests down the right.
  */
 .console-pane-detail {
   container-type: inline-size;
@@ -1348,17 +1391,13 @@
 .console-detail-body {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-areas: "facts" "ticket" "pulls" "page";
+  grid-template-areas: "facts" "pulls" "page";
   column-gap: 28px;
   align-items: start;
 }
 
 .console-detail-body > .console-facts {
   grid-area: facts;
-}
-
-.console-detail-ticket {
-  grid-area: ticket;
 }
 
 .console-detail-pulls {
@@ -1372,10 +1411,9 @@
 @container (min-width: 820px) {
   .console-detail-body {
     grid-template-columns: minmax(0, 1.4fr) minmax(320px, 1fr);
-    grid-template-rows: auto auto 1fr;
+    grid-template-rows: auto 1fr;
     grid-template-areas:
       "facts pulls"
-      "ticket pulls"
       "page pulls";
   }
 

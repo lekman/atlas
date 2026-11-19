@@ -1,27 +1,32 @@
 import { describe, expect, it } from "bun:test";
 
-import { databaseStateOf, ticketStatusOf } from "../src/console";
+import { databaseStateOf, ticketStatusOf, ticketTone } from "../src/console";
 import type { WorkItem } from "../src/sidebar";
 
 describe("ticketStatusOf", () => {
   const jira = new Map([["A-1", "In Review"]]);
 
-  it("shows Jira's own status when the sync has the issue", () => {
-    expect(ticketStatusOf("A-1", "jira", jira, "In progress")).toBe(
-      "In Review",
-    );
+  it("gives Jira's own status when the sync has the issue", () => {
+    expect(ticketStatusOf("A-1", "jira", jira)).toBe("In Review");
   });
 
-  it("falls back to the Atlas status when the sync lacks the issue", () => {
-    expect(ticketStatusOf("A-2", "jira", jira, "In progress")).toBe(
-      "In progress",
-    );
-    expect(ticketStatusOf("A-1", "jira", null, "Planned")).toBe("Planned");
+  it("gives none when the sync lacks the issue", () => {
+    expect(ticketStatusOf("A-2", "jira", jira)).toBeNull();
+    expect(ticketStatusOf("A-1", "jira", null)).toBeNull();
   });
 
-  it("uses the Atlas status for monday.com and GitHub keys", () => {
-    expect(ticketStatusOf("A-1", "monday", jira, "Planned")).toBe("Planned");
-    expect(ticketStatusOf("o/r#1", "github", jira, "Done")).toBe("Done");
+  it("gives none for monday.com and GitHub keys", () => {
+    expect(ticketStatusOf("A-1", "monday", jira)).toBeNull();
+    expect(ticketStatusOf("o/r#1", "github", jira)).toBeNull();
+  });
+});
+
+describe("ticketTone", () => {
+  it("groups Jira statuses by their words", () => {
+    expect(ticketTone("In code review")).toBe("moving");
+    expect(ticketTone("Development Completed")).toBe("done");
+    expect(ticketTone("Blocked")).toBe("blocked");
+    expect(ticketTone("Open")).toBe("waiting");
   });
 });
 

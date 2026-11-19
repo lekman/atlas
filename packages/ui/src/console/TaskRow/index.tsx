@@ -23,10 +23,11 @@ const quadrantShort: Record<string, string> = {
 };
 
 /**
- * One task: its state as a shape (filled circle done, ring in progress,
- * dashed ring queued, square blocked), its title, its grade and its
- * Actions menu. The title opens the task; Actions is a separate button so
- * a thumb cannot open one when it means the other.
+ * One task: its title and grade, and in a narrow column on the right its
+ * state as a shape (filled circle done, ring in progress, dashed ring
+ * queued, square blocked) above its Actions menu, so the title gets the
+ * width. The title opens the task; Actions is a separate button so a thumb
+ * cannot open one when it means the other.
  */
 export function TaskRow({
   task,
@@ -49,7 +50,6 @@ export function TaskRow({
         aria-current={selected ? "true" : undefined}
         onClick={() => onSelect(task)}
       >
-        <span className="console-task-state" aria-hidden="true" />
         <span className="console-visually-hidden">
           {taskStateNames[state]}:{" "}
         </span>
@@ -61,16 +61,19 @@ export function TaskRow({
           {task.key ? <span>{task.key}</span> : null}
         </span>
       </button>
-      {actions.length ? (
-        <ConsoleMenu
-          label="Actions"
-          name={task.title}
-          items={actions}
-          footer={actionsFooter}
-          buttonClassName="console-task-move"
-          icon="more"
-        />
-      ) : null}
+      <span className="console-task-side">
+        <span className="console-task-state" aria-hidden="true" />
+        {actions.length ? (
+          <ConsoleMenu
+            label="Actions"
+            name={task.title}
+            items={actions}
+            footer={actionsFooter}
+            buttonClassName="console-task-move"
+            icon="more"
+          />
+        ) : null}
+      </span>
     </li>
   );
 }
