@@ -1,30 +1,18 @@
 import {
   backgrounds,
-  lightingPreferences,
-  worldLooks as worlds,
   type BackgroundChoice,
-  type LightingPreference,
   type SoundCategory,
   type SoundCue,
   type SoundSettings,
 } from "@atlas/worlds/looks";
 import { useId } from "react";
 
-import {
-  SIDEBAR_WORLDS,
-  type SidebarWorldId,
-} from "../../sidebar/theme/worlds";
 import { SectionHeading } from "../SectionHeading";
-import { SegmentedSwitch } from "../SegmentedSwitch";
 
 export interface ConsoleSettingsProps {
-  world: SidebarWorldId;
-  onWorld(world: SidebarWorldId): void;
-  lighting: LightingPreference;
-  onLighting(lighting: LightingPreference): void;
   sound: SoundSettings;
   onSound(sound: SoundSettings): void;
-  /** Plays one cue in the chosen world's voice. */
+  /** Plays one cue, so the reader hears what they are switching on. */
   onPreview(cue: SoundCue): void;
   /** How fresh the worklist is: "Live", "Synced 08:15", and why. */
   sync: { text: string; title: string; tone?: "normal" | "err" };
@@ -37,12 +25,6 @@ const categoryNames: Array<[SoundCategory, string, SoundCue]> = [
   ["needs", "Needs you and blocked", "needs"],
 ];
 
-const lightingNames: Record<LightingPreference, string> = {
-  automatic: "Automatic",
-  day: "Day",
-  night: "Night",
-};
-
 const backgroundChoices: Array<{
   id: BackgroundChoice;
   name: string;
@@ -53,16 +35,12 @@ const backgroundChoices: Array<{
 ];
 
 /**
- * The console's settings, the same ones the sidebar keeps on this device:
- * the world (whose voice the sounds use) and its lighting, the sound
- * switches and volume, and the background ambience. A change applies and
- * is saved at once.
+ * The console's settings, as the sidebar keeps them on this device: the
+ * sound switches and volume, and the background ambience. The console has
+ * one look, so there is no choice of world or lighting. A change applies
+ * and is saved at once.
  */
 export function ConsoleSettings({
-  world,
-  onWorld,
-  lighting,
-  onLighting,
   sound,
   onSound,
   onPreview,
@@ -81,44 +59,6 @@ export function ConsoleSettings({
       >
         Worklist: {sync.text}
       </p>
-
-      <fieldset className="console-settings-group">
-        <legend className="console-label">World</legend>
-        <p className="console-note">
-          The world chooses what each sound is like.
-        </p>
-        <div className="console-choices">
-          {SIDEBAR_WORLDS.map((w) => (
-            <label key={w} className="console-choice">
-              <input
-                type="radio"
-                name={`${id}-world`}
-                value={w}
-                checked={world === w}
-                onChange={() => onWorld(w)}
-              />
-              <span>
-                <strong>{worlds[w].name}</strong>
-                <em>{worlds[w].description}</em>
-              </span>
-            </label>
-          ))}
-        </div>
-        {worlds[world].night ? (
-          <div className="console-settings-row">
-            <span>Lighting</span>
-            <SegmentedSwitch
-              label="Lighting"
-              options={lightingPreferences.map((value) => ({
-                value,
-                name: lightingNames[value],
-              }))}
-              value={lighting}
-              onChange={onLighting}
-            />
-          </div>
-        ) : null}
-      </fieldset>
 
       <fieldset className="console-settings-group">
         <legend className="console-label">Sound</legend>

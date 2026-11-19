@@ -310,10 +310,6 @@ export function ConsoleApp({
       settingsOpen={settingsOpen}
       settings={
         <ConsoleSettings
-          world={prefs.world}
-          onWorld={prefs.setWorld}
-          lighting={prefs.lighting}
-          onLighting={prefs.setLighting}
           sound={prefs.sound}
           onSound={prefs.setSound}
           onPreview={prefs.preview}
