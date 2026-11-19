@@ -92,10 +92,23 @@ try {
         .catch(() => false))
     )
       problems.push(`${at}: the task detail has no details page section`);
+    // The page opens at its start; Read more shows the rest.
+    const readMore = tab.getByRole("button", { name: "Read more" });
+    const canRead = await readMore
+      .waitFor({ timeout: 5000 })
+      .then(() => true)
+      .catch(() => false);
+    if (!canRead) problems.push(`${at}: a long details page has no Read more`);
+    else if (await tab.getByText("Harness heading").isVisible())
+      problems.push(
+        `${at}: the details page shows past its start before Read more`,
+      );
+    else await readMore.click();
     if (
       !(await tab
         .getByText("Harness heading")
-        .isVisible({ timeout: 5000 })
+        .waitFor({ timeout: 5000 })
+        .then(() => true)
         .catch(() => false))
     )
       problems.push(`${at}: the details page body is not shown`);

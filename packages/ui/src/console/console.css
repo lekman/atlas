@@ -1285,6 +1285,22 @@
   color: var(--blue);
 }
 
+.console-read-more {
+  margin-top: 4px;
+  padding: 6px 0;
+  border: 0;
+  background: transparent;
+  color: var(--amber);
+  font: 500 11px/1.4 var(--face-label);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.console-read-more:hover {
+  text-decoration: underline;
+}
+
 .console-shimmer {
   min-height: 52px;
   background:
@@ -1479,8 +1495,8 @@
 }
 
 /*
- * The task detail's body. Narrow: facts (the ticket among them), pull
- * requests, details, one under the other. From 820 px of pane: the facts
+ * The task detail's body. Narrow: facts (the ticket among them), details,
+ * pull requests, one under the other. From 820 px of pane: the facts
  * and details on the left, the pull requests down the right.
  */
 .console-pane-detail {
@@ -1490,7 +1506,7 @@
 .console-detail-body {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-areas: "facts" "pulls" "page";
+  grid-template-areas: "facts" "page" "pulls";
   column-gap: 28px;
   align-items: start;
 }

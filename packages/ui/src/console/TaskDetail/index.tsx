@@ -1,4 +1,9 @@
-import { parseMarkdown, splitFrontMatter } from "@atlas/core/markdown";
+import {
+  inlineText,
+  parseMarkdown,
+  splitFrontMatter,
+  type Block,
+} from "@atlas/core/markdown";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { MarkdownBlocks } from "../../markdown/MarkdownBlocks";
@@ -125,6 +130,33 @@ export function databaseStateOf(task: WorkItem): DatabaseState {
   return flags.includes("active") ? "doing" : "todo";
 }
 
+/** About how much of a details page shows before Read more, in characters. */
+export const PREVIEW_CHARACTERS = 600;
+
+/**
+ * The start of a details page: its title, if it opens with one, then whole
+ * paragraphs until the first heading, list, table or other block, or until
+ * about PREVIEW_CHARACTERS have shown. Text is never cut inside a block.
+ * `more` says whether anything was left out.
+ */
+export function previewBlocks(
+  blocks: readonly Block[],
+  budget = PREVIEW_CHARACTERS,
+): { blocks: Block[]; more: boolean } {
+  const out: Block[] = [];
+  let i = 0;
+  if (blocks[0]?.type === "heading") out.push(blocks[i++]!);
+  let shown = 0;
+  while (i < blocks.length && shown < budget) {
+    const block = blocks[i]!;
+    if (block.type !== "paragraph") break;
+    out.push(block);
+    shown += inlineText(block.children).length;
+    i++;
+  }
+  return { blocks: out, more: i < blocks.length };
+}
+
 /**
  * The ticket's own status, for its badge: Jira's status when the Jira sync
  * has the issue, otherwise none.
@@ -234,10 +266,13 @@ export function TaskDetail({
   const [failed, setFailed] = useState<{ field: Field; why: string } | null>(
     null,
   );
+  const [expanded, setExpanded] = useState(false);
+  const preview = useMemo(() => previewBlocks(blocks), [blocks]);
   // biome-ignore lint/correctness/useExhaustiveDependencies: a new task starts clean.
   useEffect(() => {
     setPending(null);
     setFailed(null);
+    setExpanded(false);
   }, [task.ref]);
   const change = async (
     field: Field,
@@ -465,6 +500,67 @@ export function TaskDetail({
         </dl>
 
         <section
+          className="console-detail-section console-detail-page"
+          aria-label="Details"
+        >
+          <h3 className="console-label">
+            Details
+            {details.state === "ready" && details.copiedAt
+              ? ` · copy from ${formatAgo(new Date(details.copiedAt), now)}`
+              : ""}
+          </h3>
+          {details.state === "loading" ? (
+            <p className="console-note">Reading the page…</p>
+          ) : null}
+          {details.state === "none" ? (
+            <p className="console-note">No details recorded.</p>
+          ) : null}
+          {details.state === "none" && onPlan && !task.done ? (
+            <button
+              type="button"
+              className="console-secondary console-plan"
+              aria-disabled={busy || undefined}
+              title={
+                commanderBusy ??
+                "Ask Commander for a details page with a test plan"
+              }
+              onClick={() => !busy && onPlan(task)}
+            >
+              Plan
+            </button>
+          ) : null}
+          {details.state === "missing" ? (
+            <p className="console-note">
+              The page is in the vault, but this device cannot read it and has
+              no copy yet.
+            </p>
+          ) : null}
+          {details.state === "ready" ? (
+            <div className="console-md">
+              <MarkdownBlocks
+                blocks={expanded ? blocks : preview.blocks}
+                allowLink={httpsOnly}
+              />
+              {preview.more ? (
+                <button
+                  type="button"
+                  className="console-read-more"
+                  aria-expanded={expanded}
+                  onClick={() => setExpanded((was) => !was)}
+                >
+                  {expanded ? "Show less" : "Read more"}
+                </button>
+              ) : null}
+              {details.page.truncated && (expanded || !preview.more) ? (
+                <p className="console-note">
+                  Only the start of a long page is shown.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+        </section>
+
+        <section
           className="console-detail-section console-detail-pulls"
           aria-label="Pull requests"
         >
@@ -521,54 +617,6 @@ export function TaskDetail({
                 </li>
               ))}
             </ul>
-          ) : null}
-        </section>
-
-        <section
-          className="console-detail-section console-detail-page"
-          aria-label="Details"
-        >
-          <h3 className="console-label">
-            Details
-            {details.state === "ready" && details.copiedAt
-              ? ` · copy from ${formatAgo(new Date(details.copiedAt), now)}`
-              : ""}
-          </h3>
-          {details.state === "loading" ? (
-            <p className="console-note">Reading the page…</p>
-          ) : null}
-          {details.state === "none" ? (
-            <p className="console-note">No details recorded.</p>
-          ) : null}
-          {details.state === "none" && onPlan && !task.done ? (
-            <button
-              type="button"
-              className="console-secondary console-plan"
-              aria-disabled={busy || undefined}
-              title={
-                commanderBusy ??
-                "Ask Commander for a details page with a test plan"
-              }
-              onClick={() => !busy && onPlan(task)}
-            >
-              Plan
-            </button>
-          ) : null}
-          {details.state === "missing" ? (
-            <p className="console-note">
-              The page is in the vault, but this device cannot read it and has
-              no copy yet.
-            </p>
-          ) : null}
-          {details.state === "ready" ? (
-            <div className="console-md">
-              <MarkdownBlocks blocks={blocks} allowLink={httpsOnly} />
-              {details.page.truncated ? (
-                <p className="console-note">
-                  Only the start of a long page is shown.
-                </p>
-              ) : null}
-            </div>
           ) : null}
         </section>
       </div>

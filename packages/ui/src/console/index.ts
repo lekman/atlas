@@ -60,6 +60,8 @@ export { dueWords, TaskRow, type TaskRowProps } from "./TaskRow";
 export {
   DATABASE_STATE_WORDS,
   databaseStateOf,
+  PREVIEW_CHARACTERS,
+  previewBlocks,
   EFFORT_CHOICES,
   type GradeChange,
   VALUE_CHOICES,
