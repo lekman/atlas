@@ -37,6 +37,10 @@ export interface ConsoleFrameProps extends Omit<TopBarProps, "compact"> {
   onSelectSection(section: Section): void;
   /** Called when the reader leaves an item on a one-pane screen. */
   onBack(): void;
+  /** Whether sound is on, for the rail's sound button. */
+  soundOn?: boolean;
+  /** Turns sound on or off from the rail. Leave out to show no sound button. */
+  onSound?(): void;
   /** Called when the reader opens or closes settings. */
   onSettings(): void;
 }
@@ -65,6 +69,8 @@ export function ConsoleFrame({
   onSelectSection,
   onBack,
   onSettings,
+  soundOn = false,
+  onSound,
   ...topBar
 }: ConsoleFrameProps) {
   const frame = useRef<HTMLDivElement>(null);
@@ -163,6 +169,8 @@ export function ConsoleFrame({
           onSelect={onSelectSection}
           onSwap={swap}
           onSettings={onSettings}
+          soundOn={soundOn}
+          {...(onSound ? { onSound } : {})}
         />
         <main className="console-panes">{panes}</main>
       </div>

@@ -296,6 +296,11 @@
   background: var(--panel);
 }
 
+/* Sound on lights the speaker; off shows it struck through, in the rail's colour. */
+.console-rail-sound[aria-pressed="true"] {
+  color: var(--amber);
+}
+
 .console-rail-word {
   font: 500 10px/1 var(--face-heading);
   letter-spacing: 0.04em;

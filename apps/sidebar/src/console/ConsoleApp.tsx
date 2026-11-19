@@ -400,6 +400,10 @@ export function ConsoleApp({
         setShield(null);
       }}
       onSettings={() => setSettingsOpen((open) => !open)}
+      soundOn={prefs.sound.enabled}
+      onSound={() =>
+        prefs.setSound({ ...prefs.sound, enabled: !prefs.sound.enabled })
+      }
     />
   );
 }
