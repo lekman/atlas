@@ -584,9 +584,14 @@
   flex-direction: column;
   align-items: center;
   justify-content: space-between;
-  gap: 4px;
+  gap: 6px;
   width: 36px;
   padding: 10px 0 4px;
+}
+
+.console-task-side .console-grade {
+  padding: 1px 4px;
+  font-size: 10px;
 }
 
 .console-task-state {

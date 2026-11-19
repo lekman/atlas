@@ -23,10 +23,10 @@ const quadrantShort: Record<string, string> = {
 };
 
 /**
- * One task: its title and grade, and in a narrow column on the right its
- * state as a shape (filled circle done, ring in progress, dashed ring
- * queued, square blocked) above its Actions menu, so the title gets the
- * width. The title opens the task; Actions is a separate button so a thumb
+ * One task: its title, effort, due date and key, and in a narrow column on
+ * the right its state as a shape (filled circle done, ring in progress,
+ * dashed ring queued, square blocked), its quadrant and its Actions menu,
+ * so the title gets the width. The title opens the task; Actions is a separate button so a thumb
  * cannot open one when it means the other.
  */
 export function TaskRow({
@@ -55,7 +55,6 @@ export function TaskRow({
         </span>
         <span className="console-task-title">{task.title}</span>
         <span className="console-task-meta">
-          {quadrant ? <span className="console-grade">{quadrant}</span> : null}
           {task.effort ? <span>{task.effort}</span> : null}
           {task.due ? <span>due {task.due.slice(5)}</span> : null}
           {task.key ? <span>{task.key}</span> : null}
@@ -63,6 +62,7 @@ export function TaskRow({
       </button>
       <span className="console-task-side">
         <span className="console-task-state" aria-hidden="true" />
+        {quadrant ? <span className="console-grade">{quadrant}</span> : null}
         {actions.length ? (
           <ConsoleMenu
             label="Actions"
