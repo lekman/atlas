@@ -291,6 +291,24 @@ try {
   if (!/"move"/.test(docs) || !/db:2/.test(docs))
     problems.push("offline: the move was not queued in the phone inbox");
   await tab.close();
+
+  // A host without the log: Log says why instead of reading for ever.
+  const noLog = await browser.newPage({
+    viewport: { width: 466, height: 700 },
+  });
+  await noLog.route("**/*", (route) => route.abort());
+  await noLog.setContent(
+    wrapPage(source).replace(
+      '"host:dashboard/task_log"',
+      '"host:dashboard/task_log_missing"',
+    ),
+    { waitUntil: "load" },
+  );
+  await noLog.getByRole("button", { name: /^Log/ }).first().click();
+  await noLog.waitForTimeout(1500);
+  if (await noLog.getByText("Reading the log…").isVisible())
+    problems.push("no log: Log keeps reading when the host has no log");
+  await noLog.close();
 } finally {
   await browser.close();
 }
@@ -300,5 +318,5 @@ if (problems.length) {
   process.exit(1);
 }
 console.log(
-  `✓ one file, ${Math.round(source.length / 1024)} KB; sidebar, folding phone closed and open, and laptop render with no errors; Status to Done, Grade, Move, Radar's Plan, the Log, the task detail with its page and pull request, Shields and an offline move work`,
+  `✓ one file, ${Math.round(source.length / 1024)} KB; sidebar, folding phone closed and open, and laptop render with no errors; Status to Done, Grade, Move, Radar's Plan, the Log (and without one), the task detail with its page and pull request, Shields and an offline move work`,
 );

@@ -1,4 +1,4 @@
-import type { Runtime } from "@atlas/runtime";
+import { describeError, type Runtime, type RuntimeError } from "@atlas/runtime";
 import {
   ConsoleFrame,
   ConsoleSettings,
@@ -41,7 +41,7 @@ import {
   syncLabel,
   type WorkItem,
 } from "@atlas/ui/sidebar";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import type { SidebarConfig } from "../config";
 import { dayKey } from "../day";
@@ -76,6 +76,30 @@ const syncedAtOf = (value: unknown): string | null => {
   const at = (value as { syncedAt?: unknown } | null)?.syncedAt;
   return typeof at === "string" ? at : null;
 };
+
+/**
+ * Why the log shows nothing, in words, when it has no copy: the host's own
+ * error, or, for the errors the feed keeps quiet, what they mean here.
+ */
+function logNote(
+  log: {
+    data: unknown;
+    error: { text: string } | null;
+    failure: { code: string } | null;
+  },
+  late: boolean,
+): string | null {
+  if (log.error) return log.error.text;
+  if (log.data) return null;
+  if (log.failure)
+    return log.failure.code === "server_not_connected" ||
+      log.failure.code === "not_granted"
+      ? "The log comes from the dashboard server on your Mac. This device can't reach it, and no copy is stored yet; open the console on the Mac once."
+      : describeError(log.failure as RuntimeError, "The dashboard server");
+  return late
+    ? "The dashboard server hasn't answered yet. If this stays, its copy on this device may need updating to read the log."
+    : null;
+}
 
 const SCOPE_KEY = "atlas-console-scope";
 
@@ -197,6 +221,13 @@ export function ConsoleApp({
     "The dashboard host",
   );
   const [logView, setLogView] = useState<LogView>("days");
+  // The log never waits silently: after 20 seconds without an answer, it says so.
+  const [logLate, setLogLate] = useState(false);
+  useEffect(() => {
+    if (log.data || log.failure) return;
+    const timer = setTimeout(() => setLogLate(true), 20000);
+    return () => clearTimeout(timer);
+  }, [log.data, log.failure]);
   const [showTracked, setShowTracked] = useState(false);
   const ticketRef = (t: RadarTicket) => `${t.system}:${t.key}`;
 
@@ -376,8 +407,8 @@ export function ConsoleApp({
       <LogList
         view={logView}
         onViewChange={setLogView}
-        items={log.data?.items ?? (log.error ? [] : null)}
-        note={log.error?.text ?? null}
+        items={log.data?.items ?? (log.failure || logLate ? [] : null)}
+        note={logNote(log, logLate)}
         copyFrom={
           !log.live && log.data?.fetchedAt
             ? formatAgo(new Date(log.data.fetchedAt), now)
