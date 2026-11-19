@@ -406,6 +406,18 @@
   letter-spacing: 0.04em;
 }
 
+/* An icon in a chip, such as the Filter beside the scope button. */
+.console-chip.console-icon-chip {
+  justify-content: center;
+  min-width: var(--target);
+  padding: 0;
+}
+
+.console-chip.console-icon-chip .console-icon {
+  width: 18px;
+  height: 18px;
+}
+
 .console-chip {
   display: inline-flex;
   align-items: center;

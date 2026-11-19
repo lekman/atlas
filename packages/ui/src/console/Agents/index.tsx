@@ -68,12 +68,12 @@ export function AgentsList({
         title="Agents"
         scope={scope ? systemName(scope) : null}
         {...(onScope ? { onScope } : {})}
-      />
-      <div className="console-toolbar">
-        <span />
+      >
         <ConsoleMenu
           label="Filter"
           name="the agents"
+          icon="filter"
+          buttonClassName="console-chip console-icon-chip"
           items={[
             {
               label: `Show offline (${offline})`,
@@ -82,17 +82,12 @@ export function AgentsList({
             },
           ]}
         />
-      </div>
+      </SectionHeading>
       {notes.map((n) => (
         <p key={n} className="console-request" role="status">
           {n}
         </p>
       ))}
-      {!showOffline && offline > 0 && agents ? (
-        <p className="console-hidden-note">
-          {offline} offline hidden by the filter
-        </p>
-      ) : null}
       {agents === null ? (
         <p className="console-empty">Reading the agents…</p>
       ) : shown.length === 0 ? (

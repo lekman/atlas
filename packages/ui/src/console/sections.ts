@@ -52,6 +52,7 @@ export const consoleIcons = {
   settings: `<g ${stroke}><circle cx="12" cy="12" r="3"/><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8"/></g>`,
   back: `<g ${stroke}><path d="M15 5l-7 7 7 7"/></g>`,
   calendar: `<g ${stroke}><rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></g>`,
+  filter: `<g ${stroke}><path d="M4 5.5h16l-6.2 7.4v5.4l-3.6 1.9v-7.3z"/></g>`,
   sound: `<g ${stroke}><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></g>`,
   muted: `<g ${stroke}><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></g>`,
   more: `<circle cx="5.5" cy="12" r="1.8" fill="currentColor"/><circle cx="12" cy="12" r="1.8" fill="currentColor"/><circle cx="18.5" cy="12" r="1.8" fill="currentColor"/>`,
