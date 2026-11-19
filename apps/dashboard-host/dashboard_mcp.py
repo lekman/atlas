@@ -696,6 +696,60 @@ def host_network(args: dict) -> dict:
     except ValueError:
         raise RuntimeError("Atlas's answer wasn't JSON") from None
 
+def _atlas_url() -> str:
+    conf = host_config.config_file("atlas.json")
+    if not conf.exists():
+        raise RuntimeError("atlas.json isn't in the configuration folder yet")
+    url = str(json.loads(conf.read_text(encoding="utf-8")).get("url") or "").rstrip("/")
+    if not url.startswith("https://"):
+        raise RuntimeError("atlas.json needs an https url")
+    return url
+
+
+def agents(args: dict) -> dict:
+    """Every agent from the Atlas server, with its client mapped to the page's customer key and the
+    tasks it works on as worklist refs. Serve names the caller, so no token is sent."""
+    import tasks_source
+    req = urllib.request.Request(_atlas_url() + "/api/agents", headers={"Accept": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=10) as r:
+            result = json.loads(r.read() or b"{}")
+    except urllib.error.HTTPError as ex:
+        raise RuntimeError(f"Atlas answered HTTP {ex.code}") from None
+    except (urllib.error.URLError, TimeoutError, OSError):
+        raise RuntimeError("Atlas didn't answer; is the Mac mini awake and on the tailnet?") from None
+    except ValueError:
+        raise RuntimeError("Atlas's answer wasn't JSON") from None
+    conf = tasks_source.config() or {"clients": {}}
+    for a in result.get("agents") or []:
+        a["customer"] = conf["clients"].get(a.get("clientId"), "other")
+        a["refs"] = [tasks_source.REF_PREFIX + i for i in a.get("workingOn") or [] if isinstance(i, str)]
+    result["fetchedAt"] = datetime.now(timezone.utc).isoformat()
+    return result
+
+
+NUDGE = ("Nudge from Tobias, sent from Atlas: what's your status? If you have agreed work waiting, carry on "
+         "with it (/planner:next); if you're blocked, say on what.")
+
+
+def agent_message(args: dict) -> dict:
+    """Sends a message to an agent session by name through the tasks server's relay, as Commander
+    does. With nudge true and no text, sends the standard nudge."""
+    import tasks_source
+    conf = tasks_source.config()
+    if conf is None:
+        raise RuntimeError("tasks.json isn't set up")
+    to = str(args.get("to") or "").strip()[:96]
+    client = str(args.get("clientId") or "").strip()[:128]
+    text = str(args.get("text") or "").strip()[:4000] or (NUDGE if args.get("nudge") else "")
+    if not to or not client or not text:
+        raise RuntimeError("a message needs to, clientId and text (or nudge)")
+    sent = tasks_source.call(conf, "message_send", {"by": conf.get("by") or "Dashboard", "to": to,
+                                                    "clientId": client, "text": text})
+    return {"sent": True, "to": to, "nudge": bool(args.get("nudge") and not args.get("text")),
+            "id": (sent or {}).get("id") if isinstance(sent, dict) else None}
+
+
 TOOLS = [{
     "name": "release_status",
     "title": "Release status",
@@ -852,6 +906,26 @@ TOOLS = [{
     "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
     "annotations": {"readOnlyHint": True, "openWorldHint": True},
 }, {
+    "name": "agents",
+    "title": "Agents",
+    "description": "Every agent from the Atlas server: id, name, client (clientId and the page's customer key), host, "
+                   "status, note, the tasks it works on (workingOn ids and worklist refs) and its live session's "
+                   "state and activity (start, tool calls, latest call) when the server's machine has one. "
+                   "Changes nothing.",
+    "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
+    "annotations": {"readOnlyHint": True, "openWorldHint": True},
+}, {
+    "name": "agent_message",
+    "title": "Message an agent",
+    "description": "Sends a message to an agent session by its name, through the tasks server's relay, as Commander "
+                   "does: {to, clientId, text}. With nudge true and no text, sends the standard nudge asking for a "
+                   "status. Returns {sent, to, nudge, id}.",
+    "inputSchema": {"type": "object", "properties": {
+        "to": {"type": "string", "maxLength": 96}, "clientId": {"type": "string", "maxLength": 128},
+        "text": {"type": "string", "maxLength": 4000}, "nudge": {"type": "boolean"}},
+        "required": ["to", "clientId"], "additionalProperties": False},
+    "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False},
+}, {
     "name": "commander_answer",
     "title": "Answer an ask",
     "description": "Send Tobias's answer to a Waiting on you ask to Commander, as an 'answer' request: a chosen option, "
@@ -958,11 +1032,12 @@ def handle(msg: dict):
                 log(name, "failed:", ex)
                 return {"content": [{"type": "text", "text": str(ex)[:300]}], "isError": True}
         if name in ("commander_send", "commander_requests", "commander_plan", "details_read", "task_prs", "host_stats",
-                    "host_network", "waiting_on_you", "commander_answer"):
+                    "host_network", "waiting_on_you", "commander_answer", "agents", "agent_message"):
             try:
                 fn = {"commander_send": commander_send, "commander_requests": commander_requests,
                       "commander_plan": commander_plan, "details_read": details_read, "task_prs": task_prs,
-                      "host_stats": host_stats, "host_network": host_network, "waiting_on_you": waiting_on_you, "commander_answer": commander_answer}[name]
+                      "host_stats": host_stats, "host_network": host_network, "waiting_on_you": waiting_on_you, "commander_answer": commander_answer,
+                      "agents": agents, "agent_message": agent_message}[name]
                 result = fn(params.get("arguments") or {})
                 return {"content": [{"type": "text", "text": json.dumps(result)}], "structuredContent": result, "isError": False}
             except Exception as ex:

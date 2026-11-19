@@ -17,6 +17,8 @@ import { splitCommand } from "./task-database";
  * Any other name is refused before it reaches the dashboard server.
  */
 export const dashboardTools = [
+  "agent_message",
+  "agents",
   "commander_answer",
   "commander_plan",
   "commander_requests",
