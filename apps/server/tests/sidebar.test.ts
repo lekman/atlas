@@ -103,6 +103,8 @@ describe("the dashboard tool route", () => {
 
   test("allows exactly the tools the sidebar calls", () => {
     expect([...dashboardTools].sort()).toEqual([
+      "agent_message",
+      "agents",
       "commander_answer",
       "commander_plan",
       "commander_requests",

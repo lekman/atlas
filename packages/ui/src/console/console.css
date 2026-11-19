@@ -1512,6 +1512,24 @@
   text-decoration: underline;
 }
 
+/* Agents: a row's note is one line; the detail's note reads whole. */
+.console-agent-note {
+  margin-top: 2px;
+  color: var(--secondary);
+  font-size: 12px;
+}
+
+.console-agent-doing {
+  margin: 0;
+  color: var(--text);
+}
+
+.console-agent-tasks {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
 /* Beam: an ask in full and its answer form. */
 .console-beam-source {
   margin: 4px 0 12px;

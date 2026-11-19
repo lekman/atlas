@@ -252,3 +252,15 @@ export {
   type SidebarRoutes,
   type SidebarRoutesOptions,
 } from "./sidebar-routes";
+export {
+  createRosterSource,
+  readMachines,
+  readRoster,
+  rosterId,
+  syncRoster,
+  type Roster,
+  type RosterAgent,
+  type RosterMachines,
+  type RosterSource,
+  type RosterSyncResult,
+} from "./roster-source";

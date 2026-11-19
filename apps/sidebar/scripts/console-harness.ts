@@ -276,6 +276,30 @@ try {
       )
         problems.push(`${at}: Beam does not say the answered ask is hidden`);
     }
+    // Agents lists who is online by machine, hides the offline, and nudges.
+    await tab
+      .getByRole("button", { name: /^Agents/ })
+      .first()
+      .click();
+    if (
+      !(await tab
+        .getByText("Ops Desk", { exact: true })
+        .waitFor({ timeout: 5000 })
+        .then(() => true)
+        .catch(() => false))
+    )
+      problems.push(`${at}: Agents shows no agent`);
+    if (await tab.getByText("Gone Agent", { exact: true }).isVisible())
+      problems.push(`${at}: Agents shows an offline agent`);
+    await tab.getByRole("button", { name: /^Actions for Ops Desk/ }).click();
+    await tab.getByRole("menuitem", { name: "Nudge" }).click();
+    await tab.waitForTimeout(300);
+    const nudged = (
+      (await tab.evaluate(
+        () => (window as unknown as { __calls?: Calls }).__calls ?? [],
+      )) as Calls
+    ).some((c) => c.tool === "agent_message" && c.args.nudge === true);
+    if (!nudged) problems.push(`${at}: Nudge did not reach agent_message`);
     // Log lists what was finished, with its points.
     await tab.getByRole("button", { name: /^Log/ }).first().click();
     if (
@@ -359,5 +383,5 @@ if (problems.length) {
   process.exit(1);
 }
 console.log(
-  `✓ one file, ${Math.round(source.length / 1024)} KB; sidebar, folding phone closed and open, and laptop render with no errors; Status to Done, Grade, Move, Radar's Plan, a Beam answer, the Log (and without one), the task detail with its page and pull request, Shields and an offline move work`,
+  `✓ one file, ${Math.round(source.length / 1024)} KB; sidebar, folding phone closed and open, and laptop render with no errors; Status to Done, Grade, Move, Radar's Plan, a Beam answer, an Agents nudge, the Log (and without one), the task detail with its page and pull request, Shields and an offline move work`,
 );

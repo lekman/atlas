@@ -10,6 +10,7 @@
  * | POST /api/events        | Adds one event, writes its effect and streams it      |
  * | GET  /api/stream        | Server-sent events after `?after=`, then each new one |
  * | GET  /api/items/:id/log | One item's log from the task database, newest first   |
+ * | GET  /api/agents        | Every agent, its client, work, and live session       |
  * | GET  /api/digest        | Open questions, idle agents with work, then alerts    |
  * | GET  /api/questions     | Agents' questions, `?state=open,answered,delivered`    |
  * | POST /api/questions/:id/answer | Answers an agent's question; the first wins     |
@@ -191,6 +192,8 @@ export interface ApiOptions {
   github?: GithubReader;
   /** Live agent status from Claude Code's session files. Leave out to keep it off. */
   sessions?: SessionReader;
+  /** Commander's roster, kept in step with the agents; a change reloads open pages. */
+  roster?: { subscribe(listener: () => void): () => void };
   /** The dispatcher, for its digest list. Leave out when it is off. */
   dispatcher?: Dispatcher;
   /**
@@ -248,6 +251,7 @@ export function createApi({
   fakeDevelopment = false,
   github,
   sessions,
+  roster,
   dispatcher,
   messages,
   idle,
@@ -320,6 +324,10 @@ export function createApi({
   sessions?.connect({
     dataset: () => readDataset(database, overlay),
     record,
+  });
+  const stopRoster = roster?.subscribe(() => {
+    const frame = refreshFrame(tasks?.health().lastRefresh ?? null);
+    for (const write of streams) write(frame);
   });
   const stopSessions = sessions?.subscribe(() => {
     const frame = refreshFrame(tasks?.health().lastRefresh ?? null);
@@ -682,6 +690,30 @@ export function createApi({
         }
         case "POST /api/events":
           return postEvent(request);
+        case "GET /api/agents": {
+          // Every agent but launched vessels, with its client, the tasks it
+          // works on, and its live session's state and activity, if any.
+          const dataset = served(readDataset(database, overlay));
+          const clientOf = new Map(
+            dataset.groups.map((g) => [g.id, g.clientId]),
+          );
+          const live = sessions?.agentSessions();
+          return json({
+            agents: dataset.agents
+              .filter((agent) => !agent.parentId)
+              .map((agent) => ({
+                id: agent.id,
+                name: agent.name,
+                clientId: clientOf.get(agent.groupId) ?? null,
+                host: agent.host,
+                reach: agent.reach,
+                status: agent.status,
+                note: agent.note,
+                workingOn: agent.workingOn,
+                ...(live?.get(agent.id) ? { session: live.get(agent.id) } : {}),
+              })),
+          });
+        }
         case "GET /api/digest":
           // Agents' open questions first, oldest first; then agents idle
           // with open work, longest first; then the alerts the dispatcher
@@ -716,6 +748,7 @@ export function createApi({
       stopRefreshes?.();
       stopGithub?.();
       stopSessions?.();
+      stopRoster?.();
       stopIdle?.();
       for (const finish of [...closers]) finish();
     },

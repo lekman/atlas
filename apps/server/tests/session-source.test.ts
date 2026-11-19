@@ -330,6 +330,27 @@ describe("the session reader", () => {
     expect(agentById("test-runner")?.note).toBe("Session offline");
   });
 
+  test("keeps a live session's start, tool calls and latest call", () => {
+    writeFileSync(
+      join(directory, "13.json"),
+      JSON.stringify({
+        pid: 13,
+        name: "schema",
+        status: "busy",
+        startedAt: Date.parse("2026-10-24T07:00:00Z"),
+        toolCalls: 42,
+        lastCallAt: Date.parse("2026-10-24T08:59:00Z"),
+      }),
+    );
+    alive.add(13);
+    reader.poll();
+    expect(reader.agentSessions()?.get("schema")?.activity).toEqual({
+      startedAt: "2026-10-24T07:00:00.000Z",
+      toolCalls: 42,
+      lastCallAt: "2026-10-24T08:59:00.000Z",
+    });
+  });
+
   test("knows nothing of agent sessions until a read has worked", () => {
     expect(reader.agentSessions()).toBeUndefined();
   });
@@ -339,12 +360,12 @@ describe("the session reader", () => {
     write(11, "schema", "idle", changed);
     write(12, "portal", "busy", 0);
     reader.poll();
-    expect(reader.agentSessions()?.get("schema")).toEqual({
+    expect(reader.agentSessions()?.get("schema")).toMatchObject({
       state: "idle",
       since: "2026-10-24T08:20:00.000Z",
     });
     // Without a change time, the state counts from when the reader first saw it.
-    expect(reader.agentSessions()?.get("portal")).toEqual({
+    expect(reader.agentSessions()?.get("portal")).toMatchObject({
       state: "busy",
       since: "2026-10-24T09:00:00.000Z",
     });

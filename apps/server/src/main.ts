@@ -23,6 +23,7 @@ import { tasksMessages } from "./agent-questions";
 import { defaultDispatcherSettings } from "./dispatcher-rules";
 import { createGithubReader } from "./github-reader";
 import { createIdleWatcher } from "./idle-with-work";
+import { createRosterSource, readMachines } from "./roster-source";
 import { createSessionReader } from "./session-source";
 import { createHostNetwork, tailscaleDevices } from "./host-network";
 import { sidebarPageFile } from "./sidebar-routes";
@@ -133,6 +134,17 @@ const switcher = accounts
     })
   : undefined;
 
+// Commander's roster, kept in step with the agents, read before the
+// sessions so docked agents take the roster's name for this machine.
+const roster = configuration.rosterFile
+  ? createRosterSource({
+      path: configuration.rosterFile,
+      machines: readMachines(configuration.rosterMachinesFile),
+      database,
+    })
+  : undefined;
+roster?.poll();
+
 // Live agent status from Claude Code's session files, when configured: one
 // folder, or one per account.
 const sessions = configuration.sessions
@@ -150,6 +162,7 @@ const sessions = configuration.sessions
           }
         : {}),
       database,
+      ...(roster?.hostName() ? { host: roster.hostName()! } : {}),
       pollSeconds: configuration.sessions.pollSeconds,
       forgetHours: configuration.sessions.forgetHours,
       ...(switcher
@@ -203,6 +216,7 @@ const api = createApi({
   ...(tasks ? { tasks } : {}),
   ...(github ? { github } : {}),
   ...(sessions ? { sessions } : {}),
+  ...(roster ? { roster } : {}),
   ...(signalDispatcher ? { dispatcher: signalDispatcher } : {}),
   ...(configuration.messages
     ? {
@@ -232,6 +246,7 @@ if (github) {
   github.poll();
   github.start();
 }
+if (roster) roster.start();
 if (sessions) {
   sessions.poll();
   sessions.start();

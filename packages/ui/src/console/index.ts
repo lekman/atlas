@@ -58,6 +58,21 @@ export {
 export { SegmentedSwitch, type SegmentedSwitchProps } from "./SegmentedSwitch";
 export { ConsoleSettings, type ConsoleSettingsProps } from "./ConsoleSettings";
 export {
+  AgentDetail,
+  AgentsList,
+  type AgentDetailProps,
+  type AgentsListProps,
+} from "./Agents";
+export {
+  AGENT_STATE_WORDS,
+  agentsByHost,
+  agentState,
+  readAgents,
+  type AgentRecord,
+  type AgentsDoc,
+  type AgentState,
+} from "./agent-state";
+export {
   BeamDetail,
   beamKey,
   BeamList,
