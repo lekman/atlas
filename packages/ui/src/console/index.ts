@@ -57,6 +57,12 @@ export {
 } from "./MissionsList";
 export { SegmentedSwitch, type SegmentedSwitchProps } from "./SegmentedSwitch";
 export { ConsoleSettings, type ConsoleSettingsProps } from "./ConsoleSettings";
+export {
+  HostLineChart,
+  pointTime,
+  pointValue,
+  type HostLineChartProps,
+} from "./HostLineChart";
 export { dueWords, TaskRow, type TaskRowProps } from "./TaskRow";
 export {
   DATABASE_STATE_WORDS,

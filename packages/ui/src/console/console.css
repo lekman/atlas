@@ -850,13 +850,65 @@
 }
 
 /* Three times the sidebar's height, stretched to the pane, so a day's swings show. */
-.console-line svg {
-  display: block;
-  width: 100%;
+.console-chart {
+  position: relative;
   height: 132px;
   border: 1px solid var(--line);
   border-radius: 6px;
   background: var(--card);
+  cursor: crosshair;
+  /* A finger moving sideways reads the points; up and down still scrolls. */
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.console-chart svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.console-chart-guide {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--line-faint);
+  pointer-events: none;
+}
+
+.console-chart-dot {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  margin: -4px 0 0 -4px;
+  border: 2px solid var(--ground);
+  border-radius: 50%;
+  background: var(--amber);
+  pointer-events: none;
+}
+
+.console-chart-tip {
+  position: absolute;
+  top: 6px;
+  padding: 3px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  background: var(--panel);
+  color: var(--text);
+  font: 500 12px/1.4 var(--face-label);
+  white-space: nowrap;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.console-chart-tip[data-edge="start"] {
+  transform: translateX(-4px);
+}
+
+.console-chart-tip[data-edge="end"] {
+  transform: translateX(calc(-100% + 4px));
 }
 
 .console-line-value {

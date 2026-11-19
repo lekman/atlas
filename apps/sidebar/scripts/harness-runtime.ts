@@ -24,7 +24,11 @@ export const shim = `(() => {
     "host:dashboard/host_stats": () => ({ structuredContent: { hosts: [{
       clientId: "home", host: "harness-host", lastSeen: new Date().toISOString(),
       latest: { cpuPct: 12, memFreePct: 70, diskFreeGb: 80, runnersBusy: 2, runnersMax: 4 },
-      samples: [], breaches: [{ metric: "cpuPct", level: "warn" }] }] } }),
+      // A day of hourly samples, so the charts draw and can be read.
+      samples: Array.from({ length: 24 }, (_, i) => ({
+        at: new Date(Date.now() - (23 - i) * 3600000).toISOString(),
+        cpuPct: 10 + ((i * 37) % 60), memFreePct: 60 + ((i * 13) % 20), diskFreeGb: 80 - i * 0.2 })),
+      breaches: [{ metric: "cpuPct", level: "warn" }] }] } }),
     "host:dashboard/waiting_on_you": () => ({ structuredContent: { items: [
       { kind: "question", id: "q1", ask: "Which day suits the review?", options: [
         { label: "Thursday", description: "The team is free all afternoon.", recommended: true },

@@ -171,6 +171,56 @@ export function seenText(
 /** The view box of a 24-hour line. */
 export const SPARK = { width: 240, height: 40 } as const;
 
+/** One measured point of a 24-hour line: where it sits in the view box, when, and its value. */
+export interface SparkPoint {
+  x: number;
+  y: number;
+  at: string;
+  value: number;
+}
+
+/**
+ * A 24-hour line's measured points, placed in the view box, oldest first,
+ * and its limit's height. Samples older than a day, or without the value,
+ * are left out.
+ */
+export function sparkPoints(
+  samples: readonly HostSample[],
+  line: HostLine,
+  now: Date,
+): { points: SparkPoint[]; limitY: number | null } {
+  const { width: W, height: H } = SPARK;
+  const t1 = now.getTime();
+  const t0 = t1 - 86400000;
+  const kept = samples
+    .filter((s) => typeof s[line.key] === "number" && Date.parse(s.at) >= t0)
+    .sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
+  const values = kept.map((s) => s[line.key] as number);
+  const max = line.max ?? Math.max(line.limit * 1.5, ...values, 1);
+  const y = (v: number) =>
+    H - ((v - line.min) / (max - line.min)) * (H - 4) - 2;
+  return {
+    points: kept.map((s) => ({
+      x: ((Date.parse(s.at) - t0) / (t1 - t0)) * W,
+      y: y(s[line.key] as number),
+      at: s.at,
+      value: s[line.key] as number,
+    })),
+    limitY: line.limit <= max ? y(line.limit) : null,
+  };
+}
+
+/** The measured point nearest a place along the line, by time. */
+export function nearestPoint(
+  points: readonly SparkPoint[],
+  x: number,
+): SparkPoint | null {
+  let best: SparkPoint | null = null;
+  for (const p of points)
+    if (!best || Math.abs(p.x - x) < Math.abs(best.x - x)) best = p;
+  return best;
+}
+
 /**
  * A 24-hour line's points and its limit's height, in the view box. Samples
  * older than a day, or without the value, are left out.
