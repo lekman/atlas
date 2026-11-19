@@ -2,6 +2,9 @@ import { describeError, type Runtime, type RuntimeError } from "@atlas/runtime";
 import {
   ConsoleFrame,
   ConsoleSettings,
+  BeamDetail,
+  BeamList,
+  beamKey,
   LogList,
   readLog,
   type LogView,
@@ -33,6 +36,9 @@ import {
 } from "@atlas/ui/console";
 import {
   agendaDays,
+  askKey,
+  askReference,
+  DISMISS_CHOICE,
   formatAgo,
   jiraErrorText,
   jiraStatuses,
@@ -43,7 +49,7 @@ import {
 } from "@atlas/ui/sidebar";
 import { useEffect, useMemo, useState } from "react";
 
-import type { SidebarConfig } from "../config";
+import { classify, type SidebarConfig } from "../config";
 import { dayKey } from "../day";
 import { PENDING_NOTE } from "../moves";
 import { useCommander } from "../useCommander";
@@ -60,6 +66,7 @@ import { useStored } from "../useStored";
 import { useSync } from "../useSync";
 import { copyText, useTaskActions } from "../useTaskActions";
 import { worklistMeetings } from "../worklist";
+import { useWaiting } from "../useWaiting";
 import { useWorklist } from "../useWorklist";
 import { relayStateOf } from "./relay";
 import { useHostNetwork } from "./useHostNetwork";
@@ -221,6 +228,56 @@ export function ConsoleApp({
     "The dashboard host",
   );
   const [logView, setLogView] = useState<LogView>("days");
+
+  // Beam: what waits on the operator, each ask with its client.
+  const waiting = useWaiting(runtime);
+  const operator = config.operator ?? "you";
+  const beamRows = waiting.data
+    ? waiting.data.items.map((item) => ({
+        item,
+        client:
+          item.kind === "task"
+            ? (item.customer ?? null)
+            : classify(item.worker ?? "", null, config),
+      }))
+    : waiting.failure
+      ? []
+      : null;
+  const [askSelected, setAskSelected] = useState<string | null>(null);
+  const askRow = beamRows?.find((r) => beamKey(r.item) === askSelected) ?? null;
+  const lastAnswer = (item: Parameters<typeof askKey>[0]) => {
+    const sent = commander.latest(askKey(item) ?? undefined);
+    return sent?.action === "answer" ? sent : null;
+  };
+  const answerStatus = (item: Parameters<typeof askKey>[0]) => {
+    const last = lastAnswer(item);
+    if (!last || last.state === "sending") return null;
+    const from =
+      item.kind === "commander" && item.worker ? item.worker : "Commander";
+    return last.state === "failed"
+      ? { tone: "bad" as const, text: last.summary || "Not sent." }
+      : last.state === "done" || last.state === "answered"
+        ? {
+            tone: "ok" as const,
+            text: last.summary || `${from} has your answer.`,
+          }
+        : {
+            tone: "warn" as const,
+            text: last.summary || `Sent; Commander hands it to ${from}.`,
+          };
+  };
+  const answerAsk = (
+    item: Parameters<typeof askKey>[0],
+    answer: Parameters<typeof commander.answer>[1],
+  ) => {
+    commander
+      .answer(item, answer)
+      .then((ok) => {
+        // The answer stays in view a moment, then the list is back.
+        if (ok) setTimeout(() => setAskSelected(null), 1000);
+      })
+      .catch(() => undefined);
+  };
   // The log never waits silently: after 20 seconds without an answer, it says so.
   const [logLate, setLogLate] = useState(false);
   useEffect(() => {
@@ -403,6 +460,26 @@ export function ConsoleApp({
           />
         )}
       </>
+    ) : section === "beam" ? (
+      <BeamList
+        rows={beamRows}
+        notes={[
+          ...(waiting.error ? [waiting.error.text] : []),
+          ...(waiting.data?.errors ?? []).map((e) => `Not read: ${e}`),
+        ]}
+        operator={operator}
+        systemName={systemName}
+        clientOrder={config.clients.map((c) => c.key)}
+        scope={scope}
+        onScope={() => setPicking(true)}
+        selectedKey={askSelected}
+        onSelect={(item) => setAskSelected(beamKey(item))}
+        answered={(item) => {
+          const last = lastAnswer(item);
+          return last && last.state !== "failed" ? "Answered" : null;
+        }}
+        now={now}
+      />
     ) : section === "log" ? (
       <LogList
         view={logView}
@@ -480,6 +557,7 @@ export function ConsoleApp({
       section={section}
       counts={{
         shields: shieldAlerts(shieldRows(shieldData)),
+        beam: beamRows?.length ?? 0,
       }}
       settingsOpen={settingsOpen}
       settings={
@@ -513,6 +591,34 @@ export function ConsoleApp({
             integration={integrations.find(
               (i) => `integration:${i.id}` === shield.id,
             )}
+            now={now}
+          />
+        ) : section === "beam" && askRow ? (
+          <BeamDetail
+            key={beamKey(askRow.item)}
+            item={askRow.item}
+            clientName={askRow.client ? systemName(askRow.client) : "Other"}
+            operator={operator}
+            status={answerStatus(askRow.item)}
+            sent={(() => {
+              const last = lastAnswer(askRow.item);
+              return last && last.state !== "sending" && last.state !== "failed"
+                ? { at: last.requestedAt, answer: last.answer ?? {} }
+                : null;
+            })()}
+            busy={lastAnswer(askRow.item)?.state === "sending"}
+            onSend={(answer) => answerAsk(askRow.item, answer)}
+            onDismiss={() => answerAsk(askRow.item, { choice: DISMISS_CHOICE })}
+            onCopy={() => void copyText(askReference(askRow.item, operator))}
+            {...(askRow.item.kind === "task" && askRow.item.ref
+              ? {
+                  onOpenTask: () => {
+                    setSection("missions");
+                    setSelected(askRow.item.ref!);
+                    setAskSelected(null);
+                  },
+                }
+              : {})}
             now={now}
           />
         ) : task && section === "missions" ? (
@@ -567,11 +673,13 @@ export function ConsoleApp({
         setSection(next);
         setSelected(null);
         setShield(null);
+        setAskSelected(null);
         setSettingsOpen(false);
       }}
       onBack={() => {
         setSelected(null);
         setShield(null);
+        setAskSelected(null);
       }}
       onSettings={() => setSettingsOpen((open) => !open)}
       soundOn={prefs.sound.enabled}

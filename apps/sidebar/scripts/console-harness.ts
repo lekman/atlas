@@ -235,6 +235,33 @@ try {
       )
         problems.push(`${at}: the filter does not show tickets that are tasks`);
     }
+    // Beam lists what waits on the operator, and sends an answer.
+    await tab.getByRole("button", { name: /^Beam/ }).first().click();
+    const ask = tab.getByRole("button", { name: /Which day suits the review/ });
+    if (
+      !(await ask
+        .waitFor({ timeout: 5000 })
+        .then(() => true)
+        .catch(() => false))
+    )
+      problems.push(`${at}: Beam shows no ask`);
+    else {
+      await ask.click();
+      await tab.getByRole("radio", { name: /Thursday/ }).check();
+      await tab.getByRole("button", { name: /^Send to/ }).click();
+      await tab.waitForTimeout(300);
+      const answered = (
+        (await tab.evaluate(
+          () => (window as unknown as { __calls?: Calls }).__calls ?? [],
+        )) as Calls
+      ).some(
+        (c) =>
+          c.tool === "commander_answer" &&
+          /Thursday/.test(JSON.stringify(c.args)),
+      );
+      if (!answered)
+        problems.push(`${at}: Beam's answer did not reach commander_answer`);
+    }
     // Log lists what was finished, with its points.
     await tab.getByRole("button", { name: /^Log/ }).first().click();
     if (
@@ -318,5 +345,5 @@ if (problems.length) {
   process.exit(1);
 }
 console.log(
-  `✓ one file, ${Math.round(source.length / 1024)} KB; sidebar, folding phone closed and open, and laptop render with no errors; Status to Done, Grade, Move, Radar's Plan, the Log (and without one), the task detail with its page and pull request, Shields and an offline move work`,
+  `✓ one file, ${Math.round(source.length / 1024)} KB; sidebar, folding phone closed and open, and laptop render with no errors; Status to Done, Grade, Move, Radar's Plan, a Beam answer, the Log (and without one), the task detail with its page and pull request, Shields and an offline move work`,
 );
