@@ -1529,14 +1529,6 @@
   color: var(--secondary);
 }
 
-.console-beam-sent {
-  margin: 14px 0 0;
-}
-
-.console-beam-sent p {
-  margin: 4px 0 0;
-}
-
 .console-beam-status {
   margin: 6px 0 0;
   font-size: 12px;
@@ -1554,10 +1546,23 @@
   color: var(--coral);
 }
 
+.console-beam-choices {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  margin: 18px 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.console-beam-choices > legend {
+  margin-bottom: 8px;
+  padding: 0;
+}
+
 .console-beam-note {
   display: grid;
-  gap: 6px;
-  margin-top: 14px;
+  margin-top: 6px;
 }
 
 .console-beam-note textarea {
@@ -1572,21 +1577,12 @@
 }
 
 .console-beam-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
   margin-top: 14px;
 }
 
-.console-beam-actions .console-primary:disabled {
-  opacity: 0.5;
+.console-beam-actions [aria-disabled="true"] {
+  opacity: 0.55;
   cursor: default;
-}
-
-.console-beam-dismiss {
-  border-color: var(--coral);
-  color: var(--coral);
 }
 
 /* Log: each finished mission's points, in the row's right column. */

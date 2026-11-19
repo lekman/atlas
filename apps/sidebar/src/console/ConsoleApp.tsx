@@ -251,40 +251,36 @@ export function ConsoleApp({
     const sent = commander.latest(askKey(item) ?? undefined);
     return sent?.action === "answer" ? sent : null;
   };
-  const answerStatus = (item: Parameters<typeof askKey>[0]) => {
-    const last = lastAnswer(item);
-    if (!last || last.state === "sending") return null;
-    const from =
-      item.kind === "commander" && item.worker ? item.worker : "Commander";
-    return last.state === "failed"
-      ? { tone: "bad" as const, text: last.summary || "Not sent." }
-      : last.state === "done" || last.state === "answered"
-        ? {
-            tone: "ok" as const,
-            text: last.summary || `${from} has your answer.`,
-          }
-        : {
-            tone: "warn" as const,
-            text: last.summary || `Sent; Commander hands it to ${from}.`,
-          };
-  };
   /** "Answered" or "Dismissed" once an answer went out, and not for a failed one. */
   const isAnswered = (item: Parameters<typeof askKey>[0]) => {
     const last = lastAnswer(item);
     if (!last || last.state === "failed") return null;
     return last.answer?.choice === DISMISS_CHOICE ? "Dismissed" : "Answered";
   };
+  const [askPending, setAskPending] = useState<string | null>(null);
+  const [askFailed, setAskFailed] = useState<string | null>(null);
   const answerAsk = (
     item: Parameters<typeof askKey>[0],
     answer: Parameters<typeof commander.answer>[1],
   ) => {
+    const key = beamKey(item);
+    setAskFailed(null);
+    setAskPending(key);
     commander
       .answer(item, answer)
       .then((ok) => {
-        // The answer stays in view a moment, then the list is back.
-        if (ok) setTimeout(() => setAskSelected(null), 1000);
+        setAskPending(null);
+        // Once Commander has it, the list comes back; nothing moves before.
+        if (ok) setAskSelected((open) => (open === key ? null : open));
+        else
+          setAskFailed(
+            commander.error ?? "The answer was not sent. Try again.",
+          );
       })
-      .catch(() => undefined);
+      .catch(() => {
+        setAskPending(null);
+        setAskFailed("The answer was not sent. Try again.");
+      });
   };
   // The log never waits silently: after 20 seconds without an answer, it says so.
   const [logLate, setLogLate] = useState(false);
@@ -481,7 +477,10 @@ export function ConsoleApp({
         scope={scope}
         onScope={() => setPicking(true)}
         selectedKey={askSelected}
-        onSelect={(item) => setAskSelected(beamKey(item))}
+        onSelect={(item) => {
+          setAskFailed(null);
+          setAskSelected(beamKey(item));
+        }}
         answered={isAnswered}
         query={beamQuery}
         onQuery={setBeamQuery}
@@ -608,14 +607,8 @@ export function ConsoleApp({
             item={askRow.item}
             clientName={askRow.client ? systemName(askRow.client) : "Other"}
             operator={operator}
-            status={answerStatus(askRow.item)}
-            sent={(() => {
-              const last = lastAnswer(askRow.item);
-              return last && last.state !== "sending" && last.state !== "failed"
-                ? { at: last.requestedAt, answer: last.answer ?? {} }
-                : null;
-            })()}
-            busy={lastAnswer(askRow.item)?.state === "sending"}
+            pending={askPending === beamKey(askRow.item)}
+            failed={askFailed}
             onSend={(answer) => answerAsk(askRow.item, answer)}
             onDismiss={() => answerAsk(askRow.item, { choice: DISMISS_CHOICE })}
             onCopy={() => void copyText(askReference(askRow.item, operator))}

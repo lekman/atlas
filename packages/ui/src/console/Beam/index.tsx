@@ -239,11 +239,10 @@ export interface BeamDetailProps {
   /** The client's name, or "Other". */
   clientName: string;
   operator: string;
-  /** What happened to the last answer sent, if one was. */
-  status?: { text: string; tone: "ok" | "warn" | "bad" } | null;
-  /** The last answer sent: when, and what. */
-  sent?: { at: string; answer: AskAnswer } | null;
-  busy?: boolean;
+  /** An answer is on its way: the buttons wait, and nothing else changes. */
+  pending?: boolean;
+  /** Why the last answer could not be sent, in words. */
+  failed?: string | null;
   onSend(answer: AskAnswer): void;
   onDismiss?(): void;
   onCopy?(): void;
@@ -257,16 +256,18 @@ const OTHER = "\u0000other";
 /**
  * One ask in full, and its answer form: the asker's options (the
  * recommended one marked), or Other in your own words, with an optional
- * note. The answer goes to whoever asked; it approves nothing by itself.
- * Dismiss removes an ask that no longer matters, after a confirm.
+ * note. Send, Dismiss and Copy reference sit in one row, as the task
+ * detail's actions do. Sending or dismissing changes nothing on screen but
+ * the buttons, which wait until Commander has the answer; the list then
+ * comes back. The answer goes to whoever asked; it approves nothing by
+ * itself.
  */
 export function BeamDetail({
   item,
   clientName,
   operator,
-  status = null,
-  sent = null,
-  busy = false,
+  pending = false,
+  failed = null,
   onSend,
   onDismiss,
   onCopy,
@@ -280,13 +281,21 @@ export function BeamDetail({
     options.length ? null : OTHER,
   );
   const [text, setText] = useState("");
-  const [confirming, setConfirming] = useState(false);
   const other = choice === OTHER;
   const ready = other ? Boolean(text.trim()) : choice !== null;
   const from = whoAsks(item);
   const source = waitingSource(item, clientName).filter(
     (part) => part !== "Commander asks",
   );
+  const send = () => {
+    if (!ready || pending) return;
+    const picked = options.find((o) => o.label === choice);
+    onSend({
+      ...(other ? {} : { choice: choice! }),
+      ...(picked?.always ? { always: true } : {}),
+      ...(text.trim() ? { text: text.trim().slice(0, 2000) } : {}),
+    });
+  };
 
   return (
     <article
@@ -321,43 +330,16 @@ export function BeamDetail({
         </button>
       ) : null}
 
-      {sent ? (
-        <section
-          className="console-scope console-beam-sent"
-          aria-label="Your last answer"
-        >
-          <h3 className="console-label">
-            You answered {formatAgo(new Date(sent.at), now)}
-          </h3>
-          {sent.answer.choice ? <strong>{sent.answer.choice}</strong> : null}
-          {sent.answer.text ? <p>{sent.answer.text}</p> : null}
-          {status ? (
-            <p
-              className="console-beam-status"
-              data-tone={status.tone}
-              role="status"
-            >
-              {status.text}
-            </p>
-          ) : null}
-        </section>
-      ) : null}
-
       <form
         className="console-beam-form"
         aria-label={`Answer ${from}`}
+        aria-busy={pending || undefined}
         onSubmit={(e) => {
           e.preventDefault();
-          if (!ready || busy) return;
-          const picked = options.find((o) => o.label === choice);
-          onSend({
-            ...(other ? {} : { choice: choice! }),
-            ...(picked?.always ? { always: true } : {}),
-            ...(text.trim() ? { text: text.trim().slice(0, 2000) } : {}),
-          });
+          send();
         }}
       >
-        <fieldset className="console-settings-group">
+        <fieldset className="console-beam-choices" disabled={pending}>
           <legend className="console-label">Your answer</legend>
           <div className="console-choices">
             {options.map((o) => (
@@ -392,38 +374,43 @@ export function BeamDetail({
               </label>
             ) : null}
           </div>
+          <label className="console-beam-note">
+            <span className="console-visually-hidden">
+              {other ? "Your words" : "A note with your answer"}
+            </span>
+            <textarea
+              rows={3}
+              value={text}
+              maxLength={2000}
+              placeholder={
+                other ? "In your own words" : "Add a note (optional)"
+              }
+              onChange={(e) => setText(e.target.value)}
+            />
+          </label>
         </fieldset>
-        <label className="console-beam-note">
-          <span className="console-label">
-            {other ? "Your answer" : "Add a note (optional)"}
-          </span>
-          <textarea
-            rows={3}
-            value={text}
-            maxLength={2000}
-            onChange={(e) => setText(e.target.value)}
-          />
-        </label>
-        <div className="console-beam-actions">
+        <div
+          className="console-detail-actions console-beam-actions"
+          role="group"
+          aria-label="Answer actions"
+        >
           <button
             type="submit"
             className="console-primary"
-            disabled={!ready || busy}
+            aria-disabled={!ready || pending || undefined}
           >
-            {busy
-              ? "Sending…"
-              : sent
-                ? `Send again to ${from}`
-                : `Send to ${from}`}
+            Send
           </button>
-          {status && !sent ? (
-            <span
-              className="console-beam-status"
-              data-tone={status.tone}
-              role="status"
+          {onDismiss ? (
+            <button
+              type="button"
+              className="console-secondary"
+              aria-disabled={pending || undefined}
+              title="Remove the ask as redundant"
+              onClick={() => !pending && onDismiss()}
             >
-              {status.text}
-            </span>
+              Dismiss
+            </button>
           ) : null}
           {onCopy ? (
             <button
@@ -434,38 +421,12 @@ export function BeamDetail({
               Copy reference
             </button>
           ) : null}
-          {onDismiss ? (
-            confirming ? (
-              <>
-                <button
-                  type="button"
-                  className="console-secondary console-beam-dismiss"
-                  onClick={() => {
-                    setConfirming(false);
-                    onDismiss();
-                  }}
-                >
-                  Yes, dismiss it
-                </button>
-                <button
-                  type="button"
-                  className="console-secondary"
-                  onClick={() => setConfirming(false)}
-                >
-                  Keep it
-                </button>
-              </>
-            ) : (
-              <button
-                type="button"
-                className="console-secondary"
-                onClick={() => setConfirming(true)}
-              >
-                Dismiss as redundant
-              </button>
-            )
-          ) : null}
         </div>
+        {failed ? (
+          <p className="console-beam-status" data-tone="bad" role="alert">
+            {failed}
+          </p>
+        ) : null}
       </form>
     </article>
   );
