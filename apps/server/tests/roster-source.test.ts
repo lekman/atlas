@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
+  createApi,
   createRosterSource,
   openDatabase,
   readDataset,
@@ -146,5 +147,28 @@ describe("createRosterSource", () => {
     });
     source.poll();
     expect(source.health().ok).toBe(false);
+  });
+});
+
+describe("GET /api/agents", () => {
+  test("lists every agent with its client, and leaves out launched vessels", async () => {
+    const database = openDatabase(":memory:");
+    seedDataset(database, sampleDataset);
+    syncRoster(database, roster, machines, "raw-host.local");
+    const api = createApi({ database, version: "0.0.0-test" });
+    const response = await api.handle(
+      new Request("http://atlas.test/api/agents"),
+      "127.0.0.1",
+    );
+    api.close();
+    const body = (await response!.json()) as {
+      agents: Array<{ id: string; clientId: string | null; host: string }>;
+    };
+    const desk = body.agents.find((a) => a.id === "ops-desk");
+    expect(desk?.clientId).toBe("kestrel");
+    expect(desk?.host).toBe("Mac mini");
+    const vessels = readDataset(database).agents.filter((a) => a.parentId);
+    for (const vessel of vessels)
+      expect(body.agents.some((a) => a.id === vessel.id)).toBe(false);
   });
 });
