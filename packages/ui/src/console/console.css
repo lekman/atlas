@@ -579,9 +579,9 @@
 /* A task row: the title takes the width; the state and Actions stack on the right. */
 .console-task .console-task-open {
   grid-template-columns: minmax(0, 1fr);
-  /* The title and the line under it keep one gap and sit together in the
-     middle of the row, however tall the right column makes it. */
-  align-content: center;
+  /* The title starts at the row's top padding and the line under it keeps
+     one gap, however tall the right column makes the row. */
+  align-content: start;
   row-gap: 6px;
   padding-right: 6px;
 }
