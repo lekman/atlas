@@ -74,7 +74,9 @@ export const shim = `(() => {
       return { structuredContent: { syncedAt: now.toISOString(), items: [
         { ref: "db:1", title: "Harness task for today", customer: "kestrel", band: "today", day: ymd(now), priority: "high",
           details: "Harness/Plan.md", detailsAt: "2026-03-01T00:00:00Z", key: "HAR-1" },
-        { ref: "db:2", title: "Harness second task", customer: "kestrel", band: "today", day: ymd(now), claimedBy: "ops desk" },
+        { ref: "db:2", title: "Harness second task", customer: "kestrel", band: "today", day: ymd(now),
+          // The console's harness sets window.__claimed; the sidebar hides a claimed task's actions.
+          ...(window.__claimed ? { claimedBy: "ops desk" } : {}) },
         { ref: "db:3", title: "Harness tracked task", customer: "kestrel", band: "tomorrow", key: "KF-10",
           quadrant: "Q2-schedule", value: "medium", effort: "S", due: "2026-11-20",
           day: ymd(new Date(now.getTime() + 86400000)) },

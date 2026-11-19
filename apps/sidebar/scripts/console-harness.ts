@@ -20,6 +20,8 @@ import { chromium } from "playwright";
 
 import { wrapPage } from "./harness-runtime";
 
+/** The console shows a claimed task's agent; the sidebar's harness leaves tasks unclaimed. */
+const CLAIMED = "window.__claimed = true;";
 const dist = join(import.meta.dirname, "..", "dist-console");
 const files = readdirSync(dist);
 const problems: string[] = [];
@@ -57,7 +59,7 @@ try {
       if (m.type() === "error") errors.push(m.text());
     });
     tab.on("pageerror", (e) => errors.push(e.message));
-    await tab.setContent(wrapPage(source), { waitUntil: "load" });
+    await tab.setContent(wrapPage(source, CLAIMED), { waitUntil: "load" });
     const at = `${size.name} (${size.width}px)`;
 
     const layout = await tab
@@ -370,7 +372,7 @@ try {
   // The phone without the local server: the move is queued for the Mac mini.
   const tab = await browser.newPage({ viewport: { width: 466, height: 678 } });
   await tab.route("**/*", (route) => route.abort());
-  await tab.setContent(wrapPage(source), { waitUntil: "load" });
+  await tab.setContent(wrapPage(source, CLAIMED), { waitUntil: "load" });
   await tab
     .getByRole("button", { name: "Actions for Harness second task" })
     .click({ timeout: 5000 });
@@ -395,7 +397,7 @@ try {
   });
   await noLog.route("**/*", (route) => route.abort());
   await noLog.setContent(
-    wrapPage(source)
+    wrapPage(source, CLAIMED)
       .replace('"host:dashboard/task_log"', '"host:dashboard/task_log_missing"')
       .replace('"host:dashboard/agents"', '"host:dashboard/agents_missing"'),
     { waitUntil: "load" },
