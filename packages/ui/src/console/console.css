@@ -1512,6 +1512,83 @@
   text-decoration: underline;
 }
 
+/* Beam: an ask in full and its answer form. */
+.console-beam-source {
+  margin: 4px 0 12px;
+  color: var(--secondary);
+  font: 400 12px/1.4 var(--face-label);
+}
+
+.console-beam-ask-text {
+  margin: 0 0 10px;
+  font: 500 15px/1.45 var(--face-body);
+}
+
+.console-beam-context {
+  margin: 0 0 8px;
+  color: var(--secondary);
+}
+
+.console-beam-sent {
+  margin: 14px 0 0;
+}
+
+.console-beam-sent p {
+  margin: 4px 0 0;
+}
+
+.console-beam-status {
+  margin: 6px 0 0;
+  font-size: 12px;
+}
+
+.console-beam-status[data-tone="ok"] {
+  color: var(--mint);
+}
+
+.console-beam-status[data-tone="warn"] {
+  color: var(--amber);
+}
+
+.console-beam-status[data-tone="bad"] {
+  color: var(--coral);
+}
+
+.console-beam-note {
+  display: grid;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+.console-beam-note textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--text);
+  font: inherit;
+  resize: vertical;
+}
+
+.console-beam-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.console-beam-actions .console-primary:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.console-beam-dismiss {
+  border-color: var(--coral);
+  color: var(--coral);
+}
+
 /* Log: each finished mission's points, in the row's right column. */
 .console-log .console-scope {
   margin-bottom: 16px;
