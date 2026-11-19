@@ -3,10 +3,13 @@ import { useId, useState } from "react";
 import { formatAgo } from "../../sidebar/format";
 import { ConsoleMenu, type MenuItem } from "../ConsoleMenu";
 import { SectionHeading } from "../SectionHeading";
+import { LiveMap } from "./LiveMap";
+import { AgentMessages } from "./Messages";
 import {
   AGENT_STATE_WORDS,
   agentsByHost,
   agentState,
+  type AgentFeedItem,
   type AgentRecord,
 } from "../agent-state";
 
@@ -194,14 +197,24 @@ export interface AgentDetailProps {
   pending?: boolean;
   /** What happened to the last action, in words. */
   result?: { text: string; tone: "ok" | "bad" } | null;
+  /** What the agent told Atlas, newest first, or null before the host answered. */
+  feed?: readonly AgentFeedItem[] | null;
+  /** Why the feed is missing or old. */
+  feedNote?: string | null;
+  /** Whether answered and withdrawn questions show. */
+  showClosed?: boolean;
+  onShowClosed?(show: boolean): void;
+  /** Opens one of its open questions in Beam. */
+  onOpenQuestion?(id: string): void;
   now: Date;
 }
 
 /**
  * One agent in full: its state, system, machine, what it is doing, how
  * long its session has run, its latest tool call and how many it has made,
- * and the tasks it works on. A message box sends it a message; Nudge asks
- * it for a status; each runs through Commander's relay.
+ * the tasks it works on, its live view, and the messages it sent, such as
+ * questions and done, error or waiting reports. A message box sends it a
+ * message; Nudge asks it for a status; each runs through Commander's relay.
  */
 export function AgentDetail({
   agent,
@@ -212,6 +225,11 @@ export function AgentDetail({
   onNudge,
   pending = false,
   result = null,
+  feed = null,
+  feedNote = null,
+  showClosed = false,
+  onShowClosed = () => {},
+  onOpenQuestion,
   now,
 }: AgentDetailProps) {
   const name = useId();
@@ -243,111 +261,127 @@ export function AgentDetail({
       <header className="console-detail-head">
         <h2 id={`${name}-title`}>{agent.name}</h2>
       </header>
-      <div className="console-detail-body">
-        <dl className="console-facts">
-          {facts.map(([term, value]) => (
-            <div key={term}>
-              <dt>{term}</dt>
-              <dd>{value}</dd>
-            </div>
-          ))}
-        </dl>
-        {agent.note ? (
-          <section className="console-detail-section" aria-label="Doing">
-            <h3 className="console-label">Doing</h3>
-            <p className="console-agent-doing">{agent.note}</p>
+      <div className="console-detail-body console-agent-body">
+        <div className="console-agent-column">
+          <dl className="console-facts">
+            {facts.map(([term, value]) => (
+              <div key={term}>
+                <dt>{term}</dt>
+                <dd>{value}</dd>
+              </div>
+            ))}
+          </dl>
+          {agent.note ? (
+            <section className="console-detail-section" aria-label="Doing">
+              <h3 className="console-label">Doing</h3>
+              <p className="console-agent-doing">{agent.note}</p>
+            </section>
+          ) : null}
+          {agent.refs?.length ? (
+            <section className="console-detail-section" aria-label="Working on">
+              <h3 className="console-label">Working on</h3>
+              <ul className="console-agent-tasks">
+                {agent.refs.map((ref) => {
+                  const title = taskTitle(ref);
+                  return (
+                    <li key={ref}>
+                      {title && onOpenTask ? (
+                        <button
+                          type="button"
+                          className="console-read-more"
+                          onClick={() => onOpenTask(ref)}
+                        >
+                          {title}
+                        </button>
+                      ) : (
+                        <span className="console-note">{title ?? ref}</span>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          ) : null}
+        </div>
+        <div className="console-agent-column">
+          <section className="console-detail-section" aria-label="Live">
+            <h3 className="console-label">Live</h3>
+            <LiveMap agent={agent} now={now} />
           </section>
-        ) : null}
-        {agent.refs?.length ? (
-          <section className="console-detail-section" aria-label="Working on">
-            <h3 className="console-label">Working on</h3>
-            <ul className="console-agent-tasks">
-              {agent.refs.map((ref) => {
-                const title = taskTitle(ref);
-                return (
-                  <li key={ref}>
-                    {title && onOpenTask ? (
-                      <button
-                        type="button"
-                        className="console-read-more"
-                        onClick={() => onOpenTask(ref)}
-                      >
-                        {title}
-                      </button>
-                    ) : (
-                      <span className="console-note">{title ?? ref}</span>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
-        ) : null}
-        <form
-          className="console-detail-section console-agent-message"
-          aria-label={`Message ${agent.name}`}
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (!text.trim() || pending) return;
-            onMessage(text.trim());
-            setText("");
-          }}
-        >
-          <h3 className="console-label">Message</h3>
-          <label className="console-beam-note">
-            <span className="console-visually-hidden">
-              Your message to {agent.name}
-            </span>
-            <textarea
-              rows={3}
-              maxLength={4000}
-              value={text}
-              placeholder={`Write to ${agent.name}`}
-              disabled={pending}
-              onChange={(e) => setText(e.target.value)}
-            />
-          </label>
-          <div
-            className="console-detail-actions console-beam-actions"
-            role="group"
-            aria-label="Agent actions"
+          <AgentMessages
+            items={feed}
+            note={feedNote}
+            showClosed={showClosed}
+            onShowClosed={onShowClosed}
+            {...(onOpenQuestion ? { onOpenQuestion } : {})}
+            now={now}
+          />
+          <form
+            className="console-detail-section console-agent-message"
+            aria-label={`Message ${agent.name}`}
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!text.trim() || pending) return;
+              onMessage(text.trim());
+              setText("");
+            }}
           >
-            <button
-              type="submit"
-              className="console-primary"
-              aria-disabled={!text.trim() || pending || undefined}
+            <h3 className="console-label">Message</h3>
+            <label className="console-beam-note">
+              <span className="console-visually-hidden">
+                Your message to {agent.name}
+              </span>
+              <textarea
+                rows={3}
+                maxLength={4000}
+                value={text}
+                placeholder={`Write to ${agent.name}`}
+                disabled={pending}
+                onChange={(e) => setText(e.target.value)}
+              />
+            </label>
+            <div
+              className="console-detail-actions console-beam-actions"
+              role="group"
+              aria-label="Agent actions"
             >
-              Send
-            </button>
-            <button
-              type="button"
-              className="console-secondary"
-              aria-disabled={pending || undefined}
-              title="Ask it for a status"
-              onClick={() => !pending && onNudge()}
-            >
-              Nudge
-            </button>
-            {agent.refs?.length && onOpenTask && taskTitle(agent.refs[0]!) ? (
+              <button
+                type="submit"
+                className="console-primary"
+                aria-disabled={!text.trim() || pending || undefined}
+              >
+                Send
+              </button>
               <button
                 type="button"
                 className="console-secondary"
-                onClick={() => onOpenTask(agent.refs![0]!)}
+                aria-disabled={pending || undefined}
+                title="Ask it for a status"
+                onClick={() => !pending && onNudge()}
               >
-                Open its task
+                Nudge
               </button>
+              {agent.refs?.length && onOpenTask && taskTitle(agent.refs[0]!) ? (
+                <button
+                  type="button"
+                  className="console-secondary"
+                  onClick={() => onOpenTask(agent.refs![0]!)}
+                >
+                  Open its task
+                </button>
+              ) : null}
+            </div>
+            {result ? (
+              <p
+                className="console-beam-status"
+                data-tone={result.tone}
+                role="status"
+              >
+                {result.text}
+              </p>
             ) : null}
-          </div>
-          {result ? (
-            <p
-              className="console-beam-status"
-              data-tone={result.tone}
-              role="status"
-            >
-              {result.text}
-            </p>
-          ) : null}
-        </form>
+          </form>
+        </div>
       </div>
     </article>
   );
