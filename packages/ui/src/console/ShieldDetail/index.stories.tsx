@@ -47,7 +47,9 @@ export const HostWarning: Story = {
       canvas.getByText(/over its warning limit/),
     ).toBeInTheDocument();
     await expect(
-      canvas.getByRole("img", { name: /Disk free GB over the last 24 hours/ }),
+      canvas.getByRole("group", {
+        name: /Disk free GB over the last 24 hours/,
+      }),
     ).toBeInTheDocument();
   },
 };

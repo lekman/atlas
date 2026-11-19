@@ -305,7 +305,7 @@ export const ShieldsOnALaptop: Story = {
       canvas.getByRole("heading", { name: "laptop" }),
     ).toBeInTheDocument();
     await expect(
-      canvas.getByRole("img", { name: /CPU % over the last 24 hours/ }),
+      canvas.getByRole("group", { name: /CPU % over the last 24 hours/ }),
     ).toBeInTheDocument();
   },
 };
