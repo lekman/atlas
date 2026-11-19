@@ -48,6 +48,8 @@ export interface TaskDetailProps {
   onMove(task: WorkItem, to: Range): void;
   onStatus(task: WorkItem): void;
   onExecute(task: WorkItem): void;
+  /** Sets or clears (null) a database task's business value or effort, from the Grade selectors. */
+  onAssess?(task: WorkItem, change: GradeChange): void;
   /** Asks Commander for a details page with a test plan. Offered only when there is none. */
   onPlan?(task: WorkItem): void;
   onCopyReference(task: WorkItem): void;
@@ -66,6 +68,21 @@ const pullStateWords: Record<PullRequest["state"], string> = {
   draft: "Draft",
   merged: "Merged",
   closed: "Closed",
+};
+
+export const VALUE_CHOICES = [
+  "veryHigh",
+  "high",
+  "medium",
+  "low",
+  "none",
+  "negative",
+] as const;
+export const EFFORT_CHOICES = ["XS", "S", "M", "L", "XL"] as const;
+
+export type GradeChange = {
+  value?: (typeof VALUE_CHOICES)[number] | null;
+  effort?: (typeof EFFORT_CHOICES)[number] | null;
 };
 
 export type DatabaseState =
@@ -135,9 +152,9 @@ const httpsOnly = (href: string) => /^https:\/\//i.test(href);
 
 /**
  * One task in full. The title, with the actions at its top right on a wide
- * pane (they wrap under it on a narrow one): Move, Status, Execute, Plan
- * when there is no page yet, and Copy reference. Then its facts, where the
- * status is a dropdown that sets the task's state (Done among them), the
+ * pane (they wrap under it on a narrow one): Move, Status, Execute and Copy
+ * reference. Then its facts, where the status, value and effort are
+ * dropdowns that set them on the task (Done is a status), the
  * tracker ticket and its live status, its pull requests with review and
  * checks, and the details page from the vault. Stacked in that order on a
  * narrow pane; from 820 px wide, the description sits on the left and the
@@ -161,6 +178,7 @@ export function TaskDetail({
   onStatus,
   onExecute,
   onPlan,
+  onAssess,
   onCopyReference,
 }: TaskDetailProps) {
   const page = details.state === "ready" ? details.page : null;
@@ -214,19 +232,65 @@ export function TaskDetail({
       </select>
     );
 
-  const facts: Array<[string, ReactNode]> = [
-    ["Status", statusValue],
-    ["Quadrant", quadrantWords[quadrantOf(task)] ?? "Ungraded"],
-    ["System", systemName],
-    [
-      "Grade",
+  const gradeValue: ReactNode =
+    fromDatabase && onAssess ? (
+      <span className="console-grade-picks">
+        <select
+          className="console-state"
+          aria-label="Value"
+          data-state={task.value ? "set" : "none"}
+          value={task.value ?? ""}
+          onChange={(e) =>
+            onAssess(task, {
+              value: (e.target.value || null) as GradeChange["value"],
+            })
+          }
+        >
+          <option value="">Value not set</option>
+          {VALUE_CHOICES.map((v) => (
+            <option key={v} value={v}>
+              {`${VALUE_TEXT[v]} value`.replace(/^./, (c) => c.toUpperCase())}
+            </option>
+          ))}
+        </select>
+        <select
+          className="console-state"
+          aria-label="Effort"
+          data-state={task.effort ? "set" : "none"}
+          value={task.effort ?? ""}
+          onChange={(e) =>
+            onAssess(task, {
+              effort: (e.target.value || null) as GradeChange["effort"],
+            })
+          }
+        >
+          <option value="">Effort not set</option>
+          {EFFORT_CHOICES.map((v) => (
+            <option key={v} value={v}>
+              {v}
+            </option>
+          ))}
+        </select>
+      </span>
+    ) : (
       [
         task.value ? `${VALUE_TEXT[task.value] ?? task.value} value` : null,
         task.effort ?? null,
       ]
         .filter(Boolean)
-        .join(" · ") || "Not graded",
+        .join(" · ") || "Not graded"
+    );
+
+  const facts: Array<[string, ReactNode]> = [
+    ["Status", statusValue],
+    ["Grade", gradeValue],
+    [
+      "Quadrant",
+      <span title="Follows from the value and the due date">
+        {quadrantWords[quadrantOf(task)] ?? "Ungraded"}
+      </span>,
     ],
+    ["System", systemName],
   ];
   if (task.due) facts.push(["Due", task.due]);
   if (task.day) facts.push(["Planned", task.day]);
@@ -253,20 +317,6 @@ export function TaskDetail({
                 onSelect: () => onMove(task, to),
               }))}
             />
-            {onPlan && !task.details ? (
-              <button
-                type="button"
-                className="console-secondary"
-                aria-disabled={busy || undefined}
-                title={
-                  commanderBusy ??
-                  "Plan with Commander: a details page with a test plan"
-                }
-                onClick={() => !busy && onPlan(task)}
-              >
-                Plan
-              </button>
-            ) : null}
             <button
               type="button"
               className="console-secondary"
@@ -380,10 +430,10 @@ export function TaskDetail({
 
         <section
           className="console-detail-section console-detail-page"
-          aria-label="Details page"
+          aria-label="Details"
         >
           <h3 className="console-label">
-            Details page
+            Details
             {details.state === "ready" && details.copiedAt
               ? ` · copy from ${formatAgo(new Date(details.copiedAt), now)}`
               : ""}
@@ -392,10 +442,21 @@ export function TaskDetail({
             <p className="console-note">Reading the page…</p>
           ) : null}
           {details.state === "none" ? (
-            <p className="console-note">
-              No details page yet. Plan asks Commander to write one with a test
-              plan.
-            </p>
+            <p className="console-note">No details recorded.</p>
+          ) : null}
+          {details.state === "none" && onPlan && !task.done ? (
+            <button
+              type="button"
+              className="console-secondary console-plan"
+              aria-disabled={busy || undefined}
+              title={
+                commanderBusy ??
+                "Ask Commander for a details page with a test plan"
+              }
+              onClick={() => !busy && onPlan(task)}
+            >
+              Plan
+            </button>
           ) : null}
           {details.state === "missing" ? (
             <p className="console-note">

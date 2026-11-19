@@ -8,7 +8,10 @@ import { useCallback, useState } from "react";
 
 import { requestId, type Commander } from "./useCommander";
 
-export type TaskTool = "task_done" | "task_move" | "task_state";
+export type TaskTool = "task_done" | "task_move" | "task_state" | "task_assess";
+
+/** The tools the phone inbox can replay on the Mac mini. */
+const INBOX_TOOLS: ReadonlySet<TaskTool> = new Set(["task_done", "task_move"]);
 
 export interface TaskActions {
   /**
@@ -18,7 +21,12 @@ export interface TaskActions {
   act: (
     item: WorkItem,
     tool: TaskTool,
-    extra?: { to?: string; state?: string },
+    extra?: {
+      to?: string;
+      state?: string;
+      value?: string | null;
+      effort?: string | null;
+    },
   ) => Promise<WorklistDoc | null>;
   /** The task being changed now. */
   busyRef: string | null;
@@ -59,10 +67,10 @@ export function useTaskActions(
       };
       const fromDatabase = item.ref.startsWith("db:");
       if (!runtime.present) {
-        if (fromDatabase && tool !== "task_state") await viaInbox();
+        if (fromDatabase && INBOX_TOOLS.has(tool)) await viaInbox();
         else if (fromDatabase)
           setError(
-            "Changing the status works where the Mac's dashboard server answers, not from the phone yet.",
+            "Changing the status or grade works where the Mac's dashboard server answers, not from the phone yet.",
           );
         else
           setError(
@@ -90,7 +98,7 @@ export function useTaskActions(
         if (
           code === "server_not_connected" &&
           fromDatabase &&
-          tool !== "task_state"
+          INBOX_TOOLS.has(tool)
         ) {
           await viaInbox();
         } else {

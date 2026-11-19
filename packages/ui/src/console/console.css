@@ -1099,6 +1099,20 @@
   --state: var(--mint);
 }
 
+.console-grade-picks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.console-plan {
+  margin-top: 8px;
+}
+
+.console-state[data-state="set"] {
+  --state: var(--text);
+}
+
 .console-state[data-state="dropped"] {
   --state: var(--label);
 }

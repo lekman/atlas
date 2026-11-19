@@ -87,7 +87,7 @@ try {
     const detail = tab.getByRole("group", { name: "Task actions" });
     if (
       !(await tab
-        .getByRole("region", { name: "Details page" })
+        .getByRole("region", { name: "Details" })
         .isVisible({ timeout: 5000 })
         .catch(() => false))
     )
@@ -113,6 +113,15 @@ try {
         .catch(() => false)
     )
       problems.push(`${at}: Done is still a button in the task actions`);
+    if (
+      await tab
+        .getByRole("button", { name: "Plan", exact: true })
+        .isVisible()
+        .catch(() => false)
+    )
+      problems.push(`${at}: Plan shows on a task that has a details page`);
+    await tab.getByRole("combobox", { name: "Value" }).selectOption("high");
+    await tab.getByRole("combobox", { name: "Effort" }).selectOption("S");
     await tab.getByRole("combobox", { name: "Status" }).selectOption("done");
     await tab.waitForTimeout(200);
     const calls = (await tab.evaluate(
@@ -123,6 +132,12 @@ try {
       problems.push(
         `${at}: Move did not reach the local server as task_move to tomorrow`,
       );
+    const assessed = calls.filter((c) => c.tool === "task_assess");
+    if (
+      !assessed.some((c) => c.args.ref === "db:1" && c.args.value === "high") ||
+      !assessed.some((c) => c.args.ref === "db:1" && c.args.effort === "S")
+    )
+      problems.push(`${at}: the Grade selectors did not reach task_assess`);
     if (!calls.some((c) => c.tool === "task_done" && c.args.ref === "db:1"))
       problems.push(
         `${at}: Done from the Status dropdown did not reach the local server`,
@@ -182,5 +197,5 @@ if (problems.length) {
   process.exit(1);
 }
 console.log(
-  `✓ one file, ${Math.round(source.length / 1024)} KB; sidebar, folding phone closed and open, and laptop render with no errors; Status to Done, Move, the task detail with its page and pull request, Shields and an offline move work`,
+  `✓ one file, ${Math.round(source.length / 1024)} KB; sidebar, folding phone closed and open, and laptop render with no errors; Status to Done, Grade, Move, the task detail with its page and pull request, Shields and an offline move work`,
 );

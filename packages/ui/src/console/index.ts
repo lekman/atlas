@@ -60,6 +60,9 @@ export { TaskRow, type TaskRowProps } from "./TaskRow";
 export {
   DATABASE_STATE_WORDS,
   databaseStateOf,
+  EFFORT_CHOICES,
+  type GradeChange,
+  VALUE_CHOICES,
   TaskDetail,
   ticketStatusOf,
   type DatabaseState,

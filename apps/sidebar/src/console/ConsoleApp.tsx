@@ -344,6 +344,7 @@ export function ConsoleApp({
                 ? actions.act(t, "task_done")
                 : actions.act(t, "task_state", { state }))
             }
+            onAssess={(t, change) => void actions.act(t, "task_assess", change)}
             onMove={(t, to) => void actions.act(t, "task_move", { to })}
             onStatus={(t) => void commander.send(t, "status")}
             onExecute={(t) => void commander.send(t, "execute")}
