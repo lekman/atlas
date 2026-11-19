@@ -326,20 +326,21 @@ export function AgentDetail({
       </header>
       <div className="console-detail-body console-agent-body">
         <div className="console-agent-column">
-          <dl className="console-facts">
+          <dl className="console-facts console-agent-facts">
             {facts.map(([term, value]) => (
               <div key={term}>
                 <dt>{term}</dt>
                 <dd>{value}</dd>
               </div>
             ))}
+            {agent.note ? (
+              <div className="console-agent-fact-wide">
+                <dt>Doing</dt>
+                <dd className="console-agent-doing">{agent.note}</dd>
+              </div>
+            ) : null}
           </dl>
-          {agent.note ? (
-            <section className="console-detail-section" aria-label="Doing">
-              <h3 className="console-label">Doing</h3>
-              <p className="console-agent-doing">{agent.note}</p>
-            </section>
-          ) : null}
+
           {agent.refs?.length ? (
             <section className="console-detail-section" aria-label="Working on">
               <h3 className="console-label">Working on</h3>
