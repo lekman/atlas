@@ -9,11 +9,24 @@
     <meta name="color-scheme" content="dark" />
     <title>Atlas Console</title>
     <style>
+      /*
+       * The console fills the screen and scrolls only inside its panes. A
+       * page that hosts it may pad the root (the artifact service adds the
+       * safe-area insets), which makes the document a little taller than
+       * the screen; pinning the console and stopping scroll chaining keeps
+       * the end of a list from moving the whole page.
+       */
       html,
-      body,
-      #console {
+      body {
         height: 100%;
         margin: 0;
+        overflow: hidden;
+        overscroll-behavior: none;
+        background: #070b14;
+      }
+      #console {
+        position: fixed;
+        inset: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px);
         background: #070b14;
       }
     </style>

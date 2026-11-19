@@ -253,6 +253,7 @@
   border-right: 1px solid var(--line);
   min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .atlas-console[data-rail="right"] .console-rail {
@@ -342,6 +343,7 @@
 .console-pane {
   min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 14px 16px 24px;
 }
 
