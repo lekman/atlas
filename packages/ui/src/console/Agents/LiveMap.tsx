@@ -1,5 +1,5 @@
 import { formatAgo } from "../../sidebar/format";
-import { isLive, STATIONS, type AgentRecord } from "../agent-state";
+import { agentState, STATIONS, type AgentRecord } from "../agent-state";
 
 export interface LiveMapProps {
   agent: AgentRecord;
@@ -36,13 +36,15 @@ const thousands = (tokens: number) =>
  * The agent's live view: the agent in the middle, one station for each kind
  * of work around it (files, edits, shell, git, web, other agents, you,
  * other). A spoke thickens with each switch to its station; the station the
- * agent works at now is lit and pulses while the reading is fresh. The ring
+ * agent works at now is lit, and pulses until the agent stops working. The ring
  * round the middle fills with the context the session holds.
  */
 export function LiveMap({ agent, now }: LiveMapProps) {
   const counts = agent.activityCounts ?? {};
   const most = Math.max(1, ...Object.values(counts).map((c) => c ?? 0));
-  const live = isLive(agent, now);
+  // The station stays lit and pulsing while the agent works, however old
+  // the reading; it stops once a later reading shows the agent stopped.
+  const live = agentState(agent) === "working";
   const current = agent.activity;
   const tokens = agent.contextTokens;
   const share =

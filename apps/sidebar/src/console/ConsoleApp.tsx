@@ -285,7 +285,10 @@ export function ConsoleApp({
     if (!last || last.state === "failed") return null;
     return last.answer?.choice === DISMISS_CHOICE ? "Dismissed" : "Answered";
   };
-  // Agents: every agent from Atlas through the dashboard host, stored for the phone.
+  const [section, setSection] = useState<Section>("missions");
+  // Agents: every agent from Atlas through the dashboard host, stored for the
+  // phone. Every 15 seconds while Agents is open, every minute otherwise.
+  const agentsFast = section === "agents";
   const agentsFeed = useFeed(
     runtime,
     {
@@ -293,12 +296,18 @@ export function ConsoleApp({
       tool: "agents",
       path: "board/agents",
       accept: readAgents,
-      watch: {
-        refetchInterval: 60000,
-        cache: { staleTime: 30000, gcTime: 86400000 },
-      },
+      watch: agentsFast
+        ? {
+            refetchInterval: 15000,
+            cache: { staleTime: 10000, gcTime: 86400000 },
+          }
+        : {
+            refetchInterval: 60000,
+            cache: { staleTime: 30000, gcTime: 86400000 },
+          },
     },
     "The dashboard host",
+    agentsFast ? "fast" : "slow",
   );
   // The agent list never waits silently either.
   const [agentsLate, setAgentsLate] = useState(false);
@@ -327,8 +336,8 @@ export function ConsoleApp({
           args: { agentId: agentSelected },
           accept: readAgentFeed,
           watch: {
-            refetchInterval: 30000,
-            cache: { staleTime: 15000, gcTime: 600000 },
+            refetchInterval: 15000,
+            cache: { staleTime: 10000, gcTime: 600000 },
           },
         }
       : null,
@@ -456,7 +465,6 @@ export function ConsoleApp({
   const [showTracked, setShowTracked] = useState(false);
   const ticketRef = (t: RadarTicket) => `${t.system}:${t.key}`;
 
-  const [section, setSection] = useState<Section>("missions");
   const [range, setRange] = useState<Range>("today");
   const [view, setView] = useState<MissionsView>("list");
   const [scope, setScope] = useState<string | null>(readScope);

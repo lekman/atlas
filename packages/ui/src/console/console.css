@@ -2134,3 +2134,17 @@
   opacity: 0.45;
   cursor: default;
 }
+
+/* An agent's facts sit in two columns once there is room; Doing takes a full row. */
+.console-agent-facts {
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  column-gap: 20px;
+}
+
+.console-agent-facts > div {
+  grid-template-columns: 84px minmax(0, 1fr);
+}
+
+.console-agent-fact-wide {
+  grid-column: 1 / -1;
+}
