@@ -4,6 +4,7 @@ import {
   ConsoleSettings,
   AgentDetail,
   AgentsList,
+  readAgentFeed,
   readAgents,
   type AgentRecord,
   BeamDetail,
@@ -115,6 +116,25 @@ function feedNote(
 }
 
 const SCOPE_KEY = "atlas-console-scope";
+const CLOSED_KEY = "atlas-console-agent-closed";
+
+/** Whether this device shows an agent's answered and closed messages. */
+function readShowClosed(): boolean {
+  try {
+    return globalThis.localStorage?.getItem(CLOSED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function keepShowClosed(show: boolean): void {
+  try {
+    if (show) globalThis.localStorage?.setItem(CLOSED_KEY, "1");
+    else globalThis.localStorage?.removeItem(CLOSED_KEY);
+  } catch {
+    // Not kept; the choice holds until the page closes.
+  }
+}
 
 /** The system this device last narrowed to. Storage can be blocked. */
 function readScope(): string | null {
@@ -296,6 +316,34 @@ export function ConsoleApp({
   } | null>(null);
   const agentRow =
     agentsFeed.data?.agents.find((a) => a.id === agentSelected) ?? null;
+  // The selected agent's messages: its questions and reports, live only.
+  const agentFeed = useFeed(
+    runtime,
+    agentSelected
+      ? {
+          server: "host:dashboard",
+          tool: "agent_feed",
+          args: { agentId: agentSelected },
+          accept: readAgentFeed,
+          watch: {
+            refetchInterval: 30000,
+            cache: { staleTime: 15000, gcTime: 600000 },
+          },
+        }
+      : null,
+    "The dashboard host",
+    agentSelected ?? "",
+  );
+  const agentFeedNote =
+    agentFeed.error?.text ??
+    (agentFeed.failure && !agentFeed.data
+      ? "Messages come from the dashboard server on your Mac, and this device can't reach it."
+      : null);
+  const [showClosed, setShowClosedState] = useState(readShowClosed);
+  const setShowClosed = (show: boolean) => {
+    setShowClosedState(show);
+    keepShowClosed(show);
+  };
   const tellAgent = (
     agent: AgentRecord,
     args: { text?: string; nudge?: boolean },
@@ -750,6 +798,21 @@ export function ConsoleApp({
             onNudge={() => tellAgent(agentRow, { nudge: true })}
             pending={agentPending === agentRow.id}
             result={agentResult?.id === agentRow.id ? agentResult : null}
+            feed={
+              agentFeed.data?.agentId === agentRow.id
+                ? agentFeed.data.items
+                : agentFeed.failure
+                  ? []
+                  : null
+            }
+            feedNote={agentFeedNote}
+            showClosed={showClosed}
+            onShowClosed={setShowClosed}
+            onOpenQuestion={(id) => {
+              setSection("beam");
+              setAskFailed(null);
+              setAskSelected(`ask:atlas:${id}`);
+            }}
             now={now}
           />
         ) : section === "beam" && askRow ? (

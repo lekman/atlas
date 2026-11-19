@@ -98,11 +98,17 @@ export const shim = `(() => {
     "host:dashboard/agents": () => ({ structuredContent: { fetchedAt: new Date().toISOString(), agents: [
       { id: "ops-desk", name: "Ops Desk", clientId: "kestrel-co", customer: "kestrel", host: "Mac mini", status: "running",
         note: "Moving the depot alerts to the new queue", refs: ["db:1"],
+        activity: "shell", contextTokens: 93000, activityAt: new Date(Date.now() - 20000).toISOString(),
+        activityCounts: { reading: 6, editing: 3, shell: 4, git: 1 },
         session: { state: "busy", since: new Date(Date.now() - 600000).toISOString(),
           activity: { startedAt: new Date(Date.now() - 7200000).toISOString(), toolCalls: 132, lastCallAt: new Date(Date.now() - 60000).toISOString() } } },
       { id: "field", name: "Field Laptop", clientId: "kestrel-co", customer: "kestrel", host: "MacBook", status: "idle", note: "Idle" },
       { id: "gone", name: "Gone Agent", clientId: "kestrel-co", customer: "kestrel", host: "Mac mini", status: "idle", note: "Session offline",
         session: { state: "offline", since: new Date().toISOString() } }] } }),
+    "host:dashboard/agent_feed": (args) => ({ structuredContent: { agentId: args.agentId, fetchedAt: new Date().toISOString(), items: [
+      { kind: "question", id: "q-open", title: "Move the alerts tonight or tomorrow?", state: "open", at: new Date(Date.now() - 120000).toISOString() },
+      { kind: "status", to: "idle", text: "Done: the depot alerts read from the new queue", at: new Date(Date.now() - 600000).toISOString() },
+      { kind: "question", id: "q-closed", title: "Keep the old queue a week?", state: "answered", answer: "Yes", at: new Date(Date.now() - 3600000).toISOString() }] } }),
     "host:dashboard/agent_message": (args) => ({ structuredContent: { sent: true, to: args.to, nudge: Boolean(args.nudge) } }),
     "host:dashboard/task_log": () => {
       const day = (n) => { const d = new Date(); d.setDate(d.getDate() - n);

@@ -57,6 +57,8 @@ export {
 } from "./MissionsList";
 export { SegmentedSwitch, type SegmentedSwitchProps } from "./SegmentedSwitch";
 export { ConsoleSettings, type ConsoleSettingsProps } from "./ConsoleSettings";
+export { contextWindow, LiveMap, type LiveMapProps } from "./Agents/LiveMap";
+export { AgentMessages, type AgentMessagesProps } from "./Agents/Messages";
 export {
   AgentDetail,
   AgentsList,
@@ -67,7 +69,14 @@ export {
   AGENT_STATE_WORDS,
   agentsByHost,
   agentState,
+  feedBadge,
+  isClosed,
+  isLive,
+  readAgentFeed,
   readAgents,
+  STATIONS,
+  type AgentFeedDoc,
+  type AgentFeedItem,
   type AgentRecord,
   type AgentsDoc,
   type AgentState,

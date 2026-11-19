@@ -809,6 +809,29 @@ def agents(args: dict) -> dict:
     return result
 
 
+def _atlas_get(path: str) -> dict:
+    req = urllib.request.Request(_atlas_url() + path, headers={"Accept": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=10) as r:
+            return json.loads(r.read() or b"{}")
+    except urllib.error.HTTPError as ex:
+        raise RuntimeError(f"Atlas answered HTTP {ex.code}") from None
+    except (urllib.error.URLError, TimeoutError, OSError):
+        raise RuntimeError("Atlas didn't answer; is the Mac mini awake and on the tailnet?") from None
+    except ValueError:
+        raise RuntimeError("Atlas's answer wasn't JSON") from None
+
+
+def agent_feed(args: dict) -> dict:
+    """One agent's feed from the Atlas server: its status reports and its questions, newest first."""
+    agent = str(args.get("agentId") or "")
+    if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,95}", agent):
+        raise RuntimeError("agentId must be an Atlas agent id")
+    result = _atlas_get(f"/api/agents/{agent}/feed")
+    result["fetchedAt"] = datetime.now(timezone.utc).isoformat()
+    return result
+
+
 NUDGE = ("Nudge from Tobias, sent from Atlas: what's your status? If you have agreed work waiting, carry on "
          "with it (/planner:next); if you're blocked, say on what.")
 
@@ -996,6 +1019,15 @@ TOOLS = [{
     "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
     "annotations": {"readOnlyHint": True, "openWorldHint": True},
 }, {
+    "name": "agent_feed",
+    "title": "Agent feed",
+    "description": "One agent's feed from the Atlas server, newest first: its own status reports (done, error, "
+                   "waiting, with the note) and its questions with their state (open, answered, delivered, "
+                   "withdrawn). Args: agentId. Changes nothing.",
+    "inputSchema": {"type": "object", "properties": {"agentId": {"type": "string", "maxLength": 96}},
+                    "required": ["agentId"], "additionalProperties": False},
+    "annotations": {"readOnlyHint": True, "openWorldHint": True},
+}, {
     "name": "agent_message",
     "title": "Message an agent",
     "description": "Sends a message to an agent session by its name, through the tasks server's relay, as Commander "
@@ -1113,12 +1145,13 @@ def handle(msg: dict):
                 log(name, "failed:", ex)
                 return {"content": [{"type": "text", "text": str(ex)[:300]}], "isError": True}
         if name in ("commander_send", "commander_requests", "commander_plan", "details_read", "task_prs", "host_stats",
-                    "host_network", "waiting_on_you", "commander_answer", "agents", "agent_message"):
+                    "host_network", "waiting_on_you", "commander_answer", "agents", "agent_message", "agent_feed"):
             try:
                 fn = {"commander_send": commander_send, "commander_requests": commander_requests,
                       "commander_plan": commander_plan, "details_read": details_read, "task_prs": task_prs,
                       "host_stats": host_stats, "host_network": host_network, "waiting_on_you": waiting_on_you, "commander_answer": commander_answer,
-                      "agents": agents, "agent_message": agent_message}[name]
+                      "agents": agents, "agent_message": agent_message,
+                      "agent_feed": agent_feed}[name]
                 result = fn(params.get("arguments") or {})
                 return {"content": [{"type": "text", "text": json.dumps(result)}], "structuredContent": result, "isError": False}
             except Exception as ex:

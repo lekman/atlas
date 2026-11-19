@@ -438,3 +438,73 @@ describe("the MCP endpoint", () => {
     expect(response?.status).toBe(403);
   });
 });
+
+describe("an agent's live view and feed", () => {
+  async function get(path: string) {
+    const response = await api.handle(new Request(`http://atlas.test${path}`));
+    return (await response!.json()) as Record<string, unknown>;
+  }
+
+  test("GET /api/agents counts the agent's activities", async () => {
+    await call("report_activity", {
+      agentId: "test-runner",
+      activity: "reading",
+      contextTokens: null,
+    });
+    await call("report_activity", {
+      agentId: "test-runner",
+      activity: "shell",
+      contextTokens: null,
+    });
+    await call("report_activity", {
+      agentId: "test-runner",
+      activity: "reading",
+      contextTokens: null,
+    });
+    const { agents } = (await get("/api/agents")) as {
+      agents: { id: string; activity?: string; activityCounts: object }[];
+    };
+    const runner = agents.find((agent) => agent.id === "test-runner");
+    expect(runner?.activity).toBe("reading");
+    expect(runner?.activityCounts).toEqual({ reading: 2, shell: 1 });
+  });
+
+  test("the feed holds the agent's reports and questions, newest first", async () => {
+    await call("report_status", {
+      agentId: "test-runner",
+      status: "idle",
+      note: "Done: the drill passed",
+    });
+    await call("ask_question", {
+      session: { address: "test-runner" },
+      clientId: "kestrel",
+      questions: [{ question: "Run it again tonight?", options: [] }],
+    });
+    const { items } = (await get("/api/agents/test-runner/feed")) as {
+      items: { kind: string; text?: string; title?: string; state?: string }[];
+    };
+    expect(items[0]).toMatchObject({ kind: "question", state: "open" });
+    expect(items.some((item) => item.text === "Done: the drill passed")).toBe(
+      true,
+    );
+  });
+
+  test("the feed leaves out the session reader's own notes", async () => {
+    await call("report_status", {
+      agentId: "test-runner",
+      status: "idle",
+      note: "Session idle",
+    });
+    const { items } = (await get("/api/agents/test-runner/feed")) as {
+      items: { text?: string }[];
+    };
+    expect(items.some((item) => item.text === "Session idle")).toBe(false);
+  });
+
+  test("an unknown agent has an empty feed", async () => {
+    expect(await get("/api/agents/nobody/feed")).toEqual({
+      agentId: "nobody",
+      items: [],
+    });
+  });
+});

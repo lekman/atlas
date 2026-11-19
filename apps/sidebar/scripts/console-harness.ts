@@ -334,6 +334,42 @@ try {
       )) as Calls
     ).some((c) => c.tool === "agent_message" && c.args.nudge === true);
     if (!nudged) problems.push(`${at}: Nudge did not reach agent_message`);
+    // The agent's detail shows its live view and its open messages.
+    await tab
+      .getByRole("button", { name: /^Ops Desk/ })
+      .first()
+      .click();
+    if (
+      !(await tab
+        .getByRole("img", { name: /^Live view: now at Shell/ })
+        .waitFor({ timeout: 5000 })
+        .then(() => true)
+        .catch(() => false))
+    )
+      problems.push(`${at}: the agent has no live view`);
+    if (
+      !(await tab
+        .getByText(/Done: the depot alerts/)
+        .waitFor({ timeout: 5000 })
+        .then(() => true)
+        .catch(() => false))
+    )
+      problems.push(`${at}: the agent's messages are missing`);
+    if (process.env.SHOTS)
+      await tab.screenshot({
+        path: join(process.env.SHOTS, `agent-${size.width}.png`),
+      });
+    if (await tab.getByText("Keep the old queue a week?").isVisible())
+      problems.push(`${at}: an answered question shows with the filter off`);
+    await tab.getByText("Move the alerts tonight or tomorrow?").click();
+    if (
+      !(await tab
+        .getByRole("heading", { name: "Beam", level: 1 })
+        .waitFor({ timeout: 5000 })
+        .then(() => true)
+        .catch(() => false))
+    )
+      problems.push(`${at}: an open question does not open Beam`);
     // Log lists what was finished, with its points.
     await tab.getByRole("button", { name: /^Log/ }).first().click();
     if (
@@ -433,5 +469,5 @@ if (problems.length) {
   process.exit(1);
 }
 console.log(
-  `✓ one file, ${Math.round(source.length / 1024)} KB; sidebar, folding phone closed and open, and laptop render with no errors; Status to Done, Grade, Move, Radar's Plan, a Beam answer, an Agents nudge, the Log (and without one), the task detail with its page and pull request, Shields and an offline move work`,
+  `✓ one file, ${Math.round(source.length / 1024)} KB; sidebar, folding phone closed and open, and laptop render with no errors; Status to Done, Grade, Move, Radar's Plan, a Beam answer, an Agents nudge, an agent's live view and messages, the Log (and without one), the task detail with its page and pull request, Shields and an offline move work`,
 );

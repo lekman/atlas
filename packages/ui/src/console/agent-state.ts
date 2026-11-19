@@ -1,3 +1,5 @@
+import { activities, type Activity } from "@atlas/core";
+
 /** One agent as the dashboard host's `agents` tool reads it from Atlas. */
 export interface AgentRecord {
   id: string;
@@ -12,6 +14,14 @@ export interface AgentRecord {
   note: string;
   /** Worklist refs of the tasks it works on. */
   refs?: string[];
+  /** What its last tool call was for, as its hooks reported it. */
+  activity?: Activity;
+  /** Tokens in its context at the last turn. */
+  contextTokens?: number;
+  /** When it last reported an activity. */
+  activityAt?: string;
+  /** How often it switched to each activity in this run of readings. */
+  activityCounts?: Partial<Record<Activity, number>>;
   session?: {
     state: "busy" | "waiting" | "idle" | "limited" | "offline";
     since: string;
@@ -84,3 +94,93 @@ export function agentsByHost(
       ),
     }));
 }
+
+/** The stations of the live view, one per activity, with the word shown. */
+export const STATIONS: ReadonlyArray<{ activity: Activity; word: string }> =
+  activities.map((activity) => ({
+    activity,
+    word: {
+      reading: "Files",
+      editing: "Edits",
+      shell: "Shell",
+      git: "Git",
+      web: "Web",
+      delegating: "Agents",
+      asking: "You",
+      other: "Other",
+    }[activity],
+  }));
+
+/** One thing an agent told Atlas: a status report, or a question. */
+export interface AgentFeedItem {
+  kind: "status" | "question";
+  at: string;
+  /** A report's status: running, watching, waiting, blocked, error, idle. */
+  to?: string;
+  text?: string;
+  /** A question's id, title, state and answer. */
+  id?: string;
+  title?: string;
+  state?: "open" | "answered" | "delivered" | "withdrawn";
+  answer?: string;
+  answeredAt?: string;
+}
+
+export interface AgentFeedDoc {
+  agentId: string;
+  items: AgentFeedItem[];
+  fetchedAt?: string;
+}
+
+/** The host's answer, or null when it isn't one. */
+export function readAgentFeed(value: unknown): AgentFeedDoc | null {
+  if (typeof value !== "object" || value === null) return null;
+  const { agentId, items, fetchedAt } = value as Partial<AgentFeedDoc>;
+  if (typeof agentId !== "string" || !Array.isArray(items)) return null;
+  return {
+    agentId,
+    items: items.filter(
+      (i) =>
+        i &&
+        (i.kind === "status" || i.kind === "question") &&
+        typeof i.at === "string",
+    ),
+    ...(fetchedAt ? { fetchedAt } : {}),
+  };
+}
+
+/** A question that is no longer open; a report is never closed. */
+export const isClosed = (item: AgentFeedItem): boolean =>
+  item.kind === "question" && item.state !== "open";
+
+/** The badge word and tone for one feed item. */
+export function feedBadge(item: AgentFeedItem): {
+  word: string;
+  tone: "moving" | "blocked" | "waiting" | "done";
+} {
+  if (item.kind === "question")
+    return item.state === "open"
+      ? { word: "Question", tone: "blocked" }
+      : item.state === "withdrawn"
+        ? { word: "Withdrawn", tone: "waiting" }
+        : { word: "Answered", tone: "done" };
+  switch (item.to) {
+    case "error":
+      return { word: "Error", tone: "blocked" };
+    case "blocked":
+      return { word: "Blocked", tone: "blocked" };
+    case "waiting":
+      return { word: "Waiting", tone: "blocked" };
+    case "idle":
+      return { word: "Done", tone: "done" };
+    case "running":
+      return { word: "Started", tone: "moving" };
+    default:
+      return { word: "Report", tone: "waiting" };
+  }
+}
+
+/** A reading is live for two minutes after the agent sent it. */
+export const isLive = (agent: AgentRecord, now: Date): boolean =>
+  !!agent.activityAt &&
+  now.getTime() - new Date(agent.activityAt).getTime() < 120_000;

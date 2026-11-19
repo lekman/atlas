@@ -242,6 +242,24 @@ export function appendEvent(
 }
 
 /** Events after `after` in the log, oldest first. */
+/** The newest events, newest first, up to `limit`. */
+export function listRecentEvents(
+  database: AtlasDatabase,
+  limit = 2000,
+): StoredEvent[] {
+  return database
+    .select()
+    .from(schema.events)
+    .orderBy(desc(schema.events.sequence))
+    .limit(limit)
+    .all()
+    .map((row) => ({
+      sequence: row.sequence,
+      receivedAt: row.receivedAt,
+      event: AtlasEvent.parse(row.event),
+    }));
+}
+
 export function listEvents(
   database: AtlasDatabase,
   after = 0,

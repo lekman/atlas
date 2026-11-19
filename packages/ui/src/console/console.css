@@ -1921,3 +1921,191 @@
     margin-top: 0;
   }
 }
+
+/* Agents: the live view. Stations round the agent, the lit one pulses. */
+.console-live {
+  margin: 0;
+}
+
+.console-live-map {
+  display: block;
+  width: 100%;
+  max-width: 420px;
+  height: auto;
+}
+
+.console-live-map[data-empty] {
+  opacity: 0.55;
+}
+
+.console-live-spoke {
+  stroke: var(--line-strong);
+}
+
+.console-live-station[data-worn] .console-live-spoke {
+  stroke: var(--line-faint);
+}
+
+.console-live-station[data-lit] .console-live-spoke {
+  stroke: var(--amber);
+}
+
+.console-live-station > circle {
+  fill: var(--card);
+  stroke: var(--line-faint);
+  stroke-width: 1.5;
+}
+
+.console-live-station[data-lit] > circle {
+  fill: var(--amber);
+  stroke: var(--amber);
+}
+
+.console-live-station text {
+  fill: var(--label);
+  font: 500 10px var(--face-label);
+}
+
+.console-live-station[data-lit] text {
+  fill: var(--text);
+}
+
+.console-live-pulse {
+  fill: none;
+  stroke: var(--amber);
+  stroke-width: 2;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: console-live-pulse 1.6s ease-out infinite;
+}
+
+@keyframes console-live-pulse {
+  from {
+    opacity: 0.9;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(2.6);
+  }
+}
+
+.console-live-ring {
+  fill: none;
+  stroke: var(--line);
+  stroke-width: 4;
+}
+
+.console-live-context {
+  fill: none;
+  stroke: var(--mint);
+  stroke-width: 4;
+  stroke-linecap: round;
+}
+
+.console-live-core {
+  fill: var(--panel);
+  stroke: var(--line-strong);
+}
+
+.console-live-core-text {
+  fill: var(--text);
+  font: 600 11px var(--face-label);
+}
+
+.console-live-caption {
+  margin-top: 4px;
+  color: var(--secondary);
+  font-size: 12px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .console-live-pulse {
+    animation: none;
+    opacity: 0.6;
+  }
+}
+
+/* Agents: one column, or two side by side once the pane is wide. */
+.console-agent-body {
+  grid-template-areas: none;
+}
+
+.console-agent-column {
+  min-width: 0;
+}
+
+.console-agent-column > :first-child {
+  margin-top: 0;
+}
+
+@container (min-width: 820px) {
+  .console-agent-body {
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 1fr);
+    grid-template-rows: auto;
+    grid-template-areas: none;
+  }
+}
+
+/* Agents: the messages an agent sent, newest first. */
+.console-agent-feed-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  color: var(--label);
+  font: 400 11px/1.4 var(--face-label);
+}
+
+.console-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.console-agent-feed {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.console-agent-feed-item {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  min-height: var(--target);
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--card);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.console-agent-feed-item:hover {
+  border-color: var(--line-strong);
+}
+
+.console-agent-feed-text {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow-wrap: anywhere;
+}
+
+.console-agent-feed-text[data-expanded] {
+  display: block;
+  white-space: pre-wrap;
+}
+
+.console-agent-feed-answer {
+  color: var(--mint);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
