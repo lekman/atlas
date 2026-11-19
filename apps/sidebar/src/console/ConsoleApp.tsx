@@ -89,26 +89,28 @@ const syncedAtOf = (value: unknown): string | null => {
 };
 
 /**
- * Why the log shows nothing, in words, when it has no copy: the host's own
- * error, or, for the errors the feed keeps quiet, what they mean here.
+ * Why a dashboard-host read shows nothing, in words, when it has no copy:
+ * the host's own error, or, for the errors the feed keeps quiet, what they
+ * mean here. `what` names the read: "the log", "the agent list".
  */
-function logNote(
-  log: {
+function feedNote(
+  feed: {
     data: unknown;
     error: { text: string } | null;
     failure: { code: string } | null;
   },
   late: boolean,
+  what: string,
 ): string | null {
-  if (log.error) return log.error.text;
-  if (log.data) return null;
-  if (log.failure)
-    return log.failure.code === "server_not_connected" ||
-      log.failure.code === "not_granted"
-      ? "The log comes from the dashboard server on your Mac. This device can't reach it, and no copy is stored yet; open the console on the Mac once."
-      : describeError(log.failure as RuntimeError, "The dashboard server");
+  if (feed.error) return feed.error.text;
+  if (feed.data) return null;
+  if (feed.failure)
+    return feed.failure.code === "server_not_connected" ||
+      feed.failure.code === "not_granted"
+      ? `${what[0]!.toUpperCase()}${what.slice(1)} comes from the dashboard server on your Mac. This device can't reach it, and no copy is stored yet; open the console on the Mac once.`
+      : describeError(feed.failure as RuntimeError, "The dashboard server");
   return late
-    ? "The dashboard server hasn't answered yet. If this stays, its copy on this device may need updating to read the log."
+    ? `The dashboard server hasn't answered yet. If this stays, its copy on this device may need updating to read ${what}.`
     : null;
 }
 
@@ -276,6 +278,13 @@ export function ConsoleApp({
     },
     "The dashboard host",
   );
+  // The agent list never waits silently either.
+  const [agentsLate, setAgentsLate] = useState(false);
+  useEffect(() => {
+    if (agentsFeed.data || agentsFeed.failure) return;
+    const timer = setTimeout(() => setAgentsLate(true), 20000);
+    return () => clearTimeout(timer);
+  }, [agentsFeed.data, agentsFeed.failure]);
   const [agentSelected, setAgentSelected] = useState<string | null>(null);
   const [showOffline, setShowOffline] = useState(false);
   const [agentPending, setAgentPending] = useState<string | null>(null);
@@ -548,8 +557,13 @@ export function ConsoleApp({
       </>
     ) : section === "agents" ? (
       <AgentsList
-        agents={agentsFeed.data?.agents ?? (agentsFeed.failure ? [] : null)}
-        notes={agentsFeed.error ? [agentsFeed.error.text] : []}
+        agents={
+          agentsFeed.data?.agents ??
+          (agentsFeed.failure || agentsLate ? [] : null)
+        }
+        notes={[feedNote(agentsFeed, agentsLate, "the agent list")].filter(
+          (n): n is string => Boolean(n),
+        )}
         systemName={systemName}
         scope={scope}
         onScope={() => setPicking(true)}
@@ -601,7 +615,7 @@ export function ConsoleApp({
         view={logView}
         onViewChange={setLogView}
         items={log.data?.items ?? (log.failure || logLate ? [] : null)}
-        note={logNote(log, logLate)}
+        note={feedNote(log, logLate, "the log")}
         copyFrom={
           !log.live && log.data?.fetchedAt
             ? formatAgo(new Date(log.data.fetchedAt), now)
