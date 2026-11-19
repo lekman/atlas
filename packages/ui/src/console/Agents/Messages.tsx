@@ -17,6 +17,9 @@ export interface AgentMessagesProps {
   now: Date;
 }
 
+/** Messages shown on one page. */
+export const PAGE_SIZE = 5;
+
 const keyOf = (item: AgentFeedItem) =>
   item.kind === "question" ? `q:${item.id}` : `s:${item.at}:${item.text}`;
 
@@ -24,7 +27,9 @@ const keyOf = (item: AgentFeedItem) =>
  * What the agent told Atlas, newest first: its questions, and its reports
  * such as done, error or waiting. An open question opens in Beam; any other
  * message opens in place to show all of its text and the answer. The filter
- * hides answered and withdrawn questions.
+ * hides answered and withdrawn questions, and a waiting report once the
+ * agent has moved on. Five show at a time; Newer and
+ * Older page through the rest.
  */
 export function AgentMessages({
   items,
@@ -35,8 +40,14 @@ export function AgentMessages({
   now,
 }: AgentMessagesProps) {
   const [open, setOpen] = useState<string | null>(null);
-  const closed = (items ?? []).filter(isClosed).length;
-  const shown = (items ?? []).filter((i) => showClosed || !isClosed(i));
+  const [page, setPage] = useState(0);
+  const list = items ?? [];
+  const closed = list.filter((i) => isClosed(i, list)).length;
+  const all = list.filter((i) => showClosed || !isClosed(i, list));
+  const pages = Math.max(1, Math.ceil(all.length / PAGE_SIZE));
+  // A shorter list, after the filter or a refresh, keeps the page in range.
+  const at = Math.min(page, pages - 1);
+  const shown = all.slice(at * PAGE_SIZE, (at + 1) * PAGE_SIZE);
 
   return (
     <section className="console-detail-section" aria-label="Messages">
@@ -51,7 +62,10 @@ export function AgentMessages({
             {
               label: `Show answered and closed (${closed})`,
               checked: showClosed,
-              onSelect: () => onShowClosed(!showClosed),
+              onSelect: () => {
+                setPage(0);
+                onShowClosed(!showClosed);
+              },
             },
           ]}
         />
@@ -122,6 +136,30 @@ export function AgentMessages({
           })}
         </ul>
       )}
+      {pages > 1 ? (
+        <nav className="console-pager" aria-label="Message pages">
+          <button
+            type="button"
+            className="console-secondary"
+            aria-disabled={at === 0 || undefined}
+            onClick={() => at > 0 && setPage(at - 1)}
+          >
+            Newer
+          </button>
+          <span className="console-pager-count" aria-live="polite">
+            {at * PAGE_SIZE + 1}–{Math.min(all.length, (at + 1) * PAGE_SIZE)} of{" "}
+            {all.length}
+          </span>
+          <button
+            type="button"
+            className="console-secondary"
+            aria-disabled={at >= pages - 1 || undefined}
+            onClick={() => at < pages - 1 && setPage(at + 1)}
+          >
+            Older
+          </button>
+        </nav>
+      ) : null}
     </section>
   );
 }

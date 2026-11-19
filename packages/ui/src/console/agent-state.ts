@@ -161,9 +161,25 @@ export function readAgentFeed(value: unknown): AgentFeedDoc | null {
   };
 }
 
-/** A question that is no longer open; a report is never closed. */
-export const isClosed = (item: AgentFeedItem): boolean =>
-  item.kind === "question" && item.state !== "open";
+/**
+ * Whether a message is settled: a question no longer open, or a waiting or
+ * blocked report once the agent has moved on, because it reported again
+ * later or has no open question left. Done and error reports stay open.
+ */
+export function isClosed(
+  item: AgentFeedItem,
+  all: readonly AgentFeedItem[] = [],
+): boolean {
+  if (item.kind === "question") return item.state !== "open";
+  if (item.to !== "waiting" && item.to !== "blocked") return false;
+  const later = all.some(
+    (other) => other.kind === "status" && other.at > item.at,
+  );
+  const asking = all.some(
+    (other) => other.kind === "question" && other.state === "open",
+  );
+  return later || !asking;
+}
 
 /** The badge word and tone for one feed item. */
 export function feedBadge(item: AgentFeedItem): {

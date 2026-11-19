@@ -383,6 +383,18 @@ try {
       });
     if (await tab.getByText("Keep the old queue a week?").isVisible())
       problems.push(`${at}: an answered question shows with the filter off`);
+    // Five messages to a page; Older shows the rest.
+    if (await tab.getByText("Older report 4", { exact: true }).isVisible())
+      problems.push(`${at}: the messages show more than five at once`);
+    await tab.getByRole("button", { name: "Older", exact: true }).click();
+    if (
+      !(await tab
+        .getByText("Older report 4", { exact: true })
+        .isVisible()
+        .catch(() => false))
+    )
+      problems.push(`${at}: Older does not show the next messages`);
+    await tab.getByRole("button", { name: "Newer", exact: true }).click();
     await tab.getByText(/Done: the depot alerts/).click();
     if (
       !(await tab
