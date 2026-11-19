@@ -70,7 +70,8 @@ export const shim = `(() => {
     },
     "host:dashboard/details_read": () => ({ structuredContent: { path: "Harness/Plan.md", modifiedAt: "2026-03-01T00:00:00Z",
       md: "---\\nstatus: planned\\n---\\n# Plan\\n\\n## Harness heading\\n\\n<script>window.__pwned = 1<\\/script> [x](javascript:window.__pwned=1)\\n" } }),
-    "host:dashboard/task_prs": () => ({ structuredContent: { linked: false, fetchedAt: new Date().toISOString(), prs: [
+    // window.__slowPrs holds the pull request search back, to show the loading state.
+    "host:dashboard/task_prs": () => window.__slowPrs ? new Promise(() => {}) : ({ structuredContent: { linked: false, fetchedAt: new Date().toISOString(), prs: [
       { repo: "acme/app", number: 7, title: "Harness pull request", url: "https://github.com/acme/app/pull/7",
         state: "open", checks: "success" }] } }),
     "host:dashboard/commander_send": (args) => ({ structuredContent: { request: {

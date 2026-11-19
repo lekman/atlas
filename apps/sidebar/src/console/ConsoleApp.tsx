@@ -332,6 +332,7 @@ export function ConsoleApp({
             details={details}
             pulls={pulls.doc}
             pullsCopy={pulls.copy}
+            pullsLoading={pulls.loading}
             mondayPrefix={
               config.trackers.find((t) => t.monday)?.monday?.keyPrefix
             }

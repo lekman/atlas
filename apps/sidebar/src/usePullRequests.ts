@@ -60,6 +60,8 @@ export function usePullRequests(runtime: Runtime, item: WorkItem | null) {
     copy: boolean;
   } | null>(null);
   const [busy, setBusy] = useState(false);
+  /** The task whose first search has finished, found or not. */
+  const [settled, setSettled] = useState<string | null>(null);
   const ref = item?.ref;
   const linked = item ? linkedOf(item).join(",") : "";
 
@@ -71,6 +73,7 @@ export function usePullRequests(runtime: Runtime, item: WorkItem | null) {
       if (got) setFound({ ref: item.ref, ...got });
     } finally {
       setBusy(false);
+      setSettled(item.ref);
     }
     // biome-ignore lint/correctness/useExhaustiveDependencies: follows the task's ref and linked list.
   }, [runtime, ref, linked]);
@@ -84,6 +87,10 @@ export function usePullRequests(runtime: Runtime, item: WorkItem | null) {
     doc: mine?.doc ?? null,
     copy: mine?.copy ?? false,
     busy,
+    /** Still searching for the open task's first answer. */
+    loading: Boolean(
+      item && ref && searchable(item) && settled !== ref && !mine,
+    ),
     refresh: load,
   };
 }

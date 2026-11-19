@@ -31,6 +31,8 @@ export interface TaskDetailProps {
   pulls: PullsDoc | null;
   /** Whether the pull requests are a stored copy rather than live. */
   pullsCopy?: boolean;
+  /** Still looking for the task's pull requests: the section shows a shimmer. */
+  pullsLoading?: boolean;
   /** The monday.com key prefix, to tell its keys from Jira's. */
   mondayPrefix?: string;
   /** Jira's status for each synced issue key, from the Jira sync. */
@@ -176,6 +178,7 @@ export function TaskDetail({
   details,
   pulls,
   pullsCopy = false,
+  pullsLoading = false,
   mondayPrefix,
   jiraStatuses,
   request,
@@ -388,17 +391,31 @@ export function TaskDetail({
           ))}
         </dl>
 
-        {prs.length ? (
-          <section
-            className="console-detail-section console-detail-pulls"
-            aria-label="Pull requests"
-          >
-            <h3 className="console-label">
-              Pull requests
-              {pullsCopy && pulls?.fetchedAt
-                ? ` · copy from ${formatAgo(new Date(pulls.fetchedAt), now)}`
-                : ""}
-            </h3>
+        <section
+          className="console-detail-section console-detail-pulls"
+          aria-label="Pull requests"
+        >
+          <h3 className="console-label">
+            Pull requests
+            {pullsCopy && pulls?.fetchedAt
+              ? ` · copy from ${formatAgo(new Date(pulls.fetchedAt), now)}`
+              : ""}
+          </h3>
+          {pullsLoading && !prs.length ? (
+            <ul className="console-pulls" aria-busy="true">
+              {[0, 1].map((n) => (
+                <li key={n} className="console-pull console-shimmer">
+                  <span className="console-visually-hidden">
+                    Looking for pull requests
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {!pullsLoading && !prs.length ? (
+            <p className="console-note">No pull requests associated.</p>
+          ) : null}
+          {prs.length ? (
             <ul className="console-pulls">
               {prs.map((pull) => (
                 <li
@@ -416,10 +433,10 @@ export function TaskDetail({
                         target="_blank"
                         rel="noreferrer noopener"
                       >
-                        {pull.repo}#{pull.number}
+                        {ticketLabel(`${pull.repo}#${pull.number}`)}
                       </a>
                     ) : (
-                      `${pull.repo}#${pull.number}`
+                      ticketLabel(`${pull.repo}#${pull.number}`)
                     )}{" "}
                     {pull.title}
                     {pullFacts(pull) ? (
@@ -431,8 +448,8 @@ export function TaskDetail({
                 </li>
               ))}
             </ul>
-          </section>
-        ) : null}
+          ) : null}
+        </section>
 
         <section
           className="console-detail-section console-detail-page"

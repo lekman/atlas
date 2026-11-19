@@ -1239,6 +1239,36 @@
   color: var(--blue);
 }
 
+.console-shimmer {
+  min-height: 52px;
+  background:
+    linear-gradient(
+        100deg,
+        transparent 20%,
+        rgb(255 255 255 / 5%) 50%,
+        transparent 80%
+      )
+      0 0 / 200% 100% no-repeat,
+    var(--card);
+  animation: console-shimmer 1.4s linear infinite;
+}
+
+@keyframes console-shimmer {
+  from {
+    background-position: 150% 0;
+  }
+
+  to {
+    background-position: -50% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .console-shimmer {
+    animation: none;
+  }
+}
+
 .console-pull-facts {
   display: block;
   margin-top: 2px;
