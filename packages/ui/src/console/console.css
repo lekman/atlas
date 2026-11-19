@@ -1627,8 +1627,17 @@
 }
 
 .console-beam-actions [aria-disabled="true"] {
-  opacity: 0.55;
   cursor: default;
+}
+
+/* A primary action that cannot be pressed yet: outlined, with readable text, not faded amber. */
+.console-beam-actions .console-primary[aria-disabled="true"] {
+  background: transparent;
+  color: var(--label);
+}
+
+.console-beam-actions .console-secondary[aria-disabled="true"] {
+  color: var(--label);
 }
 
 /* Log: each finished mission's points, in the row's right column. */

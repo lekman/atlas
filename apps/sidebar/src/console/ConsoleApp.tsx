@@ -807,6 +807,7 @@ export function ConsoleApp({
               const agent = agentFor(task.claimedBy);
               return agent
                 ? {
+                    agentName: agent.name,
                     onOpenAgent: () => {
                       setSection("agents");
                       setSelected(null);

@@ -287,7 +287,7 @@ try {
       .click()
       .catch(() => undefined);
     const agentLink = tab.getByRole("button", {
-      name: "ops desk",
+      name: "Ops Desk",
       exact: true,
     });
     if (

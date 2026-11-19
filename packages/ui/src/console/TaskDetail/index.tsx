@@ -70,6 +70,8 @@ export interface TaskDetailProps {
   onCopyReference(task: WorkItem): void;
   /** Opens the agent that claimed the task in Agents, when Atlas knows it. */
   onOpenAgent?(): void;
+  /** The claiming agent's own name; the task database keeps claims in lower case. */
+  agentName?: string;
 }
 
 const quadrantWords: Record<string, string> = {
@@ -237,6 +239,7 @@ export function TaskDetail({
   onAssess,
   onCopyReference,
   onOpenAgent,
+  agentName,
 }: TaskDetailProps) {
   const page = details.state === "ready" ? details.page : null;
   const { fields, blocks } = useMemo(() => {
@@ -446,10 +449,10 @@ export function TaskDetail({
           title="Open the agent in Agents"
           onClick={onOpenAgent}
         >
-          {task.claimedBy}
+          {agentName ?? task.claimedBy}
         </button>
       ) : (
-        task.claimedBy
+        (agentName ?? task.claimedBy)
       ),
     ]);
 
