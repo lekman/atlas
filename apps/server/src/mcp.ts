@@ -130,7 +130,7 @@ export function createMcpServer({
     { name: "atlas", version },
     {
       instructions:
-        "Atlas is the shared map of agents, clients and work. Call report_status when you start, change what you are doing, wait on someone, or finish. Call launch_vessel when you start a background agent or subagent, and return_vessel when it finishes. Use your agent id from list_agents. Ask the person with ask_question: it returns at once, and the answer comes back to your session as a message.",
+        'Atlas is the shared map of agents, clients and work. Call report_status when you start, change what you are doing, wait on someone, or finish. Call launch_vessel when you start a background agent or subagent, and return_vessel when it finishes. Use your agent id from list_agents. Ask the person with ask_question: it returns at once, and the answer comes back to your session as a message. When a piece of work finishes (a pull request merges, a task completes, a deliverable ships), call report_status with status idle, a note that starts with "Done:" and names the work, and a detail that says in plain text what was done, what was checked and what is still open; the person reads it as a Done message under your agent. When an error stops your work, call report_status with status error, the error in the note and what you tried in detail. Do not post a Done message at the end of every reply.',
     },
   );
   const read = (): Dataset => readDataset(database, overlay);
@@ -186,7 +186,7 @@ export function createMcpServer({
     {
       title: "Report status",
       description:
-        "Tell Atlas what you are doing. Use waiting when you need the person, blocked when something else stops you, and idle when you are done. When you finish a piece of work, or hit an error, put what happened in detail: it shows as a message under the agent.",
+        'Tell Atlas what you are doing. Use waiting when you need the person, blocked when something else stops you, and idle when you are done. When a piece of work finishes, use idle with a note starting "Done:" and the full account in detail; when an error stops you, use error with what you tried in detail. Each shows as a message under the agent.',
       inputSchema: {
         agentId: Identifier.describe("Your agent id, from list_agents"),
         status: z.enum(agentStatuses),
