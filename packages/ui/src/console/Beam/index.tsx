@@ -24,7 +24,7 @@ export const beamKey = (item: WaitingItem): string =>
   askKey(item) ?? `ask:${item.kind}:${item.ask ?? ""}`;
 
 const whoAsks = (item: WaitingItem) =>
-  item.kind === "commander" && item.worker
+  (item.kind === "commander" || item.kind === "atlas") && item.worker
     ? item.worker
     : item.kind === "task"
       ? "The task's owner"
