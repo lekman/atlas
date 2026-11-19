@@ -81,6 +81,16 @@ export interface Configuration {
    * `dist-console/console.html` beside the sidebar's `dist/`.
    */
   consoleFile?: string;
+  /**
+   * Commander's roster (`~/.claude/commander.json`), kept in step with
+   * Atlas's agents: `ATLAS_ROSTER`. See `roster-source.ts`.
+   */
+  rosterFile?: string;
+  /**
+   * What each roster machine means in Atlas (host name, account, reach):
+   * `ATLAS_ROSTER_MACHINES`, a JSON file on this machine.
+   */
+  rosterMachinesFile?: string;
 }
 
 /** An HTTP endpoint and the command that prints its token. */
@@ -465,5 +475,11 @@ export function readConfiguration(
     ...(dashboardCommand ? { dashboardCommand } : {}),
     ...(sidebarFile ? { sidebarFile } : {}),
     ...(consoleFile ? { consoleFile } : {}),
+    ...(environment.ATLAS_ROSTER?.trim()
+      ? { rosterFile: environment.ATLAS_ROSTER.trim() }
+      : {}),
+    ...(environment.ATLAS_ROSTER_MACHINES?.trim()
+      ? { rosterMachinesFile: environment.ATLAS_ROSTER_MACHINES.trim() }
+      : {}),
   };
 }

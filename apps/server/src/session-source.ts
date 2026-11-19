@@ -120,6 +120,8 @@ const SessionFileShape = z.object({
   entrypoint: z.string().optional().catch(undefined),
   cwd: z.string().optional().catch(undefined),
   startedAt: z.number().optional().catch(undefined),
+  toolCalls: z.number().int().nonnegative().optional().catch(undefined),
+  lastCallAt: z.number().optional().catch(undefined),
 });
 
 /** One live Claude Code session, as Atlas keeps it. */
@@ -136,6 +138,10 @@ export interface Session {
   cwd?: string;
   /** When the process started, in milliseconds since 1970. */
   startedAt?: number;
+  /** How many tool calls the session has made, as Claude Code counts them. */
+  toolCalls?: number;
+  /** When its latest tool call ran, in milliseconds since 1970. */
+  lastCallAt?: number;
 }
 
 /** The session file name: the process id, then `.json`. */
@@ -171,6 +177,12 @@ export function parseSessionFile(
     ...(parsed.data.cwd ? { cwd: parsed.data.cwd } : {}),
     ...(parsed.data.startedAt !== undefined
       ? { startedAt: parsed.data.startedAt }
+      : {}),
+    ...(parsed.data.toolCalls !== undefined
+      ? { toolCalls: parsed.data.toolCalls }
+      : {}),
+    ...(parsed.data.lastCallAt !== undefined
+      ? { lastCallAt: parsed.data.lastCallAt }
       : {}),
   };
 }
@@ -494,6 +506,14 @@ export interface AgentSessionState {
    * first seen gone for `offline`, and otherwise the poll that first saw it.
    */
   since: string;
+  /** The live session's activity, for a view of what the agent does. */
+  activity?: {
+    /** When the session started, ISO 8601. */
+    startedAt?: string;
+    toolCalls?: number;
+    /** When its latest tool call ran, ISO 8601. */
+    lastCallAt?: string;
+  };
 }
 
 export interface SessionReader {
@@ -682,7 +702,25 @@ export function createSessionReader({
     else if (live && live.status === state && live.statusUpdatedAt > 0)
       since = new Date(live.statusUpdatedAt).toISOString();
     else since = previous?.state === state ? previous.since : at.toISOString();
-    pending.set(agentId, { state, since });
+    const iso = (ms: number | undefined) =>
+      ms && ms > 0 ? new Date(ms).toISOString() : undefined;
+    const activity =
+      live && state !== "offline"
+        ? {
+            ...(iso(live.startedAt) ? { startedAt: iso(live.startedAt)! } : {}),
+            ...(live.toolCalls !== undefined
+              ? { toolCalls: live.toolCalls }
+              : {}),
+            ...(iso(live.lastCallAt)
+              ? { lastCallAt: iso(live.lastCallAt)! }
+              : {}),
+          }
+        : undefined;
+    pending.set(agentId, {
+      state,
+      since,
+      ...(activity && Object.keys(activity).length ? { activity } : {}),
+    });
   }
 
   /** Records the usage-limit signal for an agent's session, then tells the listener. */

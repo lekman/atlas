@@ -191,6 +191,8 @@ export interface ApiOptions {
   github?: GithubReader;
   /** Live agent status from Claude Code's session files. Leave out to keep it off. */
   sessions?: SessionReader;
+  /** Commander's roster, kept in step with the agents; a change reloads open pages. */
+  roster?: { subscribe(listener: () => void): () => void };
   /** The dispatcher, for its digest list. Leave out when it is off. */
   dispatcher?: Dispatcher;
   /**
@@ -248,6 +250,7 @@ export function createApi({
   fakeDevelopment = false,
   github,
   sessions,
+  roster,
   dispatcher,
   messages,
   idle,
@@ -320,6 +323,10 @@ export function createApi({
   sessions?.connect({
     dataset: () => readDataset(database, overlay),
     record,
+  });
+  const stopRoster = roster?.subscribe(() => {
+    const frame = refreshFrame(tasks?.health().lastRefresh ?? null);
+    for (const write of streams) write(frame);
   });
   const stopSessions = sessions?.subscribe(() => {
     const frame = refreshFrame(tasks?.health().lastRefresh ?? null);
@@ -716,6 +723,7 @@ export function createApi({
       stopRefreshes?.();
       stopGithub?.();
       stopSessions?.();
+      stopRoster?.();
       stopIdle?.();
       for (const finish of [...closers]) finish();
     },
