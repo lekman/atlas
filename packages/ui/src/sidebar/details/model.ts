@@ -113,6 +113,11 @@ export function trackerSystem(
   return "jira";
 }
 
+/** A ticket key without its GitHub owner: `org/repo#12` reads `repo#12`. */
+export function ticketLabel(key: string): string {
+  return key.replace(/^[\w.-]+\/(?=[\w.-]+#\d+$)/, "");
+}
+
 export const TRACKER_NAME: Record<TrackerSystem, string> = {
   monday: "monday.com",
   jira: "Jira",

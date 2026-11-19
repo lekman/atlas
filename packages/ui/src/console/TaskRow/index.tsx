@@ -1,4 +1,4 @@
-import { trackerSystem } from "../../sidebar/details/model";
+import { ticketLabel, trackerSystem } from "../../sidebar/details/model";
 import { LOGOS } from "../../sidebar/icons";
 import { quadrantOf, type WorkItem } from "../../sidebar/worklist/model";
 import { ConsoleIcon } from "../ConsoleIcon";
@@ -81,7 +81,7 @@ export function TaskRow({
                   dangerouslySetInnerHTML={{ __html: logo.body }}
                 />
               ) : null}
-              {task.key}
+              {ticketLabel(task.key)}
             </span>
           ) : null}
           {task.due ? (

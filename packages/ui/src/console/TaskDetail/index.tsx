@@ -6,6 +6,7 @@ import type { DetailsState } from "../../sidebar/DetailsView";
 import {
   field,
   liveStatus,
+  ticketLabel,
   trackerSystem,
   TRACKER_NAME,
 } from "../../sidebar/details/model";
@@ -309,10 +310,10 @@ export function TaskDetail({
       <span className="console-ticket" title={TRACKER_NAME[system]}>
         {trackerUrl ? (
           <a href={trackerUrl} target="_blank" rel="noreferrer noopener">
-            {key}
+            {ticketLabel(key)}
           </a>
         ) : (
-          <span>{key}</span>
+          <span>{ticketLabel(key)}</span>
         )}
         {ticketStatus ? (
           <span className="console-badge" data-tone={ticketTone(ticketStatus)}>

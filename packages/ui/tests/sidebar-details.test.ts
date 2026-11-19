@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
 import {
+  ticketLabel,
   detailsKey,
   isDetailsPage,
   liveStatus,
@@ -66,5 +67,16 @@ describe("isDetailsPage", () => {
   it("needs a path and Markdown", () => {
     expect(isDetailsPage({ path: "a.md", md: "# A" })).toBe(true);
     expect(isDetailsPage({ path: "a.md" })).toBe(false);
+  });
+});
+
+describe("ticketLabel", () => {
+  it("drops the GitHub owner from a pull request or issue key", () => {
+    expect(ticketLabel("acme/acme-platform#321")).toBe("acme-platform#321");
+  });
+
+  it("leaves Jira, monday.com and bare GitHub keys alone", () => {
+    expect(ticketLabel("PROJ-123")).toBe("PROJ-123");
+    expect(ticketLabel("#12")).toBe("#12");
   });
 });

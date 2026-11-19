@@ -195,6 +195,7 @@ export {
   isDetailsPage,
   liveStatus,
   pageRepos,
+  ticketLabel,
   trackerSystem,
   TRACKER_NAME,
   type DetailsCopy,
