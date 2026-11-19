@@ -1483,6 +1483,31 @@
   accent-color: var(--amber);
 }
 
+/* Radar: ticket rows link to their tracker; meeting rows are read-only. */
+.console-radar a.console-task-open,
+.console-radar div.console-task-open {
+  color: inherit;
+  text-decoration: none;
+}
+
+.console-radar a.console-task-open:hover .console-task-title {
+  text-decoration: underline;
+}
+
+.console-radar-tracked {
+  margin: 0 0 10px;
+}
+
+.console-radar-join {
+  display: inline-grid;
+  place-items: center;
+  min-height: 32px;
+  padding: 0 10px;
+  color: var(--secondary);
+  font-size: 12px;
+  text-decoration: none;
+}
+
 .console-read-more {
   margin-top: 4px;
   padding: 6px 0;

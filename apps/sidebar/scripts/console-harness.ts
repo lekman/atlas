@@ -174,6 +174,39 @@ try {
       problems.push(
         `${at}: Done from the Status dropdown did not reach the local server`,
       );
+    // Radar lists tickets not yet tasks, and plans one with Commander.
+    await tab
+      .getByRole("button", { name: /^Radar/ })
+      .first()
+      .click();
+    const ticket = tab.getByText("Harness board item", { exact: true });
+    if (
+      !(await ticket
+        .waitFor({ timeout: 5000 })
+        .then(() => true)
+        .catch(() => false))
+    )
+      problems.push(`${at}: Radar shows no ticket`);
+    else {
+      await tab
+        .getByRole("button", { name: /^Actions for KF-9/ })
+        .first()
+        .click();
+      await tab.getByRole("menuitem", { name: "Plan with Commander" }).click();
+      await tab.waitForTimeout(200);
+      const planned = (
+        (await tab.evaluate(
+          () => (window as unknown as { __calls?: Calls }).__calls ?? [],
+        )) as Calls
+      ).some(
+        (c) =>
+          c.tool === "commander_plan" && /KF-9/.test(JSON.stringify(c.args)),
+      );
+      if (!planned)
+        problems.push(
+          `${at}: Plan with Commander did not reach commander_plan`,
+        );
+    }
     await tab
       .getByRole("button", { name: /Shields/ })
       .first()
@@ -229,5 +262,5 @@ if (problems.length) {
   process.exit(1);
 }
 console.log(
-  `✓ one file, ${Math.round(source.length / 1024)} KB; sidebar, folding phone closed and open, and laptop render with no errors; Status to Done, Grade, Move, the task detail with its page and pull request, Shields and an offline move work`,
+  `✓ one file, ${Math.round(source.length / 1024)} KB; sidebar, folding phone closed and open, and laptop render with no errors; Status to Done, Grade, Move, Radar's Plan, the task detail with its page and pull request, Shields and an offline move work`,
 );

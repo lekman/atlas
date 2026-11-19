@@ -2,6 +2,10 @@ import type { Runtime } from "@atlas/runtime";
 import {
   ConsoleFrame,
   ConsoleSettings,
+  RadarList,
+  radarTickets,
+  type RadarTicket,
+  type RadarView,
   MissionsList,
   movesFor,
   scopeChoices,
@@ -25,7 +29,10 @@ import {
   type ShieldRow,
 } from "@atlas/ui/console";
 import {
+  agendaDays,
+  jiraErrorText,
   jiraStatuses,
+  readJira,
   referenceText,
   syncLabel,
   type WorkItem,
@@ -38,12 +45,16 @@ import { PENDING_NOTE } from "../moves";
 import { useCommander } from "../useCommander";
 import { readDetailsIndex, useDetails } from "../useDetails";
 import { useHosts } from "../useHosts";
+import { useCalendar } from "../useCalendar";
+import { useGitHub } from "../useGitHub";
+import { useMonday } from "../useMonday";
 import { useNow } from "../useNow";
 import { usePreferences } from "../usePreferences";
 import { usePullRequests } from "../usePullRequests";
 import { useStored } from "../useStored";
 import { useSync } from "../useSync";
 import { copyText, useTaskActions } from "../useTaskActions";
+import { worklistMeetings } from "../worklist";
 import { useWorklist } from "../useWorklist";
 import { relayStateOf } from "./relay";
 import { useHostNetwork } from "./useHostNetwork";
@@ -116,6 +127,55 @@ export function ConsoleApp({
     events: eventsSynced ?? undefined,
   });
   const detailsIndex = useStored(runtime, "board/details", readDetailsIndex);
+
+  // Radar: the trackers' tickets and the week's meetings, as the sidebar reads them.
+  const mondayTracker = config.trackers.find((t) => t.monday);
+  const githubTracker = config.trackers.find((t) => t.github);
+  const jiraTracker = config.trackers.find((t) => t.logo === "jira");
+  const monday = useMonday(runtime, mondayTracker?.monday);
+  const github = useGitHub(runtime, githubTracker?.github);
+  const jiraDoc = useStored(runtime, "board/jira", readJira);
+  const eventsDoc = useStored(runtime, "board/events", (d) =>
+    typeof d === "object" && d !== null
+      ? (d as { syncedAt?: string; items?: unknown })
+      : null,
+  );
+  const workMeetings = useMemo(
+    () => worklistMeetings(items, config.calendar?.timeZone ?? "Europe/London"),
+    [items, config],
+  );
+  const calendar = useCalendar(runtime, config, eventsDoc, now, workMeetings);
+  const tickets = useMemo(
+    () =>
+      jiraDoc === undefined && !monday.data && !github.data
+        ? null
+        : radarTickets({
+            jira: jiraTracker
+              ? { client: jiraTracker.client, doc: jiraDoc }
+              : null,
+            monday: mondayTracker
+              ? { client: mondayTracker.client, page: monday.data }
+              : null,
+            github: githubTracker
+              ? {
+                  client: githubTracker.client,
+                  page: github.data,
+                  me: github.me,
+                }
+              : null,
+            items,
+          }),
+    [jiraDoc, monday.data, github.data, github.me, items, config],
+  );
+  const radarNotes = [
+    ...(jiraDoc && !jiraDoc.ok ? [jiraErrorText(jiraDoc.error)] : []),
+    ...(monday.error ? [monday.error.text] : []),
+    ...(github.error ? [github.error.text] : []),
+    ...calendar.errors.map((e) => e.text),
+  ];
+  const [radarView, setRadarView] = useState<RadarView>("tickets");
+  const [showTracked, setShowTracked] = useState(false);
+  const ticketRef = (t: RadarTicket) => `${t.system}:${t.key}`;
 
   const [section, setSection] = useState<Section>("missions");
   const [range, setRange] = useState<Range>("today");
@@ -289,6 +349,47 @@ export function ConsoleApp({
           />
         )}
       </>
+    ) : section === "radar" ? (
+      <RadarList
+        view={radarView}
+        onViewChange={setRadarView}
+        tickets={tickets}
+        days={calendar.events ? agendaDays(calendar.events, now) : null}
+        notes={radarNotes}
+        clientOrder={config.clients.map((c) => c.key)}
+        systemName={systemName}
+        scope={scope}
+        onScope={() => setPicking(true)}
+        showTracked={showTracked}
+        onShowTracked={setShowTracked}
+        planning={(t) =>
+          commander.open(ticketRef(t)) ? "Commander is planning this" : null
+        }
+        onPlan={(t) =>
+          void commander.planTracker({
+            system: t.system,
+            key: t.key,
+            title: t.title,
+            customer: t.client,
+            url: t.url,
+            status: t.status,
+            priority: t.priority,
+          })
+        }
+        onOpenTask={(t) => {
+          if (!t.task) return;
+          const band = t.task.band;
+          setRange(
+            band === "tomorrow"
+              ? "tomorrow"
+              : band === "today"
+                ? "today"
+                : "backlog",
+          );
+          setSection("missions");
+          setSelected(taskKey(t.task));
+        }}
+      />
     ) : (
       <>
         <SectionHeading title={sectionNames[section]} />
@@ -306,7 +407,10 @@ export function ConsoleApp({
       score={null}
       relay={relay}
       section={section}
-      counts={{ shields: shieldAlerts(shieldRows(shieldData)) }}
+      counts={{
+        shields: shieldAlerts(shieldRows(shieldData)),
+        radar: (tickets ?? []).filter((t) => !t.task).length,
+      }}
       settingsOpen={settingsOpen}
       settings={
         <ConsoleSettings
