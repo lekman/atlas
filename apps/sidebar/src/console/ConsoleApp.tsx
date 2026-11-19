@@ -409,7 +409,6 @@ export function ConsoleApp({
       section={section}
       counts={{
         shields: shieldAlerts(shieldRows(shieldData)),
-        radar: (tickets ?? []).filter((t) => !t.task).length,
       }}
       settingsOpen={settingsOpen}
       settings={

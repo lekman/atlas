@@ -1510,10 +1510,6 @@
   text-decoration: underline;
 }
 
-.console-radar-tracked {
-  margin: 0 0 10px;
-}
-
 .console-radar-meeting .console-task-side {
   width: auto;
   justify-content: center;

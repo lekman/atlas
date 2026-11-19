@@ -219,6 +219,21 @@ try {
         problems.push(
           `${at}: Plan with Commander did not reach commander_plan`,
         );
+      // The filter shows the tickets that are already tasks.
+      await tab
+        .getByRole("button", { name: /^Filter for the ticket list/ })
+        .click();
+      await tab
+        .getByRole("menuitemcheckbox", { name: /Show tickets that are tasks/ })
+        .click();
+      if (
+        !(await tab
+          .getByText("Harness board item with a task", { exact: true })
+          .waitFor({ timeout: 3000 })
+          .then(() => true)
+          .catch(() => false))
+      )
+        problems.push(`${at}: the filter does not show tickets that are tasks`);
     }
     await tab
       .getByRole("button", { name: /Shields/ })

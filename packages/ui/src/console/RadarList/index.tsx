@@ -52,8 +52,8 @@ const minutesWords = (m: number) =>
  * Radar: what is not yet your work. Tickets assigned to you in Jira,
  * monday.com and GitHub, grouped by system, each with its status and a
  * menu to plan it with Commander, open the task it already is, or open it
- * in its tracker; tickets that are already tasks are left out unless asked
- * for. Meetings: the next seven days, by day, in 24-hour time.
+ * in its tracker; tickets that are already tasks are left out unless the
+ * Filter menu turns them on. Meetings: the next seven days, by day, in 24-hour time.
  */
 export function RadarList({
   view,
@@ -111,6 +111,20 @@ export function RadarList({
           value={view}
           onChange={onViewChange}
         />
+        {view === "tickets" ? (
+          <ConsoleMenu
+            label="Filter"
+            name="the ticket list"
+            items={[
+              {
+                label: `Show tickets that are tasks (${tracked})`,
+                checked: showTracked,
+                hint: "Tickets already on the worklist",
+                onSelect: () => onShowTracked(!showTracked),
+              },
+            ]}
+          />
+        ) : null}
       </div>
       {notes.map((n) => (
         <p key={n} className="console-request" role="status">
@@ -123,17 +137,10 @@ export function RadarList({
           <p className="console-empty">Reading the trackers…</p>
         ) : (
           <>
-            {tracked ? (
-              <button
-                type="button"
-                className="console-read-more console-radar-tracked"
-                aria-pressed={showTracked}
-                onClick={() => onShowTracked(!showTracked)}
-              >
-                {showTracked
-                  ? `Hide the ${tracked} already tasks`
-                  : `Show the ${tracked} already tasks`}
-              </button>
+            {tracked && !showTracked ? (
+              <p className="console-hidden-note">
+                {tracked} hidden by the filter
+              </p>
             ) : null}
             {shown.length ? (
               ticketGroups(shown, clientOrder).map((group) => (
