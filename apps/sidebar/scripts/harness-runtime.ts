@@ -109,7 +109,9 @@ export const shim = `(() => {
       { kind: "question", id: "q-open", title: "Move the alerts tonight or tomorrow?", state: "open", at: new Date(Date.now() - 120000).toISOString() },
       { kind: "status", to: "idle", text: "Done: the depot alerts read from the new queue",
         detail: "Moved the three depot alerts to the new queue and checked each fired once.", at: new Date(Date.now() - 600000).toISOString() },
-      { kind: "question", id: "q-closed", title: "Keep the old queue a week?", state: "answered", answer: "Yes", at: new Date(Date.now() - 3600000).toISOString() }] } }),
+      { kind: "question", id: "q-closed", title: "Keep the old queue a week?", state: "answered", answer: "Yes", at: new Date(Date.now() - 3600000).toISOString() },
+      ...[1, 2, 3, 4, 5].map((n) => ({ kind: "status", to: "running", text: "Older report " + n,
+        at: new Date(Date.now() - 7200000 - n * 60000).toISOString() }))] } }),
     "host:dashboard/agent_message": (args) => ({ structuredContent: { sent: true, to: args.to, nudge: Boolean(args.nudge) } }),
     "host:dashboard/task_log": () => {
       const day = (n) => { const d = new Date(); d.setDate(d.getDate() - n);

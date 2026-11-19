@@ -2035,15 +2035,15 @@
   min-width: 0;
 }
 
-.console-agent-column > :first-child {
-  margin-top: 0;
-}
-
 @container (min-width: 820px) {
   .console-agent-body {
     grid-template-columns: minmax(0, 1fr) minmax(320px, 1fr);
     grid-template-rows: auto;
     grid-template-areas: none;
+  }
+
+  .console-agent-column > :first-child {
+    margin-top: 0;
   }
 }
 
@@ -2114,4 +2114,23 @@
   color: var(--secondary);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+/* A pager under a list: Newer, the range shown, Older. */
+.console-pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.console-pager-count {
+  color: var(--label);
+  font: 400 11px/1.4 var(--face-label);
+}
+
+.console-pager [aria-disabled] {
+  opacity: 0.45;
+  cursor: default;
 }

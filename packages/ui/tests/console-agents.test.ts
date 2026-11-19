@@ -3,6 +3,7 @@ import { describe, expect, it } from "bun:test";
 import {
   agentsBySystem,
   agentState,
+  isClosed,
   readAgents,
   type AgentRecord,
 } from "../src/console";
@@ -78,5 +79,33 @@ describe("readAgents", () => {
       1,
     );
     expect(readAgents({})).toBeNull();
+  });
+});
+
+describe("isClosed", () => {
+  const question = (state: "open" | "answered") => ({
+    kind: "question" as const,
+    id: "q",
+    state,
+    at: "2026-11-19T18:00:00Z",
+  });
+  const report = (to: string, at: string) => ({
+    kind: "status" as const,
+    to,
+    at,
+  });
+
+  it("closes a waiting report once a later report or the answer comes", () => {
+    const waiting = report("waiting", "2026-11-19T18:01:00Z");
+    expect(isClosed(waiting, [waiting, question("open")])).toBe(false);
+    expect(isClosed(waiting, [waiting, question("answered")])).toBe(true);
+    const done = report("idle", "2026-11-19T18:05:00Z");
+    expect(isClosed(waiting, [waiting, done, question("open")])).toBe(true);
+  });
+
+  it("keeps Done and error reports open", () => {
+    const done = report("idle", "2026-11-19T18:05:00Z");
+    expect(isClosed(done, [done])).toBe(false);
+    expect(isClosed(report("error", "2026-11-19T18:06:00Z"))).toBe(false);
   });
 });
