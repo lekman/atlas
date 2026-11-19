@@ -2109,3 +2109,9 @@
   font-size: 12px;
   overflow-wrap: anywhere;
 }
+
+.console-agent-feed-detail {
+  color: var(--secondary);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

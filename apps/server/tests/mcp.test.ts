@@ -489,6 +489,31 @@ describe("an agent's live view and feed", () => {
     );
   });
 
+  test("a report's detail reaches the feed, and an open question counts", async () => {
+    await call("report_status", {
+      agentId: "test-runner",
+      status: "idle",
+      note: "Done: the drill passed",
+      detail: "Ran the drill twice. Both passes were green.",
+    });
+    await call("ask_question", {
+      session: { address: "test-runner" },
+      clientId: "kestrel",
+      questions: [{ question: "Run it again tonight?", options: [] }],
+    });
+    const { items } = (await get("/api/agents/test-runner/feed")) as {
+      items: { text?: string; detail?: string }[];
+    };
+    expect(
+      items.find((item) => item.text === "Done: the drill passed")?.detail,
+    ).toBe("Ran the drill twice. Both passes were green.");
+    const { agents } = (await get("/api/agents")) as {
+      agents: { id: string; openQuestions: number }[];
+    };
+    expect(agents.find((a) => a.id === "test-runner")?.openQuestions).toBe(1);
+    expect(agents.find((a) => a.id !== "test-runner")?.openQuestions).toBe(0);
+  });
+
   test("the feed leaves out the session reader's own notes", async () => {
     await call("report_status", {
       agentId: "test-runner",

@@ -386,10 +386,9 @@ export function createApi({
    * its questions with their state. The session reader's automatic notes
    * are left out.
    */
-  function agentFeed(agentId: string) {
-    const agent = readDataset(database).agents.find((a) => a.id === agentId);
-    if (!agent) return { agentId, items: [] };
-    const names = new Set(
+  /** The session addresses an agent's questions can carry. */
+  function addressesOf(agent: { id: string; name: string }): Set<string> {
+    return new Set(
       [agent.id, agent.name, agent.id.replace(/^session-/, "")].map((n) =>
         n
           .trim()
@@ -397,6 +396,26 @@ export function createApi({
           .replace(/[^a-z0-9]+/g, "-"),
       ),
     );
+  }
+
+  /** How many open questions each agent has, by agent id. */
+  function openQuestionCounts(
+    agents: ReadonlyArray<{ id: string; name: string }>,
+  ): Map<string, number> {
+    const counts = new Map<string, number>();
+    const open = questions.list({ states: ["open"] }, everything);
+    for (const agent of agents) {
+      const names = addressesOf(agent);
+      const count = open.filter((q) => names.has(q.session.address)).length;
+      if (count) counts.set(agent.id, count);
+    }
+    return counts;
+  }
+
+  function agentFeed(agentId: string) {
+    const agent = readDataset(database).agents.find((a) => a.id === agentId);
+    if (!agent) return { agentId, items: [] };
+    const names = addressesOf(agent);
     const items: Array<Record<string, unknown>> = [];
     for (const stored of listRecentEvents(database, 3000)) {
       const event = stored.event;
@@ -410,6 +429,7 @@ export function createApi({
           kind: "status",
           to: event.to,
           text: event.text,
+          ...(event.detail ? { detail: event.detail } : {}),
           at: stored.receivedAt,
           sequence: stored.sequence,
         });
@@ -768,6 +788,7 @@ export function createApi({
             dataset.groups.map((g) => [g.id, g.clientId]),
           );
           const live = sessions?.agentSessions();
+          const asking = openQuestionCounts(dataset.agents);
           return json({
             agents: dataset.agents
               .filter((agent) => !agent.parentId)
@@ -786,6 +807,7 @@ export function createApi({
                   : {}),
                 ...(agent.activityAt ? { activityAt: agent.activityAt } : {}),
                 activityCounts: activity.counts(agent.id),
+                openQuestions: asking.get(agent.id) ?? 0,
                 ...(live?.get(agent.id) ? { session: live.get(agent.id) } : {}),
               })),
           });

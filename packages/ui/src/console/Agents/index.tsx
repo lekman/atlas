@@ -1,13 +1,15 @@
 import { useId, useState } from "react";
 
 import { formatAgo } from "../../sidebar/format";
+import type { WorkItem } from "../../sidebar/worklist/model";
 import { ConsoleMenu, type MenuItem } from "../ConsoleMenu";
+import { TaskRow } from "../TaskRow";
 import { SectionHeading } from "../SectionHeading";
 import { LiveMap } from "./LiveMap";
 import { AgentMessages } from "./Messages";
 import {
   AGENT_STATE_WORDS,
-  agentsByHost,
+  agentsBySystem,
   agentState,
   type AgentFeedItem,
   type AgentRecord,
@@ -25,6 +27,14 @@ export interface AgentsListProps {
   /** Whether offline agents show too. */
   showOffline: boolean;
   onShowOffline(show: boolean): void;
+  /** Whether idle agents are hidden. */
+  hideIdle?: boolean;
+  onHideIdle?(hide: boolean): void;
+  /** The systems in the order the page lists them. */
+  clientOrder?: readonly string[];
+  /** Systems whose group is folded. */
+  folded?: ReadonlySet<string>;
+  onFold?(folded: ReadonlySet<string>): void;
   onMessage(agent: AgentRecord): void;
   onNudge(agent: AgentRecord): void;
   /** Opens the agent's task, when one of its tasks is on the worklist. */
@@ -38,10 +48,11 @@ const toneOf = (state: ReturnType<typeof agentState>) =>
   state === "working" ? "moving" : state === "waiting" ? "blocked" : "waiting";
 
 /**
- * Agents: every agent by the machine it runs on, busiest first, each with
- * its system, what it is doing and its latest activity, and a menu to
- * message it, nudge it or open its task. Offline agents are hidden until
- * the filter shows them.
+ * Agents: every agent by system, busiest first, each with the machine it
+ * runs on, what it is doing and its latest activity, and a menu to message
+ * it, nudge it or open its task. A system's heading folds its group; with a
+ * system picked there are no headings. Offline agents are hidden until the
+ * filter shows them, and the filter can hide idle ones too.
  */
 export function AgentsList({
   agents,
@@ -53,6 +64,11 @@ export function AgentsList({
   onSelect,
   showOffline,
   onShowOffline,
+  hideIdle = false,
+  onHideIdle = () => {},
+  clientOrder = [],
+  folded = new Set(),
+  onFold = () => {},
   onMessage,
   onNudge,
   openTask = () => null,
@@ -61,9 +77,13 @@ export function AgentsList({
 }: AgentsListProps) {
   const inScope = (agents ?? []).filter((a) => !scope || a.customer === scope);
   const offline = inScope.filter((a) => agentState(a) === "offline").length;
-  const shown = showOffline
-    ? inScope
-    : inScope.filter((a) => agentState(a) !== "offline");
+  const idle = inScope.filter((a) => agentState(a) === "idle").length;
+  const shown = inScope.filter((a) => {
+    const state = agentState(a);
+    return (
+      (showOffline || state !== "offline") && (!hideIdle || state !== "idle")
+    );
+  });
 
   return (
     <div className="console-agents">
@@ -83,6 +103,11 @@ export function AgentsList({
               checked: showOffline,
               onSelect: () => onShowOffline(!showOffline),
             },
+            {
+              label: `Hide idle (${idle})`,
+              checked: hideIdle,
+              onSelect: () => onHideIdle(!hideIdle),
+            },
           ]}
         />
       </SectionHeading>
@@ -98,88 +123,114 @@ export function AgentsList({
           {inScope.length ? "No agent is online." : "No agents to show."}
         </p>
       ) : (
-        agentsByHost(shown).map((group) => (
-          <section
-            key={group.host}
-            className="console-group"
-            aria-label={group.host}
-          >
-            <h2 className="console-group-title">
-              <span>{group.host}</span>
-              <span className="console-group-count">{group.agents.length}</span>
-            </h2>
-            <ul className="console-tasks">
-              {group.agents.map((a) => {
-                const state = agentState(a);
-                const last = a.session?.activity?.lastCallAt;
-                const open = openTask(a);
-                const busy = pendingId === a.id;
-                const items: MenuItem[] = [
-                  {
-                    label: "Message",
-                    onSelect: () => onMessage(a),
-                    disabled: busy,
-                  },
-                  {
-                    label: "Nudge",
-                    onSelect: () => onNudge(a),
-                    disabled: busy,
-                  },
-                  ...(open ? [{ label: "Open its task", onSelect: open }] : []),
-                ];
-                return (
-                  <li
-                    key={a.id}
-                    className="console-task console-agent"
-                    data-selected={a.id === selectedId || undefined}
+        agentsBySystem(shown, clientOrder).map((group) => {
+          const isFolded = !scope && folded.has(group.system);
+          return (
+            <section
+              key={group.system}
+              className="console-group"
+              aria-label={systemName(group.system)}
+            >
+              {scope ? null : (
+                <h2 className="console-group-title">
+                  <button
+                    type="button"
+                    className="console-group-toggle"
+                    aria-expanded={!isFolded}
+                    onClick={() => {
+                      const next = new Set(folded);
+                      if (isFolded) next.delete(group.system);
+                      else next.add(group.system);
+                      onFold(next);
+                    }}
                   >
-                    <button
-                      type="button"
-                      className="console-task-open"
-                      aria-current={a.id === selectedId ? "true" : undefined}
-                      onClick={() => onSelect(a)}
-                    >
-                      <span className="console-task-title">{a.name}</span>
-                      <span className="console-task-meta">
-                        <span
-                          className="console-badge"
-                          data-tone={toneOf(state)}
-                        >
-                          {AGENT_STATE_WORDS[state]}
-                        </span>
-                        <span className="console-task-fact">
-                          {systemName(a.customer)}
-                        </span>
-                        {last ? (
-                          <span className="console-task-fact">
-                            last call {formatAgo(new Date(last), now)}
-                          </span>
-                        ) : null}
-                      </span>
-                      {a.note ? (
-                        <span
-                          className="console-agent-note console-clip"
-                          title={a.note}
-                        >
-                          {a.note}
-                        </span>
-                      ) : null}
-                    </button>
-                    <span className="console-task-side">
-                      <ConsoleMenu
-                        label="Actions"
-                        name={a.name}
-                        items={items}
-                        buttonClassName="console-task-move"
-                        icon="more"
-                      />
+                    <span className="console-group-chevron" aria-hidden="true">
+                      {isFolded ? "▸" : "▾"}
                     </span>
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
-        ))
+                    {systemName(group.system)}
+                  </button>
+                  <span className="console-group-count">
+                    {group.agents.length}
+                  </span>
+                </h2>
+              )}
+              {isFolded ? null : (
+                <ul className="console-tasks">
+                  {group.agents.map((a) => {
+                    const state = agentState(a);
+                    const last = a.session?.activity?.lastCallAt;
+                    const open = openTask(a);
+                    const busy = pendingId === a.id;
+                    const items: MenuItem[] = [
+                      {
+                        label: "Message",
+                        onSelect: () => onMessage(a),
+                        disabled: busy,
+                      },
+                      {
+                        label: "Nudge",
+                        onSelect: () => onNudge(a),
+                        disabled: busy,
+                      },
+                      ...(open
+                        ? [{ label: "Open its task", onSelect: open }]
+                        : []),
+                    ];
+                    return (
+                      <li
+                        key={a.id}
+                        className="console-task console-agent"
+                        data-selected={a.id === selectedId || undefined}
+                      >
+                        <button
+                          type="button"
+                          className="console-task-open"
+                          aria-current={
+                            a.id === selectedId ? "true" : undefined
+                          }
+                          onClick={() => onSelect(a)}
+                        >
+                          <span className="console-task-title">{a.name}</span>
+                          <span className="console-task-meta">
+                            <span
+                              className="console-badge"
+                              data-tone={toneOf(state)}
+                            >
+                              {AGENT_STATE_WORDS[state]}
+                            </span>
+                            <span className="console-task-fact">{a.host}</span>
+                            {last ? (
+                              <span className="console-task-fact">
+                                last call {formatAgo(new Date(last), now)}
+                              </span>
+                            ) : null}
+                          </span>
+                          {a.note ? (
+                            <span
+                              className="console-agent-note console-clip"
+                              title={a.note}
+                            >
+                              {a.note}
+                            </span>
+                          ) : null}
+                        </button>
+                        <span className="console-task-side">
+                          <ConsoleMenu
+                            label="Actions"
+                            name={a.name}
+                            items={items}
+                            buttonClassName="console-task-move"
+                            icon="more"
+                          />
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </section>
+          );
+        })
       )}
     </div>
   );
@@ -188,9 +239,14 @@ export function AgentsList({
 export interface AgentDetailProps {
   agent: AgentRecord;
   systemName(client: string): string;
-  /** Titles of the agent's tasks on the worklist, by ref. */
-  taskTitle?(ref: string): string | null;
+  /** The agent's tasks on the worklist, by ref. */
+  taskFor?(ref: string): WorkItem | null;
   onOpenTask?(ref: string): void;
+  /** A task row's actions and the line under them, as in Missions. */
+  taskActions?(task: WorkItem): readonly MenuItem[];
+  taskActionsFooter?(task: WorkItem): string | undefined;
+  /** The monday.com key prefix, to tell its keys from Jira's. */
+  mondayPrefix?: string;
   onMessage(text: string): void;
   onNudge(): void;
   /** An action on its way: the buttons wait, nothing else changes. */
@@ -219,8 +275,11 @@ export interface AgentDetailProps {
 export function AgentDetail({
   agent,
   systemName,
-  taskTitle = () => null,
+  taskFor = () => null,
   onOpenTask,
+  taskActions = () => [],
+  taskActionsFooter = () => undefined,
+  mondayPrefix,
   onMessage,
   onNudge,
   pending = false,
@@ -280,23 +339,25 @@ export function AgentDetail({
           {agent.refs?.length ? (
             <section className="console-detail-section" aria-label="Working on">
               <h3 className="console-label">Working on</h3>
-              <ul className="console-agent-tasks">
+              <ul className="console-tasks">
                 {agent.refs.map((ref) => {
-                  const title = taskTitle(ref);
+                  const task = taskFor(ref);
+                  if (!task)
+                    return (
+                      <li key={ref} className="console-note">
+                        {ref}
+                      </li>
+                    );
+                  const footer = taskActionsFooter(task);
                   return (
-                    <li key={ref}>
-                      {title && onOpenTask ? (
-                        <button
-                          type="button"
-                          className="console-read-more"
-                          onClick={() => onOpenTask(ref)}
-                        >
-                          {title}
-                        </button>
-                      ) : (
-                        <span className="console-note">{title ?? ref}</span>
-                      )}
-                    </li>
+                    <TaskRow
+                      key={ref}
+                      task={task}
+                      mondayPrefix={mondayPrefix}
+                      actions={taskActions(task)}
+                      {...(footer ? { actionsFooter: footer } : {})}
+                      onSelect={() => onOpenTask?.(ref)}
+                    />
                   );
                 })}
               </ul>
@@ -361,7 +422,7 @@ export function AgentDetail({
               >
                 Nudge
               </button>
-              {agent.refs?.length && onOpenTask && taskTitle(agent.refs[0]!) ? (
+              {agent.refs?.length && onOpenTask && taskFor(agent.refs[0]!) ? (
                 <button
                   type="button"
                   className="console-secondary"

@@ -325,6 +325,28 @@ try {
       problems.push(`${at}: Agents shows no agent`);
     if (await tab.getByText("Gone Agent", { exact: true }).isVisible())
       problems.push(`${at}: Agents shows an offline agent`);
+    // Agents group by system; a heading folds its group; the filter hides idle ones.
+    const heading = tab
+      .getByRole("button", { name: /Kestrel Freight/ })
+      .first();
+    await heading.click();
+    if (await tab.getByText("Ops Desk", { exact: true }).isVisible())
+      problems.push(`${at}: a folded system still shows its agents`);
+    await heading.click();
+    await tab
+      .getByRole("button", { name: /^Filter/ })
+      .first()
+      .click();
+    await tab.getByRole("menuitemcheckbox", { name: /^Hide idle/ }).click();
+    await tab.keyboard.press("Escape");
+    if (await tab.getByText("Field Laptop", { exact: true }).isVisible())
+      problems.push(`${at}: Hide idle still shows an idle agent`);
+    await tab
+      .getByRole("button", { name: /^Filter/ })
+      .first()
+      .click();
+    await tab.getByRole("menuitemcheckbox", { name: /^Hide idle/ }).click();
+    await tab.keyboard.press("Escape");
     await tab.getByRole("button", { name: /^Actions for Ops Desk/ }).click();
     await tab.getByRole("menuitem", { name: "Nudge" }).click();
     await tab.waitForTimeout(300);
@@ -361,6 +383,14 @@ try {
       });
     if (await tab.getByText("Keep the old queue a week?").isVisible())
       problems.push(`${at}: an answered question shows with the filter off`);
+    await tab.getByText(/Done: the depot alerts/).click();
+    if (
+      !(await tab
+        .getByText(/checked each fired once/)
+        .isVisible()
+        .catch(() => false))
+    )
+      problems.push(`${at}: a Done message does not open to its detail`);
     await tab.getByText("Move the alerts tonight or tomorrow?").click();
     if (
       !(await tab

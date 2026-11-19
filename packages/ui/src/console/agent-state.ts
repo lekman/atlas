@@ -22,6 +22,8 @@ export interface AgentRecord {
   activityAt?: string;
   /** How often it switched to each activity in this run of readings. */
   activityCounts?: Partial<Record<Activity, number>>;
+  /** Its questions still waiting for an answer in Atlas. */
+  openQuestions?: number;
   session?: {
     state: "busy" | "waiting" | "idle" | "limited" | "offline";
     since: string;
@@ -52,6 +54,9 @@ export type AgentState = "working" | "waiting" | "idle" | "limited" | "offline";
 /** What an agent is up to: its live session's state, else Atlas's own status. */
 export function agentState(agent: AgentRecord): AgentState {
   const s = agent.session?.state;
+  if (s === "offline" || s === "limited") return s;
+  // An open question waits on the person, whatever the session is doing.
+  if ((agent.openQuestions ?? 0) > 0) return "waiting";
   if (s === "busy") return "working";
   if (s === "waiting" || s === "idle" || s === "limited" || s === "offline")
     return s;
@@ -69,10 +74,11 @@ export const AGENT_STATE_WORDS: Record<AgentState, string> = {
   offline: "Offline",
 };
 
-/** Agents grouped by host, busiest first within each, then by name. */
-export function agentsByHost(
+/** Agents grouped by system, in the given order, then busiest first. */
+export function agentsBySystem(
   agents: readonly AgentRecord[],
-): Array<{ host: string; agents: AgentRecord[] }> {
+  order: readonly string[] = [],
+): Array<{ system: string; agents: AgentRecord[] }> {
   const rank: Record<AgentState, number> = {
     waiting: 0,
     working: 1,
@@ -80,13 +86,17 @@ export function agentsByHost(
     idle: 3,
     offline: 4,
   };
+  const at = (system: string) => {
+    const i = order.indexOf(system);
+    return i < 0 ? order.length : i;
+  };
   const groups = new Map<string, AgentRecord[]>();
   for (const a of agents)
-    groups.set(a.host, [...(groups.get(a.host) ?? []), a]);
+    groups.set(a.customer, [...(groups.get(a.customer) ?? []), a]);
   return [...groups.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([host, list]) => ({
-      host,
+    .sort(([a], [b]) => at(a) - at(b) || a.localeCompare(b))
+    .map(([system, list]) => ({
+      system,
       agents: list.sort(
         (a, b) =>
           rank[agentState(a)] - rank[agentState(b)] ||
@@ -124,6 +134,8 @@ export interface AgentFeedItem {
   state?: "open" | "answered" | "delivered" | "withdrawn";
   answer?: string;
   answeredAt?: string;
+  /** A report's full account, such as what a finished piece of work did. */
+  detail?: string;
 }
 
 export interface AgentFeedDoc {

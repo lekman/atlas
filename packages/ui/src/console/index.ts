@@ -67,7 +67,7 @@ export {
 } from "./Agents";
 export {
   AGENT_STATE_WORDS,
-  agentsByHost,
+  agentsBySystem,
   agentState,
   feedBadge,
   isClosed,

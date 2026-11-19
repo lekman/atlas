@@ -106,6 +106,11 @@ export function AgentMessages({
                   >
                     {text}
                   </span>
+                  {expanded && item.detail ? (
+                    <span className="console-agent-feed-detail">
+                      {item.detail}
+                    </span>
+                  ) : null}
                   {expanded && item.answer ? (
                     <span className="console-agent-feed-answer">
                       Answer: {item.answer}

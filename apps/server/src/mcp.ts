@@ -186,7 +186,7 @@ export function createMcpServer({
     {
       title: "Report status",
       description:
-        "Tell Atlas what you are doing. Use waiting when you need the person, blocked when something else stops you, and idle when you are done.",
+        "Tell Atlas what you are doing. Use waiting when you need the person, blocked when something else stops you, and idle when you are done. When you finish a piece of work, or hit an error, put what happened in detail: it shows as a message under the agent.",
       inputSchema: {
         agentId: Identifier.describe("Your agent id, from list_agents"),
         status: z.enum(agentStatuses),
@@ -195,9 +195,17 @@ export function createMcpServer({
           .min(1)
           .max(280)
           .describe("One line on what you are doing, as the map shows it"),
+        detail: z
+          .string()
+          .min(1)
+          .max(4000)
+          .optional()
+          .describe(
+            "The full account for the person, such as what the finished work did, in plain text",
+          ),
       },
     },
-    ({ agentId, status, note }) =>
+    ({ agentId, status, note, detail }) =>
       attempt(() => {
         if (!agentNamed(read(), agentId)) return refuse(`no agent ${agentId}`);
         const stored = record({
@@ -205,6 +213,7 @@ export function createMcpServer({
           agentId,
           to: status,
           text: note,
+          ...(detail ? { detail } : {}),
         });
         return reply({ recorded: stored.sequence });
       }),
