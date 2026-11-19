@@ -1,6 +1,7 @@
 import type { Runtime } from "@atlas/runtime";
 import {
   ConsoleFrame,
+  ConsoleSettings,
   MissionsList,
   movesFor,
   scopeChoices,
@@ -23,7 +24,12 @@ import {
   type Section,
   type ShieldRow,
 } from "@atlas/ui/console";
-import { jiraStatuses, referenceText, type WorkItem } from "@atlas/ui/sidebar";
+import {
+  jiraStatuses,
+  referenceText,
+  syncLabel,
+  type WorkItem,
+} from "@atlas/ui/sidebar";
 import { useMemo, useState } from "react";
 
 import type { SidebarConfig } from "../config";
@@ -33,6 +39,7 @@ import { useCommander } from "../useCommander";
 import { readDetailsIndex, useDetails } from "../useDetails";
 import { useHosts } from "../useHosts";
 import { useNow } from "../useNow";
+import { usePreferences } from "../usePreferences";
 import { usePullRequests } from "../usePullRequests";
 import { useStored } from "../useStored";
 import { useSync } from "../useSync";
@@ -95,6 +102,7 @@ export function ConsoleApp({
   const tomorrow = dayKey(tomorrowDate);
 
   const worklist = useWorklist(runtime, now);
+  const prefs = usePreferences();
   const commander = useCommander(runtime, config.inbox);
   const actions = useTaskActions(runtime, commander, worklist.apply);
   const items = worklist.doc?.items ?? [];
@@ -301,10 +309,22 @@ export function ConsoleApp({
       counts={{ shields: shieldAlerts(shieldRows(shieldData)) }}
       settingsOpen={settingsOpen}
       settings={
-        <>
-          <SectionHeading title="Settings" />
-          <p className="console-empty">Settings are in the sidebar for now.</p>
-        </>
+        <ConsoleSettings
+          world={prefs.world}
+          onWorld={prefs.setWorld}
+          lighting={prefs.lighting}
+          onLighting={prefs.setLighting}
+          sound={prefs.sound}
+          onSound={prefs.setSound}
+          onPreview={prefs.preview}
+          sync={syncLabel(
+            {
+              liveAt: worklist.liveAt,
+              syncedAt: worklist.doc?.syncedAt ?? null,
+            },
+            now,
+          )}
+        />
       }
       list={list}
       detail={

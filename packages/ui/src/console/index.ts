@@ -56,6 +56,7 @@ export {
   type MissionsListProps,
 } from "./MissionsList";
 export { SegmentedSwitch, type SegmentedSwitchProps } from "./SegmentedSwitch";
+export { ConsoleSettings, type ConsoleSettingsProps } from "./ConsoleSettings";
 export { dueWords, TaskRow, type TaskRowProps } from "./TaskRow";
 export {
   DATABASE_STATE_WORDS,
