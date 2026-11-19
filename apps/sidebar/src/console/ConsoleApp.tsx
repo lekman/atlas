@@ -2,6 +2,9 @@ import type { Runtime } from "@atlas/runtime";
 import {
   ConsoleFrame,
   ConsoleSettings,
+  LogList,
+  readLog,
+  type LogView,
   RadarList,
   radarTickets,
   type RadarTicket,
@@ -30,6 +33,7 @@ import {
 } from "@atlas/ui/console";
 import {
   agendaDays,
+  formatAgo,
   jiraErrorText,
   jiraStatuses,
   readJira,
@@ -46,6 +50,7 @@ import { useCommander } from "../useCommander";
 import { readDetailsIndex, useDetails } from "../useDetails";
 import { useHosts } from "../useHosts";
 import { useCalendar } from "../useCalendar";
+import { useFeed } from "../useFeed";
 import { useGitHub } from "../useGitHub";
 import { useMonday } from "../useMonday";
 import { useNow } from "../useNow";
@@ -174,6 +179,24 @@ export function ConsoleApp({
     ...calendar.errors.map((e) => e.text),
   ];
   const [radarView, setRadarView] = useState<RadarView>("meetings");
+
+  // Log: finished tasks from the dashboard host, stored for the phone.
+  const log = useFeed(
+    runtime,
+    {
+      server: "host:dashboard",
+      tool: "task_log",
+      args: { days: 28 },
+      path: "board/log",
+      accept: readLog,
+      watch: {
+        refetchInterval: 10 * 60000,
+        cache: { staleTime: 5 * 60000, gcTime: 86400000 },
+      },
+    },
+    "The dashboard host",
+  );
+  const [logView, setLogView] = useState<LogView>("days");
   const [showTracked, setShowTracked] = useState(false);
   const ticketRef = (t: RadarTicket) => `${t.system}:${t.key}`;
 
@@ -349,6 +372,23 @@ export function ConsoleApp({
           />
         )}
       </>
+    ) : section === "log" ? (
+      <LogList
+        view={logView}
+        onViewChange={setLogView}
+        items={log.data?.items ?? (log.error ? [] : null)}
+        note={log.error?.text ?? null}
+        copyFrom={
+          !log.live && log.data?.fetchedAt
+            ? formatAgo(new Date(log.data.fetchedAt), now)
+            : null
+        }
+        systemName={systemName}
+        scope={scope}
+        onScope={() => setPicking(true)}
+        mondayPrefix={config.trackers.find((t) => t.monday)?.monday?.keyPrefix}
+        now={now}
+      />
     ) : section === "radar" ? (
       <RadarList
         view={radarView}

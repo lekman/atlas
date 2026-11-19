@@ -173,6 +173,31 @@ def items(today: date) -> tuple[list, dict]:
     return out, {"ok": True, "clients": list(conf["clients"].values())}
 
 
+def done_log(today: date, days: int = 28) -> dict:
+    """The database items finished in the last `days` days, newest first, for the Log: when each was
+    done, its client, ticket, effort and value. Read-only."""
+    conf = config()
+    if conf is None:
+        return {"items": [], "days": days}
+    since = (today - timedelta(days=max(1, min(days, 92)) - 1)).isoformat()
+    out = []
+    for client_id, customer in conf["clients"].items():
+        res = call(conf, "task_search", {"clientId": client_id, "limit": 200, "states": ["done"]})
+        for s in (res or {}).get("items", []):
+            done = s.get("doneOn")
+            if not isinstance(done, str) or done < since:
+                continue
+            link = s.get("trackerUrl")
+            out.append({
+                "ref": REF_PREFIX + s["id"], "title": s.get("title") or "(no title)", "customer": customer,
+                "doneOn": done, "key": s.get("trackerKey"),
+                "link": link if isinstance(link, str) and link.startswith("https://") else None,
+                "effort": s.get("effort"), "value": s.get("businessValue"), "quadrant": s.get("quadrant"),
+            })
+    out.sort(key=lambda x: x["doneOn"], reverse=True)
+    return {"items": out, "days": days, "since": since}
+
+
 def customers() -> set:
     conf = config()
     return set(conf["clients"].values()) if conf else set()

@@ -235,6 +235,16 @@ try {
       )
         problems.push(`${at}: the filter does not show tickets that are tasks`);
     }
+    // Log lists what was finished, with its points.
+    await tab.getByRole("button", { name: /^Log/ }).first().click();
+    if (
+      !(await tab
+        .getByText("Harness finished today", { exact: true })
+        .waitFor({ timeout: 5000 })
+        .then(() => true)
+        .catch(() => false))
+    )
+      problems.push(`${at}: Log shows no finished task`);
     await tab
       .getByRole("button", { name: /Shields/ })
       .first()
@@ -290,5 +300,5 @@ if (problems.length) {
   process.exit(1);
 }
 console.log(
-  `✓ one file, ${Math.round(source.length / 1024)} KB; sidebar, folding phone closed and open, and laptop render with no errors; Status to Done, Grade, Move, Radar's Plan, the task detail with its page and pull request, Shields and an offline move work`,
+  `✓ one file, ${Math.round(source.length / 1024)} KB; sidebar, folding phone closed and open, and laptop render with no errors; Status to Done, Grade, Move, Radar's Plan, the Log, the task detail with its page and pull request, Shields and an offline move work`,
 );

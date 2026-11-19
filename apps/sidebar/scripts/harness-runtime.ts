@@ -93,6 +93,14 @@ export const shim = `(() => {
       const list = tools["host:dashboard/worklist"]().structuredContent;
       return { structuredContent: { tasks: { ...list, items: list.items.map((t) => t.ref === "db:1" ? { ...t, done: true } : t) } } };
     },
+    "host:dashboard/task_log": () => {
+      const day = (n) => { const d = new Date(); d.setDate(d.getDate() - n);
+        return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
+      return { structuredContent: { fetchedAt: new Date().toISOString(), days: 28, items: [
+        { ref: "db:91", title: "Harness finished today", customer: "kestrel", doneOn: day(0), key: "HAR-9", effort: "M" },
+        { ref: "db:92", title: "Harness finished yesterday", customer: "kestrel", doneOn: day(1), effort: "XL" },
+        { ref: "db:93", title: "Harness finished last week", customer: "kestrel", doneOn: day(8), key: "KF-3", effort: "S" }] } };
+    },
     "host:dashboard/task_state": (args) => {
       const list = tools["host:dashboard/worklist"]().structuredContent;
       return { structuredContent: { tasks: { ...list, items: list.items.map((t) =>

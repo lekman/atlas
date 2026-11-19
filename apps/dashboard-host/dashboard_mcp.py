@@ -757,6 +757,15 @@ TOOLS = [{
         "required": ["ref"], "additionalProperties": False},
     "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True},
 }, {
+    "name": "task_log",
+    "title": "Finished tasks for the log",
+    "description": "Task database items finished in the last `days` days (default 28, at most 92), newest first: "
+                   "{items: [{ref, title, customer, doneOn, key, link, effort, value, quadrant}], days, since, "
+                   "fetchedAt}. Changes nothing.",
+    "inputSchema": {"type": "object", "properties": {"days": {"type": "integer", "minimum": 1, "maximum": 92}},
+                    "additionalProperties": False},
+    "annotations": {"readOnlyHint": True, "openWorldHint": True},
+}, {
     "name": "task_state",
     "title": "Set a task's state",
     "description": "Set the state of one task database item (ref starting db:): todo, doing, review, approved, merged, "
@@ -901,6 +910,17 @@ def handle(msg: dict):
         if name in ("task_done", "task_move"):
             try:
                 result = edit_task(params.get("arguments") or {}, "done" if name == "task_done" else "move")
+                return {"content": [{"type": "text", "text": json.dumps({"ok": True})}], "structuredContent": result, "isError": False}
+            except Exception as ex:
+                log(name, "failed:", ex)
+                return {"content": [{"type": "text", "text": str(ex)[:300]}], "isError": True}
+        if name == "task_log":
+            try:
+                args = params.get("arguments") or {}
+                import tasks_source
+                days = args.get("days") if isinstance(args.get("days"), int) else 28
+                result = tasks_source.done_log(datetime.now().date(), days)
+                result["fetchedAt"] = datetime.now(timezone.utc).isoformat()
                 return {"content": [{"type": "text", "text": json.dumps({"ok": True})}], "structuredContent": result, "isError": False}
             except Exception as ex:
                 log(name, "failed:", ex)

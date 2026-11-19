@@ -29,6 +29,7 @@ export const dashboardTools = [
   "task_assess",
   "task_done",
   "task_grade_many",
+  "task_log",
   "task_move",
   "task_move_many",
   "task_prs",

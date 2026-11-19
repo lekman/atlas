@@ -1501,13 +1501,29 @@
 
 /* Radar: ticket rows link to their tracker; meeting rows are read-only. */
 .console-radar a.console-task-open,
-.console-radar div.console-task-open {
+.console-radar div.console-task-open,
+.console-log a.console-task-open,
+.console-log div.console-task-open {
   color: inherit;
   text-decoration: none;
 }
 
 .console-radar a.console-task-open:hover .console-task-title {
   text-decoration: underline;
+}
+
+/* Log: each finished mission's points, in the row's right column. */
+.console-log .console-scope {
+  margin-bottom: 16px;
+}
+
+.console-log-item .console-task-side {
+  justify-content: center;
+}
+
+.console-log-points {
+  color: var(--amber);
+  font: 500 12px/1 var(--face-label);
 }
 
 .console-radar-meeting .console-task-side {
