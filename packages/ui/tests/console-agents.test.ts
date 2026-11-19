@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
 import {
-  agentsByHost,
+  agentsBySystem,
   agentState,
   readAgents,
   type AgentRecord,
@@ -36,20 +36,39 @@ describe("agentState", () => {
   });
 });
 
-describe("agentsByHost", () => {
-  it("groups by host, waiting and working before idle", () => {
-    const groups = agentsByHost([
-      agent({ id: "1", name: "Zed", host: "MacBook" }),
-      agent({ id: "2", name: "Idle one" }),
-      agent({ id: "3", name: "Busy one", status: "running" }),
-      agent({ id: "4", name: "Asks", status: "waiting" }),
-    ]);
-    expect(groups.map((g) => g.host)).toEqual(["Mac mini", "MacBook"]);
-    expect(groups[0]!.agents.map((a) => a.name)).toEqual([
+describe("agentsBySystem", () => {
+  it("groups by system in the page's order, waiting and working before idle", () => {
+    const groups = agentsBySystem(
+      [
+        agent({ id: "1", name: "Zed", customer: "beta" }),
+        agent({ id: "2", name: "Idle one" }),
+        agent({ id: "3", name: "Busy one", status: "running" }),
+        agent({ id: "4", name: "Asks", status: "waiting" }),
+      ],
+      ["beta", "acme"],
+    );
+    expect(groups.map((g) => g.system)).toEqual(["beta", "acme"]);
+    expect(groups[1]!.agents.map((a) => a.name)).toEqual([
       "Asks",
       "Busy one",
       "Idle one",
     ]);
+  });
+});
+
+describe("an open question", () => {
+  it("makes an idle or busy agent wait on you, but not an offline one", () => {
+    expect(agentState(agent({ openQuestions: 1 }))).toBe("waiting");
+    expect(
+      agentState(
+        agent({ openQuestions: 1, session: { state: "busy", since: "" } }),
+      ),
+    ).toBe("waiting");
+    expect(
+      agentState(
+        agent({ openQuestions: 1, session: { state: "offline", since: "" } }),
+      ),
+    ).toBe("offline");
   });
 });
 

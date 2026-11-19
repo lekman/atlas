@@ -117,20 +117,21 @@ function feedNote(
 
 const SCOPE_KEY = "atlas-console-scope";
 const CLOSED_KEY = "atlas-console-agent-closed";
+const HIDE_IDLE_KEY = "atlas-console-agents-hide-idle";
 
-/** Whether this device shows an agent's answered and closed messages. */
-function readShowClosed(): boolean {
+/** A filter choice this device keeps, such as showing closed messages. */
+function readFlag(key: string): boolean {
   try {
-    return globalThis.localStorage?.getItem(CLOSED_KEY) === "1";
+    return globalThis.localStorage?.getItem(key) === "1";
   } catch {
     return false;
   }
 }
 
-function keepShowClosed(show: boolean): void {
+function keepFlag(key: string, on: boolean): void {
   try {
-    if (show) globalThis.localStorage?.setItem(CLOSED_KEY, "1");
-    else globalThis.localStorage?.removeItem(CLOSED_KEY);
+    if (on) globalThis.localStorage?.setItem(key, "1");
+    else globalThis.localStorage?.removeItem(key);
   } catch {
     // Not kept; the choice holds until the page closes.
   }
@@ -339,11 +340,19 @@ export function ConsoleApp({
     (agentFeed.failure && !agentFeed.data
       ? "Messages come from the dashboard server on your Mac, and this device can't reach it."
       : null);
-  const [showClosed, setShowClosedState] = useState(readShowClosed);
+  const [showClosed, setShowClosedState] = useState(() => readFlag(CLOSED_KEY));
   const setShowClosed = (show: boolean) => {
     setShowClosedState(show);
-    keepShowClosed(show);
+    keepFlag(CLOSED_KEY, show);
   };
+  const [hideIdle, setHideIdleState] = useState(() => readFlag(HIDE_IDLE_KEY));
+  const setHideIdle = (hide: boolean) => {
+    setHideIdleState(hide);
+    keepFlag(HIDE_IDLE_KEY, hide);
+  };
+  const [agentsFolded, setAgentsFolded] = useState<ReadonlySet<string>>(
+    new Set(),
+  );
   const tellAgent = (
     agent: AgentRecord,
     args: { text?: string; nudge?: boolean },
@@ -638,6 +647,11 @@ export function ConsoleApp({
         }}
         showOffline={showOffline}
         onShowOffline={setShowOffline}
+        hideIdle={hideIdle}
+        onHideIdle={setHideIdle}
+        clientOrder={config.clients.map((c) => c.key)}
+        folded={agentsFolded}
+        onFold={setAgentsFolded}
         onMessage={(a) => {
           setAgentResult(null);
           setAgentSelected(a.id);
@@ -792,7 +806,12 @@ export function ConsoleApp({
             key={agentRow.id}
             agent={agentRow}
             systemName={systemName}
-            taskTitle={(ref) => agentTask(ref)?.title ?? null}
+            taskFor={agentTask}
+            taskActions={actionsFor}
+            taskActionsFooter={actionsFooterFor}
+            mondayPrefix={
+              config.trackers.find((t) => t.monday)?.monday?.keyPrefix
+            }
             onOpenTask={openAgentTask}
             onMessage={(text) => tellAgent(agentRow, { text })}
             onNudge={() => tellAgent(agentRow, { nudge: true })}

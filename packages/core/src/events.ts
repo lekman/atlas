@@ -373,6 +373,8 @@ export const AtlasEvent = z.discriminatedUnion("type", [
     agentId: Identifier,
     to: AgentStatus,
     text: z.string().min(1),
+    /** The agent's full account, such as what a finished piece of work did. */
+    detail: z.string().min(1).max(4000).optional(),
   }),
   z.object({
     type: z.literal("question-answered"),
