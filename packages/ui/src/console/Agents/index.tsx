@@ -426,15 +426,6 @@ export function AgentDetail({
               >
                 Nudge
               </button>
-              {agent.refs?.length && onOpenTask && taskFor(agent.refs[0]!) ? (
-                <button
-                  type="button"
-                  className="console-secondary"
-                  onClick={() => onOpenTask(agent.refs![0]!)}
-                >
-                  Open its task
-                </button>
-              ) : null}
             </div>
             {result ? (
               <p

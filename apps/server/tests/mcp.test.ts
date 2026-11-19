@@ -481,9 +481,20 @@ describe("an agent's live view and feed", () => {
       questions: [{ question: "Run it again tonight?", options: [] }],
     });
     const { items } = (await get("/api/agents/test-runner/feed")) as {
-      items: { kind: string; text?: string; title?: string; state?: string }[];
+      items: {
+        kind: string;
+        at: string;
+        text?: string;
+        title?: string;
+        state?: string;
+      }[];
     };
-    expect(items[0]).toMatchObject({ kind: "question", state: "open" });
+    // Both can land in the same millisecond, so check the order, not the first.
+    const times = items.map((item) => item.at);
+    expect(times).toEqual([...times].sort().reverse());
+    expect(items).toContainEqual(
+      expect.objectContaining({ kind: "question", state: "open" }),
+    );
     expect(items.some((item) => item.text === "Done: the drill passed")).toBe(
       true,
     );
