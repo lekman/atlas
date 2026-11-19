@@ -225,7 +225,7 @@ export const ActionsWhileQueued: Story = {
 
 /**
  * The task detail on a laptop: the actions at the top right, then the
- * facts, the ticket, the pull requests and the details page.
+ * facts with the ticket among them, the pull requests and the details.
  */
 export const TaskDetailOnALaptop: Story = {
   name: "Task Detail on a Laptop",
@@ -236,14 +236,12 @@ export const TaskDetailOnALaptop: Story = {
     await expect(
       actions.getByRole("button", { name: "Copy reference" }),
     ).toBeInTheDocument();
-    await expect(
-      canvas.getByRole("region", { name: "Ticket" }),
-    ).toBeInTheDocument();
+    await expect(canvas.getByText("Ticket")).toBeInTheDocument();
     await expect(
       canvas.getByRole("region", { name: "Pull requests" }),
     ).toBeInTheDocument();
     await expect(
-      canvas.getByRole("region", { name: "Details page" }),
+      canvas.getByRole("region", { name: "Details" }),
     ).toBeInTheDocument();
     await userEvent.click(actions.getByRole("button", { name: "Status" }));
     await expect(canvas.getByText(/Asked the owner about/)).toBeInTheDocument();
@@ -307,7 +305,7 @@ export const ShieldsOnALaptop: Story = {
       canvas.getByRole("heading", { name: "laptop" }),
     ).toBeInTheDocument();
     await expect(
-      canvas.getByRole("img", { name: /CPU % over the last 24 hours/ }),
+      canvas.getByRole("group", { name: /CPU % over the last 24 hours/ }),
     ).toBeInTheDocument();
   },
 };

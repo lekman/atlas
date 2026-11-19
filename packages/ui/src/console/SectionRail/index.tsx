@@ -17,12 +17,16 @@ export interface SectionRailProps {
   onSwap(): void;
   /** Called when the reader opens settings. */
   onSettings(): void;
+  /** Whether sound is on, for the sound button above settings. */
+  soundOn?: boolean;
+  /** Turns sound on or off. Leave out to show no sound button. */
+  onSound?(): void;
 }
 
 /**
  * The menu down one screen edge, 64 px wide. The swap button at the top
  * moves it to the other edge, the seven sections sit in the middle where a
- * thumb reaches them, and settings is at the bottom. Every button is at
+ * thumb reaches them, and sound on or off and settings are at the bottom. Every button is at
  * least 44 px high, and each section keeps its word under the icon, so the
  * rail reads without knowing the icons.
  */
@@ -34,6 +38,8 @@ export function SectionRail({
   onSelect,
   onSwap,
   onSettings,
+  soundOn = false,
+  onSound,
 }: SectionRailProps) {
   const other = side === "left" ? "right" : "left";
   return (
@@ -74,6 +80,18 @@ export function SectionRail({
           );
         })}
       </ul>
+      {onSound ? (
+        <button
+          type="button"
+          className="console-rail-button console-rail-sound"
+          aria-label="Sound"
+          aria-pressed={soundOn}
+          title={soundOn ? "Sound on" : "Sound off"}
+          onClick={onSound}
+        >
+          <ConsoleIcon name={soundOn ? "sound" : "muted"} />
+        </button>
+      ) : null}
       <button
         type="button"
         className="console-rail-button console-rail-settings"

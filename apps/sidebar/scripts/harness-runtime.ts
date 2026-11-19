@@ -24,7 +24,11 @@ export const shim = `(() => {
     "host:dashboard/host_stats": () => ({ structuredContent: { hosts: [{
       clientId: "home", host: "harness-host", lastSeen: new Date().toISOString(),
       latest: { cpuPct: 12, memFreePct: 70, diskFreeGb: 80, runnersBusy: 2, runnersMax: 4 },
-      samples: [], breaches: [{ metric: "cpuPct", level: "warn" }] }] } }),
+      // A day of hourly samples, so the charts draw and can be read.
+      samples: Array.from({ length: 24 }, (_, i) => ({
+        at: new Date(Date.now() - (23 - i) * 3600000).toISOString(),
+        cpuPct: 10 + ((i * 37) % 60), memFreePct: 60 + ((i * 13) % 20), diskFreeGb: 80 - i * 0.2 })),
+      breaches: [{ metric: "cpuPct", level: "warn" }] }] } }),
     "host:dashboard/waiting_on_you": () => ({ structuredContent: { items: [
       { kind: "question", id: "q1", ask: "Which day suits the review?", options: [
         { label: "Thursday", description: "The team is free all afternoon.", recommended: true },
@@ -48,7 +52,16 @@ export const shim = `(() => {
           status: "In Progress", category: "indeterminate", type: "Story" }] } } } }),
     "Google Calendar/list_events": () => ({ payload: { events: [{ summary: "Harness Google meeting",
       start: { dateTime: new Date(Date.now() + 30 * 60000).toISOString() },
-      end: { dateTime: new Date(Date.now() + 60 * 60000).toISOString() } }] } }),
+      end: { dateTime: new Date(Date.now() + 60 * 60000).toISOString() } },
+      // Long locations: a meeting address, and a place longer than a phone is wide.
+      { summary: "Harness long-link meeting",
+        location: "https://teams.microsoft.com/l/meetup-join/19%3ameeting_YWE3Mjk2OGUtY2Q2My00Mjc4LWIzODktZmVmMGQ1MWMxNjk3%40thread.v2/0",
+        start: { dateTime: new Date(Date.now() + 90 * 60000).toISOString() },
+        end: { dateTime: new Date(Date.now() + 120 * 60000).toISOString() } },
+      { summary: "Harness long-place meeting",
+        location: "Conference room Aurora, fourth floor, north wing, behind the reception desk",
+        start: { dateTime: new Date(Date.now() + 150 * 60000).toISOString() },
+        end: { dateTime: new Date(Date.now() + 180 * 60000).toISOString() } }] } }),
     "Microsoft 365/outlook_calendar_search": () => ({ content: [{ type: "text", text: JSON.stringify({
       id: "o1", subject: "Harness Outlook meeting",
       start: { dateTime: new Date(Date.now() + 90 * 60000).toISOString().replace("Z", ""), timeZone: "UTC" },
@@ -63,14 +76,15 @@ export const shim = `(() => {
           details: "Harness/Plan.md", detailsAt: "2026-03-01T00:00:00Z", key: "HAR-1" },
         { ref: "db:2", title: "Harness second task", customer: "kestrel", band: "today", day: ymd(now) },
         { ref: "db:3", title: "Harness tracked task", customer: "kestrel", band: "tomorrow", key: "KF-10",
-          quadrant: "Q2-schedule", value: "medium", effort: "S",
+          quadrant: "Q2-schedule", value: "medium", effort: "S", due: "2026-11-20",
           day: ymd(new Date(now.getTime() + 86400000)) },
         { title: "Harness worklist meeting", customer: "kestrel", band: "today", day: ymd(from),
           meeting: { start: hm(from), end: ymd(to) === ymd(from) ? hm(to) : hm(from) } }] } };
     },
     "host:dashboard/details_read": () => ({ structuredContent: { path: "Harness/Plan.md", modifiedAt: "2026-03-01T00:00:00Z",
       md: "---\\nstatus: planned\\n---\\n# Plan\\n\\n## Harness heading\\n\\n<script>window.__pwned = 1<\\/script> [x](javascript:window.__pwned=1)\\n" } }),
-    "host:dashboard/task_prs": () => ({ structuredContent: { linked: false, fetchedAt: new Date().toISOString(), prs: [
+    // window.__slowPrs holds the pull request search back, to show the loading state.
+    "host:dashboard/task_prs": () => window.__slowPrs ? new Promise(() => {}) : ({ structuredContent: { linked: false, fetchedAt: new Date().toISOString(), prs: [
       { repo: "acme/app", number: 7, title: "Harness pull request", url: "https://github.com/acme/app/pull/7",
         state: "open", checks: "success" }] } }),
     "host:dashboard/commander_send": (args) => ({ structuredContent: { request: {
@@ -79,9 +93,23 @@ export const shim = `(() => {
       const list = tools["host:dashboard/worklist"]().structuredContent;
       return { structuredContent: { tasks: { ...list, items: list.items.map((t) => t.ref === "db:1" ? { ...t, done: true } : t) } } };
     },
+    "host:dashboard/task_log": () => {
+      const day = (n) => { const d = new Date(); d.setDate(d.getDate() - n);
+        return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
+      return { structuredContent: { fetchedAt: new Date().toISOString(), days: 28, items: [
+        { ref: "db:91", title: "Harness finished today", customer: "kestrel", doneOn: day(0), key: "HAR-9", effort: "M" },
+        { ref: "db:92", title: "Harness finished yesterday", customer: "kestrel", doneOn: day(1), effort: "XL" },
+        { ref: "db:93", title: "Harness finished last week", customer: "kestrel", doneOn: day(8), key: "KF-3", effort: "S" }] } };
+    },
+    "host:dashboard/task_state": (args) => {
+      const list = tools["host:dashboard/worklist"]().structuredContent;
+      return { structuredContent: { tasks: { ...list, items: list.items.map((t) =>
+        t.ref === args.ref ? { ...t, state: args.state, done: args.state === "done" } : t) } } };
+    },
     "Cloudflare Developer Platform/d1_database_query": () => ({ payload: [{ results: [] }] }),
     "host:dashboard/task_grade_many": (args) => ({ structuredContent: { graded: args.grades.map((g) => g.ref), skipped: [] } }),
-    "host:dashboard/task_assess": () => ({ structuredContent: {} }),
+    // window.__slowSave holds a grade change back, to show the saving state.
+    "host:dashboard/task_assess": () => window.__slowSave ? new Promise(() => {}) : ({ structuredContent: {} }),
     "host:dashboard/commander_plan": (args) => ({ structuredContent: { request: {
       id: args.id, state: "received", action: "plan", updatedAt: new Date().toISOString() } } }),
     "host:dashboard/release_status": () => ({ structuredContent: {

@@ -5,7 +5,8 @@
  * with the stand-in `window.claude` (see harness-runtime.ts). Fails on any
  * console or page error, any network request, and when the build is more
  * than one file. At each of the four sizes it checks the layout, that
- * today's task shows, that Done and Move reach the local server, and
+ * today's task shows, that Done (from the Status dropdown) and Move reach
+ * the local server, and
  * that Shields shows the host with its breach; then
  * that a move with the server unreachable is queued for the Mac mini.
  *
@@ -86,15 +87,28 @@ try {
     const detail = tab.getByRole("group", { name: "Task actions" });
     if (
       !(await tab
-        .getByRole("region", { name: "Details page" })
+        .getByRole("region", { name: "Details" })
         .isVisible({ timeout: 5000 })
         .catch(() => false))
     )
       problems.push(`${at}: the task detail has no details page section`);
+    // The page opens at its start; Read more shows the rest.
+    const readMore = tab.getByRole("button", { name: "Read more" });
+    const canRead = await readMore
+      .waitFor({ timeout: 5000 })
+      .then(() => true)
+      .catch(() => false);
+    if (!canRead) problems.push(`${at}: a long details page has no Read more`);
+    else if (await tab.getByText("Harness heading").isVisible())
+      problems.push(
+        `${at}: the details page shows past its start before Read more`,
+      );
+    else await readMore.click();
     if (
       !(await tab
         .getByText("Harness heading")
-        .isVisible({ timeout: 5000 })
+        .waitFor({ timeout: 5000 })
+        .then(() => true)
         .catch(() => false))
     )
       problems.push(`${at}: the details page body is not shown`);
@@ -105,7 +119,42 @@ try {
         .catch(() => false))
     )
       problems.push(`${at}: the task's pull request is not shown`);
-    await detail.getByRole("button", { name: "Done", exact: true }).click();
+    if (
+      await detail
+        .getByRole("button", { name: "Done", exact: true })
+        .isVisible()
+        .catch(() => false)
+    )
+      problems.push(`${at}: Done is still a button in the task actions`);
+    if (
+      await tab
+        .getByRole("button", { name: "Plan", exact: true })
+        .isVisible()
+        .catch(() => false)
+    )
+      problems.push(`${at}: Plan shows on a task that has a details page`);
+    // A refused save puts the old status back and says why beside it.
+    await tab.evaluate(() => {
+      (window as unknown as { __refuse?: string }).__refuse = "task_state";
+    });
+    const statusPick = tab.getByRole("combobox", { name: "Status" });
+    await statusPick.selectOption("review");
+    const refused = await tab
+      .getByRole("alert")
+      .filter({ hasText: "isn't switched on" })
+      .waitFor({ timeout: 3000 })
+      .then(() => true)
+      .catch(() => false);
+    if (!refused)
+      problems.push(`${at}: a refused status change shows no reason`);
+    if ((await statusPick.inputValue()) !== "todo")
+      problems.push(`${at}: a refused status change did not go back`);
+    await tab.evaluate(() => {
+      (window as unknown as { __refuse?: string }).__refuse = undefined;
+    });
+    await tab.getByRole("combobox", { name: "Value" }).selectOption("high");
+    await tab.getByRole("combobox", { name: "Effort" }).selectOption("S");
+    await tab.getByRole("combobox", { name: "Status" }).selectOption("done");
     await tab.waitForTimeout(200);
     const calls = (await tab.evaluate(
       () => (window as unknown as { __calls?: Calls }).__calls ?? [],
@@ -115,8 +164,87 @@ try {
       problems.push(
         `${at}: Move did not reach the local server as task_move to tomorrow`,
       );
+    const assessed = calls.filter((c) => c.tool === "task_assess");
+    if (
+      !assessed.some((c) => c.args.ref === "db:1" && c.args.value === "high") ||
+      !assessed.some((c) => c.args.ref === "db:1" && c.args.effort === "S")
+    )
+      problems.push(`${at}: the Grade selectors did not reach task_assess`);
     if (!calls.some((c) => c.tool === "task_done" && c.args.ref === "db:1"))
-      problems.push(`${at}: Done did not reach the local server`);
+      problems.push(
+        `${at}: Done from the Status dropdown did not reach the local server`,
+      );
+    // Radar lists tickets not yet tasks, and plans one with Commander.
+    await tab
+      .getByRole("button", { name: /^Radar/ })
+      .first()
+      .click();
+    // A long meeting location never makes the list wider than the pane.
+    await tab
+      .getByText("Harness long-place meeting")
+      .waitFor({ timeout: 5000 })
+      .catch(() => undefined);
+    const wide = await tab.evaluate(() =>
+      [...document.querySelectorAll(".console-pane, .console-radar")].some(
+        (el) => el.scrollWidth > el.clientWidth + 1,
+      ),
+    );
+    if (wide) problems.push(`${at}: a Radar meeting is wider than the pane`);
+    // Radar opens on Meetings; tickets are the second view.
+    await tab.getByRole("button", { name: "Tickets", exact: true }).click();
+    const ticket = tab.getByText("Harness board item", { exact: true });
+    if (
+      !(await ticket
+        .waitFor({ timeout: 5000 })
+        .then(() => true)
+        .catch(() => false))
+    )
+      problems.push(`${at}: Radar shows no ticket`);
+    else {
+      await tab
+        .getByRole("button", { name: /^Actions for KF-9/ })
+        .first()
+        .click();
+      await tab.getByRole("menuitem", { name: "Plan with Commander" }).click();
+      await tab.waitForTimeout(200);
+      const planned = (
+        (await tab.evaluate(
+          () => (window as unknown as { __calls?: Calls }).__calls ?? [],
+        )) as Calls
+      ).some(
+        (c) =>
+          c.tool === "commander_plan" && /KF-9/.test(JSON.stringify(c.args)),
+      );
+      if (!planned)
+        problems.push(
+          `${at}: Plan with Commander did not reach commander_plan`,
+        );
+      // The filter shows the tickets that are already tasks.
+      await tab
+        .getByRole("button", { name: /^Filter for the ticket list/ })
+        .click();
+      await tab
+        .getByRole("menuitemcheckbox", { name: /Show tickets that are tasks/ })
+        .click();
+      if (
+        !(await tab
+          .getByText("Harness board item with a task", { exact: true })
+          .waitFor({ timeout: 3000 })
+          .then(() => true)
+          .catch(() => false))
+      )
+        problems.push(`${at}: the filter does not show tickets that are tasks`);
+    }
+    // Log lists what was finished, with its points.
+    await tab.getByRole("button", { name: /^Log/ }).first().click();
+    if (
+      !(await tab
+        .getByText("Harness finished today", { exact: true })
+        .waitFor({ timeout: 5000 })
+        .then(() => true)
+        .catch(() => false))
+    )
+      problems.push(`${at}: Log shows no finished task`);
     await tab
       .getByRole("button", { name: /Shields/ })
       .first()
@@ -172,5 +300,5 @@ if (problems.length) {
   process.exit(1);
 }
 console.log(
-  `✓ one file, ${Math.round(source.length / 1024)} KB; sidebar, folding phone closed and open, and laptop render with no errors; Done, Move, the task detail with its page and pull request, Shields and an offline move work`,
+  `✓ one file, ${Math.round(source.length / 1024)} KB; sidebar, folding phone closed and open, and laptop render with no errors; Status to Done, Grade, Move, Radar's Plan, the Log, the task detail with its page and pull request, Shields and an offline move work`,
 );

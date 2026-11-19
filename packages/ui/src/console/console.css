@@ -253,6 +253,7 @@
   border-right: 1px solid var(--line);
   min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .atlas-console[data-rail="right"] .console-rail {
@@ -293,6 +294,11 @@
 .console-rail-button[aria-current="page"] {
   color: var(--amber);
   background: var(--panel);
+}
+
+/* Sound on lights the speaker; off shows it struck through, in the rail's colour. */
+.console-rail-sound[aria-pressed="true"] {
+  color: var(--amber);
 }
 
 .console-rail-word {
@@ -341,7 +347,9 @@
 
 .console-pane {
   min-height: 0;
+  overflow-x: hidden;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 14px 16px 24px;
 }
 
@@ -418,9 +426,11 @@
 
 /* Segmented switches and the toolbar */
 
+/* Range at the left edge, view at the right, lined up with the boxes below. */
 .console-toolbar {
   display: flex;
   flex-wrap: wrap;
+  justify-content: space-between;
   gap: 8px;
   margin-bottom: 12px;
 }
@@ -561,13 +571,71 @@
   grid-column: 2;
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 4px 14px;
   font: 400 11px/1.4 var(--face-label);
   color: var(--label);
 }
 
+/* A task row: the title takes the width; the state and Actions stack on the right. */
+.console-task .console-task-open {
+  grid-template-columns: minmax(0, 1fr);
+  padding-right: 6px;
+}
+
+.console-task .console-task-meta {
+  grid-column: 1;
+}
+
+/* A fact too long for the row is cut with an ellipsis; its title holds the whole. */
+.console-clip {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.console-task-meta {
+  min-width: 0;
+}
+
+.console-task-fact {
+  max-width: 100%;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.console-task-fact .console-icon {
+  width: 13px;
+  height: 13px;
+}
+
+.console-tracker-logo {
+  flex: none;
+  width: auto;
+  height: 12px;
+  max-width: 20px;
+}
+
+.console-task-side {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  width: 36px;
+  padding: 10px 0 4px;
+}
+
+.console-task-side .console-grade {
+  padding: 1px 4px;
+  font-size: 10px;
+}
+
 .console-task-state {
-  grid-row: 1 / span 2;
   width: 10px;
   height: 10px;
   border-radius: 50%;
@@ -803,13 +871,65 @@
 }
 
 /* Three times the sidebar's height, stretched to the pane, so a day's swings show. */
-.console-line svg {
-  display: block;
-  width: 100%;
+.console-chart {
+  position: relative;
   height: 132px;
   border: 1px solid var(--line);
   border-radius: 6px;
   background: var(--card);
+  cursor: crosshair;
+  /* A finger moving sideways reads the points; up and down still scrolls. */
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.console-chart svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.console-chart-guide {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--line-faint);
+  pointer-events: none;
+}
+
+.console-chart-dot {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  margin: -4px 0 0 -4px;
+  border: 2px solid var(--ground);
+  border-radius: 50%;
+  background: var(--amber);
+  pointer-events: none;
+}
+
+.console-chart-tip {
+  position: absolute;
+  top: 6px;
+  padding: 3px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  background: var(--panel);
+  color: var(--text);
+  font: 500 12px/1.4 var(--face-label);
+  white-space: nowrap;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.console-chart-tip[data-edge="start"] {
+  transform: translateX(-4px);
+}
+
+.console-chart-tip[data-edge="end"] {
+  transform: translateX(calc(-100% + 4px));
 }
 
 .console-line-value {
@@ -966,11 +1086,52 @@
   font: 600 17px/1.3 var(--face-heading);
 }
 
+/*
+ * The task's actions as one joined group, like the range switch. It never
+ * wraps: on a narrow pane it sits under the title at full width and
+ * scrolls sideways when the buttons do not fit.
+ */
 .console-detail-actions {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  justify-content: flex-end;
+  flex: 0 1 auto;
+  flex-wrap: nowrap;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  scrollbar-width: thin;
+}
+
+.console-detail-actions > button,
+.console-detail-actions > .console-menu-button {
+  flex: none;
+  min-height: var(--target);
+  padding: 0 14px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--secondary);
+  font: 500 12px/1 var(--face-heading);
+  letter-spacing: 0.04em;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+.console-detail-actions > * + * {
+  border-left: 1px solid var(--line-strong);
+}
+
+.console-detail-actions > .console-primary {
+  background: var(--amber);
+  color: var(--ground);
+}
+
+.console-detail-actions > button:not(.console-primary):hover,
+.console-detail-actions > .console-menu-button:hover,
+.console-detail-actions > .console-menu-button[aria-expanded="true"] {
+  background: var(--panel);
+  color: var(--amber);
 }
 
 .console-detail-actions [aria-disabled="true"] {
@@ -1017,6 +1178,114 @@
   margin: 0;
 }
 
+/* The task's state, set in place like a tracker's status pill. */
+.console-state {
+  --state: var(--secondary);
+  appearance: none;
+  min-height: 32px;
+  padding: 2px 28px 2px 10px;
+  border: 1px solid var(--state);
+  border-radius: 6px;
+  background:
+    linear-gradient(45deg, transparent 50%, var(--state) 50%) right 14px
+      center / 5px 5px no-repeat,
+    linear-gradient(-45deg, transparent 50%, var(--state) 50%) right 9px
+      center / 5px 5px no-repeat,
+    var(--card);
+  color: var(--state);
+  font: 500 13px/1.4 var(--face-body);
+  cursor: pointer;
+}
+
+.console-state:hover {
+  background-color: var(--panel);
+}
+
+.console-state:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
+}
+
+.console-state[data-state="doing"],
+.console-state[data-state="review"] {
+  --state: var(--blue);
+}
+
+.console-state[data-state="approved"],
+.console-state[data-state="merged"],
+.console-state[data-state="done"] {
+  --state: var(--mint);
+}
+
+.console-grade-picks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.console-plan {
+  margin-top: 8px;
+}
+
+.console-state[data-state="set"] {
+  --state: var(--text);
+}
+
+.console-state[data-state="dropped"] {
+  --state: var(--label);
+}
+
+/* While a change saves, its spinner takes the arrow's place, so nothing moves. */
+.console-state:disabled {
+  background-image: none;
+  cursor: progress;
+  opacity: 0.8;
+}
+
+.console-pick {
+  position: relative;
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+
+.console-saving {
+  position: absolute;
+  top: 50%;
+  right: 9px;
+  margin-top: -7px;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--line-strong);
+  border-top-color: var(--amber);
+  border-radius: 50%;
+  animation: console-spin 0.8s linear infinite;
+}
+
+@keyframes console-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .console-saving {
+    animation-duration: 2.4s;
+  }
+}
+
+.console-field-error {
+  flex-basis: 100%;
+  color: var(--coral);
+  font-size: 12px;
+}
+
+.console-state option {
+  background: var(--panel);
+  color: var(--text);
+}
+
 .console-detail-section {
   margin-top: 20px;
 }
@@ -1030,15 +1299,32 @@
 }
 
 .console-ticket {
-  margin: 0;
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
 }
 
-.console-ticket-system {
-  font: 600 13px/1.3 var(--face-heading);
+.console-badge {
+  --tone: var(--secondary);
+  padding: 1px 8px;
+  border: 1px solid var(--tone);
+  border-radius: 4px;
+  color: var(--tone);
+  font: 500 12px/1.5 var(--face-body);
+  white-space: nowrap;
 }
 
-.console-ticket-status {
-  color: var(--secondary);
+.console-badge[data-tone="moving"] {
+  --tone: var(--blue);
+}
+
+.console-badge[data-tone="done"] {
+  --tone: var(--mint);
+}
+
+.console-badge[data-tone="blocked"] {
+  --tone: var(--coral);
 }
 
 .console-pulls {
@@ -1072,6 +1358,234 @@
 
 .console-pull[data-state="merged"] .console-pull-state {
   color: var(--blue);
+}
+
+/* Settings: one column of groups, each a label above its controls. */
+.console-settings {
+  max-width: 640px;
+}
+
+.console-settings-sync {
+  margin: 0 0 8px;
+  color: var(--secondary);
+  font: 400 12px/1.4 var(--face-label);
+}
+
+.console-settings-sync[data-tone="err"] {
+  color: var(--coral);
+}
+
+.console-settings-group {
+  display: grid;
+  gap: 8px;
+  margin: 20px 0 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.console-settings-group > legend {
+  margin-bottom: 8px;
+  padding: 0;
+}
+
+.console-settings-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  min-height: var(--target);
+}
+
+.console-settings-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: var(--target);
+  cursor: pointer;
+}
+
+.console-settings-play {
+  min-height: 32px;
+  padding: 0 12px;
+  font-size: 12px;
+}
+
+.console-choices {
+  display: grid;
+  gap: 6px;
+}
+
+.console-choice {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--card);
+  cursor: pointer;
+}
+
+.console-choice:has(input:checked) {
+  border-color: var(--amber);
+}
+
+.console-choice input {
+  margin: 3px 0 0;
+  accent-color: var(--amber);
+}
+
+.console-choice span {
+  display: grid;
+  gap: 2px;
+}
+
+.console-choice strong {
+  font: 500 13px/1.3 var(--face-heading);
+}
+
+.console-choice em {
+  color: var(--secondary);
+  font-style: normal;
+  font-size: 12px;
+}
+
+.console-toggle {
+  appearance: none;
+  position: relative;
+  flex: none;
+  width: 40px;
+  height: 22px;
+  margin: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 11px;
+  background: var(--card);
+  cursor: pointer;
+}
+
+.console-toggle::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--secondary);
+  transition: transform 0.15s;
+}
+
+.console-toggle:checked {
+  border-color: var(--amber);
+  background: var(--panel);
+}
+
+.console-toggle:checked::after {
+  background: var(--amber);
+  transform: translateX(18px);
+}
+
+.console-toggle:disabled,
+.console-range:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.console-range {
+  flex: 1 1 160px;
+  max-width: 280px;
+  accent-color: var(--amber);
+}
+
+/* Radar: ticket rows link to their tracker; meeting rows are read-only. */
+.console-radar a.console-task-open,
+.console-radar div.console-task-open,
+.console-log a.console-task-open,
+.console-log div.console-task-open {
+  color: inherit;
+  text-decoration: none;
+}
+
+.console-radar a.console-task-open:hover .console-task-title {
+  text-decoration: underline;
+}
+
+/* Log: each finished mission's points, in the row's right column. */
+.console-log .console-scope {
+  margin-bottom: 16px;
+}
+
+.console-log-item .console-task-side {
+  justify-content: center;
+}
+
+.console-log-points {
+  color: var(--amber);
+  font: 500 12px/1 var(--face-label);
+}
+
+.console-radar-meeting .console-task-side {
+  width: auto;
+  justify-content: center;
+  padding: 6px 8px 6px 0;
+}
+
+.console-radar-join {
+  display: inline-grid;
+  place-items: center;
+  min-height: 32px;
+  padding: 0 10px;
+  color: var(--secondary);
+  font-size: 12px;
+  text-decoration: none;
+}
+
+.console-read-more {
+  margin-top: 4px;
+  padding: 6px 0;
+  border: 0;
+  background: transparent;
+  color: var(--amber);
+  font: 500 11px/1.4 var(--face-label);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.console-read-more:hover {
+  text-decoration: underline;
+}
+
+.console-shimmer {
+  min-height: 52px;
+  background:
+    linear-gradient(
+        100deg,
+        transparent 20%,
+        rgb(255 255 255 / 5%) 50%,
+        transparent 80%
+      )
+      0 0 / 200% 100% no-repeat,
+    var(--card);
+  animation: console-shimmer 1.4s linear infinite;
+}
+
+@keyframes console-shimmer {
+  from {
+    background-position: 150% 0;
+  }
+
+  to {
+    background-position: -50% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .console-shimmer {
+    animation: none;
+  }
 }
 
 .console-pull-facts {
@@ -1158,15 +1672,6 @@
   clip-path: inset(50%);
 }
 
-/* Move in the task detail reads like the buttons beside it. */
-.console-detail-actions .console-menu-button {
-  padding: 0 16px;
-  color: var(--text);
-  font: 500 13px/1 var(--face-heading);
-  letter-spacing: 0.04em;
-  text-transform: none;
-}
-
 /* Shields: network lists */
 
 .console-plain-list {
@@ -1226,4 +1731,65 @@
   align-items: center;
   min-height: 28px;
   overflow-wrap: anywhere;
+}
+
+/* The row's Actions menu as a three-dot icon under the state shape. */
+.console-task-move.console-menu-button {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  min-width: 0;
+  height: 32px;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+}
+
+.console-task-move.console-menu-button:hover {
+  background: var(--panel);
+}
+
+/*
+ * The task detail's body. Narrow: facts (the ticket among them), details,
+ * pull requests, one under the other. From 820 px of pane: the facts
+ * and details on the left, the pull requests down the right.
+ */
+.console-pane-detail {
+  container-type: inline-size;
+}
+
+.console-detail-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "facts" "page" "pulls";
+  column-gap: 28px;
+  align-items: start;
+}
+
+.console-detail-body > .console-facts {
+  grid-area: facts;
+}
+
+.console-detail-pulls {
+  grid-area: pulls;
+}
+
+.console-detail-page {
+  grid-area: page;
+}
+
+@container (min-width: 820px) {
+  .console-detail-body {
+    grid-template-columns: minmax(0, 1.4fr) minmax(320px, 1fr);
+    grid-template-rows: auto 1fr;
+    grid-template-areas:
+      "facts pulls"
+      "page pulls";
+  }
+
+  .console-detail-pulls {
+    margin-top: 0;
+  }
 }

@@ -1,6 +1,14 @@
 import type { Runtime } from "@atlas/runtime";
 import {
   ConsoleFrame,
+  ConsoleSettings,
+  LogList,
+  readLog,
+  type LogView,
+  RadarList,
+  radarTickets,
+  type RadarTicket,
+  type RadarView,
   MissionsList,
   movesFor,
   scopeChoices,
@@ -23,7 +31,16 @@ import {
   type Section,
   type ShieldRow,
 } from "@atlas/ui/console";
-import { referenceText, type WorkItem } from "@atlas/ui/sidebar";
+import {
+  agendaDays,
+  formatAgo,
+  jiraErrorText,
+  jiraStatuses,
+  readJira,
+  referenceText,
+  syncLabel,
+  type WorkItem,
+} from "@atlas/ui/sidebar";
 import { useMemo, useState } from "react";
 
 import type { SidebarConfig } from "../config";
@@ -32,10 +49,17 @@ import { PENDING_NOTE } from "../moves";
 import { useCommander } from "../useCommander";
 import { readDetailsIndex, useDetails } from "../useDetails";
 import { useHosts } from "../useHosts";
+import { useCalendar } from "../useCalendar";
+import { useFeed } from "../useFeed";
+import { useGitHub } from "../useGitHub";
+import { useMonday } from "../useMonday";
 import { useNow } from "../useNow";
+import { usePreferences } from "../usePreferences";
 import { usePullRequests } from "../usePullRequests";
 import { useStored } from "../useStored";
+import { useSync } from "../useSync";
 import { copyText, useTaskActions } from "../useTaskActions";
+import { worklistMeetings } from "../worklist";
 import { useWorklist } from "../useWorklist";
 import { relayStateOf } from "./relay";
 import { useHostNetwork } from "./useHostNetwork";
@@ -94,6 +118,7 @@ export function ConsoleApp({
   const tomorrow = dayKey(tomorrowDate);
 
   const worklist = useWorklist(runtime, now);
+  const prefs = usePreferences();
   const commander = useCommander(runtime, config.inbox);
   const actions = useTaskActions(runtime, commander, worklist.apply);
   const items = worklist.doc?.items ?? [];
@@ -101,7 +126,79 @@ export function ConsoleApp({
   const network = useHostNetwork(runtime);
   const jiraSynced = useStored(runtime, "board/jira", syncedAtOf);
   const eventsSynced = useStored(runtime, "board/events", syncedAtOf);
+  const jira = useStored(runtime, "board/jira", jiraStatuses);
+  useSync(runtime, {
+    jira: jiraSynced ?? undefined,
+    events: eventsSynced ?? undefined,
+  });
   const detailsIndex = useStored(runtime, "board/details", readDetailsIndex);
+
+  // Radar: the trackers' tickets and the week's meetings, as the sidebar reads them.
+  const mondayTracker = config.trackers.find((t) => t.monday);
+  const githubTracker = config.trackers.find((t) => t.github);
+  const jiraTracker = config.trackers.find((t) => t.logo === "jira");
+  const monday = useMonday(runtime, mondayTracker?.monday);
+  const github = useGitHub(runtime, githubTracker?.github);
+  const jiraDoc = useStored(runtime, "board/jira", readJira);
+  const eventsDoc = useStored(runtime, "board/events", (d) =>
+    typeof d === "object" && d !== null
+      ? (d as { syncedAt?: string; items?: unknown })
+      : null,
+  );
+  const workMeetings = useMemo(
+    () => worklistMeetings(items, config.calendar?.timeZone ?? "Europe/London"),
+    [items, config],
+  );
+  const calendar = useCalendar(runtime, config, eventsDoc, now, workMeetings);
+  const tickets = useMemo(
+    () =>
+      jiraDoc === undefined && !monday.data && !github.data
+        ? null
+        : radarTickets({
+            jira: jiraTracker
+              ? { client: jiraTracker.client, doc: jiraDoc }
+              : null,
+            monday: mondayTracker
+              ? { client: mondayTracker.client, page: monday.data }
+              : null,
+            github: githubTracker
+              ? {
+                  client: githubTracker.client,
+                  page: github.data,
+                  me: github.me,
+                }
+              : null,
+            items,
+          }),
+    [jiraDoc, monday.data, github.data, github.me, items, config],
+  );
+  const radarNotes = [
+    ...(jiraDoc && !jiraDoc.ok ? [jiraErrorText(jiraDoc.error)] : []),
+    ...(monday.error ? [monday.error.text] : []),
+    ...(github.error ? [github.error.text] : []),
+    ...calendar.errors.map((e) => e.text),
+  ];
+  const [radarView, setRadarView] = useState<RadarView>("meetings");
+
+  // Log: finished tasks from the dashboard host, stored for the phone.
+  const log = useFeed(
+    runtime,
+    {
+      server: "host:dashboard",
+      tool: "task_log",
+      args: { days: 28 },
+      path: "board/log",
+      accept: readLog,
+      watch: {
+        refetchInterval: 10 * 60000,
+        cache: { staleTime: 5 * 60000, gcTime: 86400000 },
+      },
+    },
+    "The dashboard host",
+  );
+  const [logView, setLogView] = useState<LogView>("days");
+  const [showTracked, setShowTracked] = useState(false);
+  const ticketRef = (t: RadarTicket) => `${t.system}:${t.key}`;
 
   const [section, setSection] = useState<Section>("missions");
   const [range, setRange] = useState<Range>("today");
@@ -131,9 +228,10 @@ export function ConsoleApp({
 
   const copyReference = async (t: WorkItem) => {
     const text = referenceText(t.title, t.key);
+    // A copy that works says nothing; only a failed one needs the reader.
     setNote(
       (await copyText(text))
-        ? `Copied: ${text}`
+        ? null
         : "Could not copy to the clipboard in this view.",
     );
   };
@@ -252,6 +350,9 @@ export function ConsoleApp({
             folded={folded}
             selectedKey={selected}
             systemName={systemName}
+            mondayPrefix={
+              config.trackers.find((t) => t.monday)?.monday?.keyPrefix
+            }
             actionsFor={actionsFor}
             actionsFooterFor={actionsFooterFor}
             onRangeChange={(next) => {
@@ -271,6 +372,64 @@ export function ConsoleApp({
           />
         )}
       </>
+    ) : section === "log" ? (
+      <LogList
+        view={logView}
+        onViewChange={setLogView}
+        items={log.data?.items ?? (log.error ? [] : null)}
+        note={log.error?.text ?? null}
+        copyFrom={
+          !log.live && log.data?.fetchedAt
+            ? formatAgo(new Date(log.data.fetchedAt), now)
+            : null
+        }
+        systemName={systemName}
+        scope={scope}
+        onScope={() => setPicking(true)}
+        mondayPrefix={config.trackers.find((t) => t.monday)?.monday?.keyPrefix}
+        now={now}
+      />
+    ) : section === "radar" ? (
+      <RadarList
+        view={radarView}
+        onViewChange={setRadarView}
+        tickets={tickets}
+        days={calendar.events ? agendaDays(calendar.events, now) : null}
+        notes={radarNotes}
+        clientOrder={config.clients.map((c) => c.key)}
+        systemName={systemName}
+        scope={scope}
+        onScope={() => setPicking(true)}
+        showTracked={showTracked}
+        onShowTracked={setShowTracked}
+        planning={(t) =>
+          commander.open(ticketRef(t)) ? "Commander is planning this" : null
+        }
+        onPlan={(t) =>
+          void commander.planTracker({
+            system: t.system,
+            key: t.key,
+            title: t.title,
+            customer: t.client,
+            url: t.url,
+            status: t.status,
+            priority: t.priority,
+          })
+        }
+        onOpenTask={(t) => {
+          if (!t.task) return;
+          const band = t.task.band;
+          setRange(
+            band === "tomorrow"
+              ? "tomorrow"
+              : band === "today"
+                ? "today"
+                : "backlog",
+          );
+          setSection("missions");
+          setSelected(taskKey(t.task));
+        }}
+      />
     ) : (
       <>
         <SectionHeading title={sectionNames[section]} />
@@ -288,13 +447,23 @@ export function ConsoleApp({
       score={null}
       relay={relay}
       section={section}
-      counts={{ shields: shieldAlerts(shieldRows(shieldData)) }}
+      counts={{
+        shields: shieldAlerts(shieldRows(shieldData)),
+      }}
       settingsOpen={settingsOpen}
       settings={
-        <>
-          <SectionHeading title="Settings" />
-          <p className="console-empty">Settings are in the sidebar for now.</p>
-        </>
+        <ConsoleSettings
+          sound={prefs.sound}
+          onSound={prefs.setSound}
+          onPreview={prefs.preview}
+          sync={syncLabel(
+            {
+              liveAt: worklist.liveAt,
+              syncedAt: worklist.doc?.syncedAt ?? null,
+            },
+            now,
+          )}
+        />
       }
       list={list}
       detail={
@@ -322,14 +491,23 @@ export function ConsoleApp({
             details={details}
             pulls={pulls.doc}
             pullsCopy={pulls.copy}
+            pullsLoading={pulls.loading}
             mondayPrefix={
               config.trackers.find((t) => t.monday)?.monday?.keyPrefix
             }
-            request={note ?? requestLine}
+            jiraStatuses={jira}
+            request={requestLine}
             commanderBusy={commander.open(task.ref) ? PENDING_NOTE : null}
             moves={fromDatabase(task) ? movesFor(range) : []}
             now={now}
             onDone={(t) => void actions.act(t, "task_done")}
+            onState={(t, state) =>
+              // Done keeps the done tool, which every host and the phone inbox know.
+              state === "done"
+                ? actions.save(t, "task_done")
+                : actions.save(t, "task_state", { state })
+            }
+            onAssess={(t, change) => actions.save(t, "task_assess", change)}
             onMove={(t, to) => void actions.act(t, "task_move", { to })}
             onStatus={(t) => void commander.send(t, "status")}
             onExecute={(t) => void commander.send(t, "execute")}
@@ -365,6 +543,10 @@ export function ConsoleApp({
         setShield(null);
       }}
       onSettings={() => setSettingsOpen((open) => !open)}
+      soundOn={prefs.sound.enabled}
+      onSound={() =>
+        prefs.setSound({ ...prefs.sound, enabled: !prefs.sound.enabled })
+      }
     />
   );
 }

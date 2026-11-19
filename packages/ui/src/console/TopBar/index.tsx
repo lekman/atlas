@@ -19,7 +19,7 @@ export interface TopBarProps {
   fleets: readonly Fleet[];
   /** The fleet whose work is shown. */
   fleetId: string;
-  /** Today's score so far, or null before anything has scored. */
+  /** Today's score so far, or null when there is none to show: the bar then leaves it out. */
   score: number | null;
   /** What the link to the Mac mini is doing. */
   relay: RelayState;
@@ -81,11 +81,13 @@ export function TopBar({
         ) : null}
       </div>
       <div className="console-top-end">
-        <span className="console-score">
-          <span className="console-label">Today</span>{" "}
-          <span className="console-score-value">{score ?? "–"}</span>
-          <span className="console-visually-hidden"> points</span>
-        </span>
+        {score === null ? null : (
+          <span className="console-score">
+            <span className="console-label">Today</span>{" "}
+            <span className="console-score-value">{score}</span>
+            <span className="console-visually-hidden"> points</span>
+          </span>
+        )}
         <span className="console-relay" data-relay={relay.kind} role="status">
           <span className="console-relay-dot" aria-hidden="true" />
           {relayWords(relay)}

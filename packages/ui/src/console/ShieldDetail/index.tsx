@@ -5,10 +5,10 @@ import {
   HOST_LINES,
   HOST_METRICS,
   seenText,
-  SPARK,
-  sparkline,
+  sparkPoints,
   type HostStat,
 } from "../../sidebar/hosts/model";
+import { HostLineChart } from "../HostLineChart";
 import { relayWords, type RelayState } from "../layout";
 import type { HostNetwork } from "../network";
 import {
@@ -43,7 +43,8 @@ const breachWords = {
 
 /**
  * One Shields row in full. A host shows its latest figures, which of them
- * are over a limit, and its last 24 hours as lines with the limit dashed.
+ * are over a limit, and its last 24 hours as lines with the limit dashed,
+ * each showing a point's time and value under the pointer or a finger.
  * The relay says what the page is reading and what waits. An integration
  * says when it last synced and why it failed.
  */
@@ -86,37 +87,19 @@ export function ShieldDetail({
       ]);
     const lines = HOST_LINES.map((line) => ({
       line,
-      ...sparkline(host.samples ?? [], line, now),
-    })).filter((l) => l.points);
+      ...sparkPoints(host.samples ?? [], line, now),
+    })).filter((l) => l.points.length);
     body = lines.length ? (
       <section className="console-lines" aria-label="Last 24 hours">
         <h3 className="console-label">Last 24 hours</h3>
         {lines.map(({ line, points, limitY }) => (
-          <figure key={line.key} className="console-line">
-            <figcaption>{line.name}</figcaption>
-            <svg
-              viewBox={`0 0 ${SPARK.width} ${SPARK.height}`}
-              preserveAspectRatio="none"
-              role="img"
-              aria-label={`${line.name} over the last 24 hours, limit ${line.limit}`}
-            >
-              {limitY !== null ? (
-                <line
-                  x1="0"
-                  x2={SPARK.width}
-                  y1={limitY}
-                  y2={limitY}
-                  className="console-line-limit"
-                  vectorEffect="non-scaling-stroke"
-                />
-              ) : null}
-              <polyline
-                points={points}
-                className="console-line-value"
-                vectorEffect="non-scaling-stroke"
-              />
-            </svg>
-          </figure>
+          <HostLineChart
+            key={line.key}
+            line={line}
+            points={points}
+            limitY={limitY}
+            now={now}
+          />
         ))}
       </section>
     ) : null;
