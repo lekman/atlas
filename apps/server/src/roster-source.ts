@@ -4,8 +4,9 @@
  * empty database; workers added to the roster later were never known, and
  * their sessions docked as "Not in the roster" under the home client.
  *
- * Each read adds the roster agents Atlas lacks and sets, for every roster
- * agent, its client's group, governance, account, host, reach and note, in
+ * Each read adds the roster agents Atlas lacks, with the roster's note, and
+ * sets, for every roster agent, its client's group, governance, account,
+ * host and reach, in
  * the machines file's mapping. It never changes an agent's status or work, and
  * never removes an agent: a name gone from the roster stays until removed
  * by hand. Agents docked for sessions on this machine get the roster's name
@@ -194,7 +195,6 @@ export function syncRoster(
         accountId: want.account,
         host: hostName(machines, want.machine),
         reach: want.reach,
-        ...(want.note ? { note: want.note } : {}),
       };
       const current = existing.get(want.id);
       if (!current) {
@@ -203,7 +203,9 @@ export function syncRoster(
           .values({
             id: want.id,
             ...fields,
-            note: fields.note ?? "",
+            // The roster's note starts a new agent; after that the session
+            // reader keeps the note, so the two never overwrite each other.
+            note: want.note,
             status: "idle",
             workingOn: [],
           })

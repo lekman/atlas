@@ -75,6 +75,16 @@ describe("syncRoster", () => {
     expect(desk?.workingOn).toEqual(["x"]);
   });
 
+  test("leaves a known agent's note to the session reader", () => {
+    syncRoster(database, roster, machines, "raw-host.local");
+    database.$client.run(
+      "UPDATE agents SET note = 'Session busy' WHERE id = 'ops-desk'",
+    );
+    const result = syncRoster(database, roster, machines, "raw-host.local");
+    expect(result.updated).toEqual([]);
+    expect(agent("ops-desk")?.note).toBe("Session busy");
+  });
+
   test("changes nothing on a second read of the same roster", () => {
     syncRoster(database, roster, machines, "raw-host.local");
     const again = syncRoster(database, roster, machines, "raw-host.local");
