@@ -259,6 +259,9 @@ export function ConsoleApp({
             folded={folded}
             selectedKey={selected}
             systemName={systemName}
+            mondayPrefix={
+              config.trackers.find((t) => t.monday)?.monday?.keyPrefix
+            }
             actionsFor={actionsFor}
             actionsFooterFor={actionsFooterFor}
             onRangeChange={(next) => {

@@ -56,7 +56,7 @@ export {
   type MissionsListProps,
 } from "./MissionsList";
 export { SegmentedSwitch, type SegmentedSwitchProps } from "./SegmentedSwitch";
-export { TaskRow, type TaskRowProps } from "./TaskRow";
+export { dueWords, TaskRow, type TaskRowProps } from "./TaskRow";
 export {
   DATABASE_STATE_WORDS,
   databaseStateOf,

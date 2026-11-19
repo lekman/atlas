@@ -1,6 +1,11 @@
 import { describe, expect, it } from "bun:test";
 
-import { databaseStateOf, ticketStatusOf, ticketTone } from "../src/console";
+import {
+  databaseStateOf,
+  dueWords,
+  ticketStatusOf,
+  ticketTone,
+} from "../src/console";
 import type { WorkItem } from "../src/sidebar";
 
 describe("ticketStatusOf", () => {
@@ -46,5 +51,15 @@ describe("databaseStateOf", () => {
 
   it("ignores a state it does not know", () => {
     expect(databaseStateOf({ ...base, state: "odd" })).toBe("todo");
+  });
+});
+
+describe("dueWords", () => {
+  it("writes a due date as day and short month", () => {
+    expect(dueWords("2026-11-20")).toBe("20 Nov");
+  });
+
+  it("keeps a value that is not a date", () => {
+    expect(dueWords("soon")).toBe("soon");
   });
 });

@@ -51,6 +51,7 @@ export const consoleIcons = {
   swap: `<g ${stroke}><path d="M4 9h15l-3.5-3.5"/><path d="M20 15H5l3.5 3.5"/></g>`,
   settings: `<g ${stroke}><circle cx="12" cy="12" r="3"/><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8"/></g>`,
   back: `<g ${stroke}><path d="M15 5l-7 7 7 7"/></g>`,
+  calendar: `<g ${stroke}><rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></g>`,
   more: `<circle cx="5.5" cy="12" r="1.8" fill="currentColor"/><circle cx="12" cy="12" r="1.8" fill="currentColor"/><circle cx="18.5" cy="12" r="1.8" fill="currentColor"/>`,
   logo: `<circle cx="12" cy="12" r="3.2" fill="currentColor"/><ellipse cx="12" cy="12" rx="9.5" ry="4" transform="rotate(-24 12 12)" ${stroke}/>`,
 } as const;

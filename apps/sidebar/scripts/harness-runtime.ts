@@ -63,7 +63,7 @@ export const shim = `(() => {
           details: "Harness/Plan.md", detailsAt: "2026-03-01T00:00:00Z", key: "HAR-1" },
         { ref: "db:2", title: "Harness second task", customer: "kestrel", band: "today", day: ymd(now) },
         { ref: "db:3", title: "Harness tracked task", customer: "kestrel", band: "tomorrow", key: "KF-10",
-          quadrant: "Q2-schedule", value: "medium", effort: "S",
+          quadrant: "Q2-schedule", value: "medium", effort: "S", due: "2026-11-20",
           day: ymd(new Date(now.getTime() + 86400000)) },
         { title: "Harness worklist meeting", customer: "kestrel", band: "today", day: ymd(from),
           meeting: { start: hm(from), end: ymd(to) === ymd(from) ? hm(to) : hm(from) } }] } };

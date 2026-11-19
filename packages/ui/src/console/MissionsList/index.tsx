@@ -45,6 +45,8 @@ export interface MissionsListProps {
   /** The task open in the detail, by ref or title. */
   selectedKey?: string | null;
   systemName(system: string): string;
+  /** The monday.com key prefix, to tell its keys from Jira's. */
+  mondayPrefix?: string;
   /** A task's Actions menu; none shows no menu. */
   actionsFor?(task: WorkItem): readonly MenuItem[];
   /** A line under a task's actions, such as why Commander actions are off. */
@@ -92,6 +94,7 @@ export function MissionsList({
   folded = new Set(),
   selectedKey = null,
   systemName,
+  mondayPrefix,
   actionsFor = () => [],
   actionsFooterFor = () => undefined,
   onRangeChange,
@@ -120,6 +123,7 @@ export function MissionsList({
       key={taskKey(task)}
       task={task}
       selected={taskKey(task) === selectedKey}
+      mondayPrefix={mondayPrefix}
       actions={actionsFor(task)}
       actionsFooter={actionsFooterFor(task)}
       onSelect={onSelect}

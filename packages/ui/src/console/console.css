@@ -563,7 +563,7 @@
   grid-column: 2;
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 4px 14px;
   font: 400 11px/1.4 var(--face-label);
   color: var(--label);
 }
@@ -576,6 +576,24 @@
 
 .console-task .console-task-meta {
   grid-column: 1;
+}
+
+.console-task-fact {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.console-task-fact .console-icon {
+  width: 13px;
+  height: 13px;
+}
+
+.console-tracker-logo {
+  flex: none;
+  width: auto;
+  height: 12px;
+  max-width: 20px;
 }
 
 .console-task-side {
