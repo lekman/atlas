@@ -10,9 +10,10 @@ pointer to each shared item together with your own grade, effort and notes. It
 runs on a computer you own and is reachable only inside your own private
 network.
 
-![Atlas on a folding phone held open: the Missions list on the left of the fold and the selected task on the right](docs/images/console-folding-phone-open.png)
+[![Atlas on a folding phone held open: the Missions list on the left of the fold and the selected task on the right](docs/images/console-folding-phone-open.png)](https://lekman.github.io/atlas/?path=/story/pages-console--folding-phone-open-with-a-task)
 
-The screenshots use invented clients.
+The screenshots use invented clients. Each one opens its live story in
+[the Storybook](https://lekman.github.io/atlas/).
 
 ## What You Can Do
 
@@ -49,7 +50,7 @@ Atlas lays itself out from the space it is given, so one page serves:
 | A folding phone, open              | The list and the task meet at the fold          |
 | A laptop browser                   | The list at reading width, the task beside it   |
 
-<img src="docs/images/console-sidebar.png" width="420" alt="Atlas at sidebar width: one pane with the Missions list and the menu down the right edge">
+<a href="https://lekman.github.io/atlas/?path=/story/pages-console--in-the-sidebar"><img src="docs/images/console-sidebar.png" width="420" alt="Atlas at sidebar width: one pane with the Missions list and the menu down the right edge"></a>
 
 The menu sits on one edge of the screen. The swap button at its top moves it
 to the other edge, and Atlas remembers your choice for each layout.
