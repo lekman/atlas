@@ -261,6 +261,20 @@ try {
       );
       if (!answered)
         problems.push(`${at}: Beam's answer did not reach commander_answer`);
+      // An answered ask leaves the list and the rail's count.
+      await tab.waitForTimeout(1500);
+      if (
+        await tab
+          .getByRole("button", { name: /Which day suits the review/ })
+          .isVisible()
+      )
+        problems.push(`${at}: an answered ask still shows in Beam`);
+      if (
+        !(await tab
+          .getByText(/1 hidden by the search or the filter/)
+          .isVisible())
+      )
+        problems.push(`${at}: Beam does not say the answered ask is hidden`);
     }
     // Log lists what was finished, with its points.
     await tab.getByRole("button", { name: /^Log/ }).first().click();

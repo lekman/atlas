@@ -4,7 +4,8 @@ import { describe, expect, it } from "bun:test";
   clients: [],
   trackers: [],
 };
-const { clientColour, withoutConnectors } = await import("../src/config");
+const { askClient, clientColour, withoutConnectors } =
+  await import("../src/config");
 
 const config = {
   clients: [
@@ -75,5 +76,43 @@ describe("withoutConnectors", () => {
     withoutConnectors(full);
     expect(full.trackers).toHaveLength(3);
     expect(full.calendar.google).toBeDefined();
+  });
+});
+
+describe("askClient", () => {
+  const clients = {
+    clients: [
+      { key: "acme", name: "Acme", slot: 1, keywords: ["roadrunner"] },
+      { key: "globex", name: "Globex", slot: 2 },
+    ],
+    trackers: [],
+  };
+
+  it("matches a keyword in the worker, the question or its context", () => {
+    expect(askClient({ worker: "Roadrunner" }, clients)).toBe("acme");
+    expect(
+      askClient(
+        { worker: "Commander", ask: "Ship the roadrunner fix?" },
+        clients,
+      ),
+    ).toBe("acme");
+    expect(
+      askClient(
+        { worker: "Commander", ask: "Go?", reason: "roadrunner" },
+        clients,
+      ),
+    ).toBe("acme");
+  });
+
+  it("matches a client's own name when it has no keyword", () => {
+    expect(
+      askClient({ worker: "Commander", ask: "Globex: which day?" }, clients),
+    ).toBe("globex");
+  });
+
+  it("gives none when nothing matches", () => {
+    expect(
+      askClient({ worker: "Commander", ask: "Lunch?" }, clients),
+    ).toBeNull();
   });
 });

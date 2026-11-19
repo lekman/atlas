@@ -149,6 +149,35 @@ const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
  * The client a piece of text names, by the clients' keywords in config
  * order, or the fallback.
  */
+/**
+ * The client an ask from Commander or a worker belongs to: the worker's
+ * name, the question and its context matched against each client's
+ * keywords, then against each client's own name and key. Null when none
+ * matches.
+ */
+export function askClient(
+  item: {
+    worker?: string;
+    ask?: string;
+    detail?: string;
+    reason?: string;
+    title?: string;
+  },
+  from: SidebarConfig = config,
+): string | null {
+  const text = [item.worker, item.ask, item.detail, item.reason, item.title]
+    .filter(Boolean)
+    .join(" ");
+  const byKeyword = classify(text, null, from);
+  if (byKeyword) return byKeyword;
+  for (const client of from.clients) {
+    const names = [client.name, client.key].filter(Boolean).map(escape);
+    if (new RegExp(`\\b(${names.join("|")})\\b`, "i").test(text))
+      return client.key;
+  }
+  return null;
+}
+
 export function classify(
   text: string,
   fallback: string | null,
