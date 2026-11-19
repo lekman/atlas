@@ -1,5 +1,5 @@
 import { parseMarkdown, splitFrontMatter } from "@atlas/core/markdown";
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 
 import { MarkdownBlocks } from "../../markdown/MarkdownBlocks";
 import type { DetailsState } from "../../sidebar/DetailsView";
@@ -41,7 +41,10 @@ export interface TaskDetailProps {
   /** The ranges the task can move to. */
   moves: readonly Range[];
   now: Date;
+  /** Marks a task from Dashboard.md done; database tasks use `onState`. */
   onDone(task: WorkItem): void;
+  /** Sets a database task's state, from the Status dropdown. */
+  onState?(task: WorkItem, state: DatabaseState): void;
   onMove(task: WorkItem, to: Range): void;
   onStatus(task: WorkItem): void;
   onExecute(task: WorkItem): void;
@@ -64,6 +67,34 @@ const pullStateWords: Record<PullRequest["state"], string> = {
   merged: "Merged",
   closed: "Closed",
 };
+
+export type DatabaseState =
+  "todo" | "doing" | "review" | "approved" | "merged" | "done" | "dropped";
+
+export const DATABASE_STATE_WORDS: Record<DatabaseState, string> = {
+  todo: "To do",
+  doing: "Doing",
+  review: "In review",
+  approved: "Approved",
+  merged: "Merged",
+  done: "Done",
+  dropped: "Dropped",
+};
+
+/**
+ * The task's state in the task database. Older worklists carry only the
+ * done mark and the `active` flag, which stands for doing or review; that
+ * reads as doing.
+ */
+export function databaseStateOf(task: WorkItem): DatabaseState {
+  if (task.state && task.state in DATABASE_STATE_WORDS)
+    return task.state as DatabaseState;
+  if (task.done) return "done";
+  const flags = task.flags ?? [];
+  if (flags.includes("merged")) return "merged";
+  if (flags.includes("approved")) return "approved";
+  return flags.includes("active") ? "doing" : "todo";
+}
 
 /**
  * The status the ticket line shows: Jira's own status when the Jira sync
@@ -104,8 +135,9 @@ const httpsOnly = (href: string) => /^https:\/\//i.test(href);
 
 /**
  * One task in full. The title, with the actions at its top right on a wide
- * pane (they wrap under it on a narrow one): Done, Move, Status, Execute,
- * Plan when there is no page yet, and Copy reference. Then its facts, the
+ * pane (they wrap under it on a narrow one): Move, Status, Execute, Plan
+ * when there is no page yet, and Copy reference. Then its facts, where the
+ * status is a dropdown that sets the task's state (Done among them), the
  * tracker ticket and its live status, its pull requests with review and
  * checks, and the details page from the vault. Stacked in that order on a
  * narrow pane; from 820 px wide, the description sits on the left and the
@@ -124,6 +156,7 @@ export function TaskDetail({
   moves,
   now,
   onDone,
+  onState,
   onMove,
   onStatus,
   onExecute,
@@ -149,8 +182,40 @@ export function TaskDetail({
   const statusWord = `${status.label[0]!.toUpperCase()}${status.label.slice(1)}`;
   const ticketStatus = ticketStatusOf(key, system, jiraStatuses, statusWord);
 
-  const facts: Array<[string, string]> = [
-    ["Status", statusWord],
+  const fromDatabase = Boolean(task.ref?.startsWith("db:"));
+  const state = databaseStateOf(task);
+  const statusValue: ReactNode =
+    fromDatabase && onState ? (
+      <select
+        className="console-state"
+        aria-label="Status"
+        data-state={state}
+        value={state}
+        onChange={(e) => onState(task, e.target.value as DatabaseState)}
+      >
+        {(Object.keys(DATABASE_STATE_WORDS) as DatabaseState[]).map((s) => (
+          <option key={s} value={s}>
+            {DATABASE_STATE_WORDS[s]}
+          </option>
+        ))}
+      </select>
+    ) : task.done || fromDatabase ? (
+      statusWord
+    ) : (
+      <select
+        className="console-state"
+        aria-label="Status"
+        data-state="todo"
+        value="open"
+        onChange={(e) => e.target.value === "done" && onDone(task)}
+      >
+        <option value="open">{statusWord}</option>
+        <option value="done">Done</option>
+      </select>
+    );
+
+  const facts: Array<[string, ReactNode]> = [
+    ["Status", statusValue],
     ["Quadrant", quadrantWords[quadrantOf(task)] ?? "Ungraded"],
     ["System", systemName],
     [
@@ -179,13 +244,6 @@ export function TaskDetail({
             role="group"
             aria-label="Task actions"
           >
-            <button
-              type="button"
-              className="console-primary"
-              onClick={() => onDone(task)}
-            >
-              Done
-            </button>
             <ConsoleMenu
               label="Move"
               name={task.title}

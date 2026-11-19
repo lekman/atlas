@@ -22,6 +22,8 @@ export interface WorkItem {
   order?: number;
   /** A tracker key, as PROJ-123. */
   key?: string;
+  /** The task database's state: todo, doing, review, approved, merged, done or dropped. */
+  state?: string;
   /** `blocked`, `active`, `approved`, `merged` and others, shown as tags. */
   flags?: string[];
   value?: string;

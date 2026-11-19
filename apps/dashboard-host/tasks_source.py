@@ -143,7 +143,7 @@ def _item(s: dict, customer: str, today: date, order: int) -> dict:
     link = s.get("trackerUrl")
     return {
         "customer": customer, "band": band, "day": day, "title": s.get("title") or "(no title)",
-        "done": s.get("state") == "done", "priority": PRIORITY.get(s.get("priority")),
+        "done": s.get("state") == "done", "state": s.get("state"), "priority": PRIORITY.get(s.get("priority")),
         "flags": sorted(flags), "key": s.get("trackerKey"),
         "link": link if isinstance(link, str) and link.startswith("https://") else None,
         "meeting": None, "order": order, "ref": REF_PREFIX + s["id"], "details": details_path(s.get("detailsId")),
@@ -200,6 +200,30 @@ def act(ref: str, action: str, to: str | None, today: date) -> None:
         raise TasksError("move needs to: today, tomorrow or backlog")
     call(conf, "task_update", {"by": by, "id": item_id, "revision": revision, "scheduledFor": target[to],
                                **_owner_force(current)})
+
+
+STATES = ("todo", "doing", "review", "approved", "merged", "done", "dropped")
+
+
+def set_state(ref: str, state: str) -> None:
+    """Set one database item's state, at its current revision, whoever has claimed it.
+    Done goes through task_complete, the way the task server finishes an item."""
+    conf = config()
+    if conf is None:
+        raise TasksError("tasks.json isn't set up")
+    if not isinstance(ref, str) or not ref.startswith(REF_PREFIX):
+        raise TasksError("only task database items have a state")
+    if state not in STATES:
+        raise TasksError("state must be one of " + ", ".join(STATES))
+    item_id, by = ref[len(REF_PREFIX):], conf.get("by") or "Dashboard"
+    current = call(conf, "task_get", {"id": item_id})
+    if current.get("state") == state:
+        return
+    args = {"by": by, "id": item_id, "revision": current["revision"], **_owner_force(current)}
+    if state == "done":
+        call(conf, "task_complete", args)
+    else:
+        call(conf, "task_update", {**args, "state": state})
 
 
 VALUES = ("negative", "none", "low", "medium", "high", "veryHigh")

@@ -118,6 +118,7 @@ describe("the dashboard tool route", () => {
       "task_move",
       "task_move_many",
       "task_prs",
+      "task_state",
       "waiting_on_you",
       "worklist",
     ]);

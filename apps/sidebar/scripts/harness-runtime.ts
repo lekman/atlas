@@ -79,6 +79,11 @@ export const shim = `(() => {
       const list = tools["host:dashboard/worklist"]().structuredContent;
       return { structuredContent: { tasks: { ...list, items: list.items.map((t) => t.ref === "db:1" ? { ...t, done: true } : t) } } };
     },
+    "host:dashboard/task_state": (args) => {
+      const list = tools["host:dashboard/worklist"]().structuredContent;
+      return { structuredContent: { tasks: { ...list, items: list.items.map((t) =>
+        t.ref === args.ref ? { ...t, state: args.state, done: args.state === "done" } : t) } } };
+    },
     "Cloudflare Developer Platform/d1_database_query": () => ({ payload: [{ results: [] }] }),
     "host:dashboard/task_grade_many": (args) => ({ structuredContent: { graded: args.grades.map((g) => g.ref), skipped: [] } }),
     "host:dashboard/task_assess": () => ({ structuredContent: {} }),

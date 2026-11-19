@@ -32,6 +32,7 @@ export const dashboardTools = [
   "task_move",
   "task_move_many",
   "task_prs",
+  "task_state",
   "waiting_on_you",
   "worklist",
 ] as const;

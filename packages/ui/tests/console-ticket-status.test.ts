@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
-import { ticketStatusOf } from "../src/console";
+import { databaseStateOf, ticketStatusOf } from "../src/console";
+import type { WorkItem } from "../src/sidebar";
 
 describe("ticketStatusOf", () => {
   const jira = new Map([["A-1", "In Review"]]);
@@ -21,5 +22,24 @@ describe("ticketStatusOf", () => {
   it("uses the Atlas status for monday.com and GitHub keys", () => {
     expect(ticketStatusOf("A-1", "monday", jira, "Planned")).toBe("Planned");
     expect(ticketStatusOf("o/r#1", "github", jira, "Done")).toBe("Done");
+  });
+});
+
+describe("databaseStateOf", () => {
+  const base: WorkItem = { customer: "c", band: "today", title: "t" };
+
+  it("takes the database's own state when the worklist carries it", () => {
+    expect(databaseStateOf({ ...base, state: "review" })).toBe("review");
+  });
+
+  it("reads older worklists from the done mark and the flags", () => {
+    expect(databaseStateOf({ ...base, done: true })).toBe("done");
+    expect(databaseStateOf({ ...base, flags: ["active"] })).toBe("doing");
+    expect(databaseStateOf({ ...base, flags: ["merged"] })).toBe("merged");
+    expect(databaseStateOf({ ...base })).toBe("todo");
+  });
+
+  it("ignores a state it does not know", () => {
+    expect(databaseStateOf({ ...base, state: "odd" })).toBe("todo");
   });
 });

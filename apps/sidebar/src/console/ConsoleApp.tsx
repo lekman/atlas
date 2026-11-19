@@ -338,6 +338,12 @@ export function ConsoleApp({
             moves={fromDatabase(task) ? movesFor(range) : []}
             now={now}
             onDone={(t) => void actions.act(t, "task_done")}
+            onState={(t, state) =>
+              // Done keeps the done tool, which every host and the phone inbox know.
+              void (state === "done"
+                ? actions.act(t, "task_done")
+                : actions.act(t, "task_state", { state }))
+            }
             onMove={(t, to) => void actions.act(t, "task_move", { to })}
             onStatus={(t) => void commander.send(t, "status")}
             onExecute={(t) => void commander.send(t, "execute")}

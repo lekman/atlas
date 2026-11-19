@@ -5,7 +5,8 @@
  * with the stand-in `window.claude` (see harness-runtime.ts). Fails on any
  * console or page error, any network request, and when the build is more
  * than one file. At each of the four sizes it checks the layout, that
- * today's task shows, that Done and Move reach the local server, and
+ * today's task shows, that Done (from the Status dropdown) and Move reach
+ * the local server, and
  * that Shields shows the host with its breach; then
  * that a move with the server unreachable is queued for the Mac mini.
  *
@@ -105,7 +106,14 @@ try {
         .catch(() => false))
     )
       problems.push(`${at}: the task's pull request is not shown`);
-    await detail.getByRole("button", { name: "Done", exact: true }).click();
+    if (
+      await detail
+        .getByRole("button", { name: "Done", exact: true })
+        .isVisible()
+        .catch(() => false)
+    )
+      problems.push(`${at}: Done is still a button in the task actions`);
+    await tab.getByRole("combobox", { name: "Status" }).selectOption("done");
     await tab.waitForTimeout(200);
     const calls = (await tab.evaluate(
       () => (window as unknown as { __calls?: Calls }).__calls ?? [],
@@ -116,7 +124,9 @@ try {
         `${at}: Move did not reach the local server as task_move to tomorrow`,
       );
     if (!calls.some((c) => c.tool === "task_done" && c.args.ref === "db:1"))
-      problems.push(`${at}: Done did not reach the local server`);
+      problems.push(
+        `${at}: Done from the Status dropdown did not reach the local server`,
+      );
     await tab
       .getByRole("button", { name: /Shields/ })
       .first()
@@ -172,5 +182,5 @@ if (problems.length) {
   process.exit(1);
 }
 console.log(
-  `✓ one file, ${Math.round(source.length / 1024)} KB; sidebar, folding phone closed and open, and laptop render with no errors; Done, Move, the task detail with its page and pull request, Shields and an offline move work`,
+  `✓ one file, ${Math.round(source.length / 1024)} KB; sidebar, folding phone closed and open, and laptop render with no errors; Status to Done, Move, the task detail with its page and pull request, Shields and an offline move work`,
 );

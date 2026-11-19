@@ -757,6 +757,16 @@ TOOLS = [{
         "required": ["ref"], "additionalProperties": False},
     "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True},
 }, {
+    "name": "task_state",
+    "title": "Set a task's state",
+    "description": "Set the state of one task database item (ref starting db:): todo, doing, review, approved, merged, "
+                   "done or dropped. Done completes the item. A claim does not stop it. Returns the new worklist.",
+    "inputSchema": {"type": "object", "properties": {
+        "ref": {"type": "string"},
+        "state": {"type": "string", "enum": ["todo", "doing", "review", "approved", "merged", "done", "dropped"]}},
+        "required": ["ref", "state"], "additionalProperties": False},
+    "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True},
+}, {
     "name": "commander_send",
     "title": "Ask Commander about a dashboard item",
     "description": "Send one Dashboard.md item (by ref) to the Commander session on the Mac mini: action 'status' asks its "
@@ -891,6 +901,17 @@ def handle(msg: dict):
         if name in ("task_done", "task_move"):
             try:
                 result = edit_task(params.get("arguments") or {}, "done" if name == "task_done" else "move")
+                return {"content": [{"type": "text", "text": json.dumps({"ok": True})}], "structuredContent": result, "isError": False}
+            except Exception as ex:
+                log(name, "failed:", ex)
+                return {"content": [{"type": "text", "text": str(ex)[:300]}], "isError": True}
+        if name == "task_state":
+            try:
+                args = params.get("arguments") or {}
+                import tasks_source
+                with _edit_lock:
+                    tasks_source.set_state(args.get("ref"), args.get("state"))
+                    result = {"ok": True, "tasks": tasks_doc(host_config.DASHBOARD)}
                 return {"content": [{"type": "text", "text": json.dumps({"ok": True})}], "structuredContent": result, "isError": False}
             except Exception as ex:
                 log(name, "failed:", ex)

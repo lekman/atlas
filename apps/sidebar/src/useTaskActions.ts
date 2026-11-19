@@ -8,7 +8,7 @@ import { useCallback, useState } from "react";
 
 import { requestId, type Commander } from "./useCommander";
 
-export type TaskTool = "task_done" | "task_move";
+export type TaskTool = "task_done" | "task_move" | "task_state";
 
 export interface TaskActions {
   /**
@@ -18,7 +18,7 @@ export interface TaskActions {
   act: (
     item: WorkItem,
     tool: TaskTool,
-    extra?: { to?: string },
+    extra?: { to?: string; state?: string },
   ) => Promise<WorklistDoc | null>;
   /** The task being changed now. */
   busyRef: string | null;
@@ -59,7 +59,11 @@ export function useTaskActions(
       };
       const fromDatabase = item.ref.startsWith("db:");
       if (!runtime.present) {
-        if (fromDatabase) await viaInbox();
+        if (fromDatabase && tool !== "task_state") await viaInbox();
+        else if (fromDatabase)
+          setError(
+            "Changing the status works where the Mac's dashboard server answers, not from the phone yet.",
+          );
         else
           setError(
             "Editing items needs live connectors, which aren't available in this view.",
@@ -83,7 +87,11 @@ export function useTaskActions(
         return null;
       } catch (err) {
         const { code, message } = err as { code?: string; message?: string };
-        if (code === "server_not_connected" && fromDatabase) {
+        if (
+          code === "server_not_connected" &&
+          fromDatabase &&
+          tool !== "task_state"
+        ) {
           await viaInbox();
         } else {
           setError(
