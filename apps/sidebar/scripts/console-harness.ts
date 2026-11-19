@@ -276,6 +276,38 @@ try {
       )
         problems.push(`${at}: Beam does not say the answered ask is hidden`);
     }
+    // A claimed task links to its agent.
+    await tab
+      .getByRole("button", { name: /^Missions/ })
+      .first()
+      .click();
+    await tab
+      .getByRole("button", { name: /Harness second task/ })
+      .first()
+      .click()
+      .catch(() => undefined);
+    const agentLink = tab.getByRole("button", {
+      name: "ops desk",
+      exact: true,
+    });
+    if (
+      !(await agentLink
+        .waitFor({ timeout: 3000 })
+        .then(() => true)
+        .catch(() => false))
+    )
+      problems.push(`${at}: a claimed task does not link to its agent`);
+    else {
+      await agentLink.click();
+      if (
+        !(await tab
+          .getByRole("heading", { name: "Ops Desk" })
+          .waitFor({ timeout: 3000 })
+          .then(() => true)
+          .catch(() => false))
+      )
+        problems.push(`${at}: the agent link does not open the agent`);
+    }
     // Agents lists who is online by machine, hides the offline, and nudges.
     await tab
       .getByRole("button", { name: /^Agents/ })

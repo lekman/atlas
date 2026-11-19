@@ -68,6 +68,8 @@ export interface TaskDetailProps {
   /** Asks Commander for a details page with a test plan. Offered only when there is none. */
   onPlan?(task: WorkItem): void;
   onCopyReference(task: WorkItem): void;
+  /** Opens the agent that claimed the task in Agents, when Atlas knows it. */
+  onOpenAgent?(): void;
 }
 
 const quadrantWords: Record<string, string> = {
@@ -234,6 +236,7 @@ export function TaskDetail({
   onPlan,
   onAssess,
   onCopyReference,
+  onOpenAgent,
 }: TaskDetailProps) {
   const page = details.state === "ready" ? details.page : null;
   const { fields, blocks } = useMemo(() => {
@@ -433,7 +436,22 @@ export function TaskDetail({
         ) : null}
       </span>,
     ]);
-  if (task.claimedBy) facts.push(["Agent", task.claimedBy]);
+  if (task.claimedBy)
+    facts.push([
+      "Agent",
+      onOpenAgent ? (
+        <button
+          type="button"
+          className="console-link"
+          title="Open the agent in Agents"
+          onClick={onOpenAgent}
+        >
+          {task.claimedBy}
+        </button>
+      ) : (
+        task.claimedBy
+      ),
+    ]);
 
   return (
     <article className="console-detail" aria-labelledby="console-detail-title">

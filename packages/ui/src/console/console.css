@@ -1528,6 +1528,18 @@
   text-decoration: underline;
 }
 
+/* A plain-text link, such as a task's agent. */
+.console-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--blue);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
 /* Agents: a row's note is one line; the detail's note reads whole. */
 .console-agent-note {
   margin-top: 2px;
