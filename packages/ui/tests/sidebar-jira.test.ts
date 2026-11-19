@@ -4,6 +4,7 @@ import {
   jiraErrorText,
   jiraGroup,
   jiraPriority,
+  jiraStatuses,
   readJira,
   sortJira,
 } from "../src/sidebar";
@@ -65,5 +66,28 @@ describe("jiraErrorText", () => {
     expect(jiraErrorText("http_429")).toContain("slow down");
     expect(jiraErrorText("boom")).toContain("(boom)");
     expect(jiraErrorText(null)).toContain("(unknown error)");
+  });
+});
+
+describe("jiraStatuses", () => {
+  it("maps every synced issue to its status, epics included", () => {
+    const statuses = jiraStatuses({
+      ok: true,
+      items: [
+        { key: "A-1", status: "In Review", type: "Story" },
+        { key: "A-2", status: " Blocked ", type: "Epic" },
+        { key: "A-3", type: "Task" },
+        { status: "To Do" },
+      ],
+    });
+    expect([...(statuses ?? [])]).toEqual([
+      ["A-1", "In Review"],
+      ["A-2", "Blocked"],
+    ]);
+  });
+
+  it("refuses what isn't a copy", () => {
+    expect(jiraStatuses(null)).toBeNull();
+    expect(jiraStatuses({ ok: false })?.size).toBe(0);
   });
 });

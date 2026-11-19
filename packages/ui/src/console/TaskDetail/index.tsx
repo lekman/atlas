@@ -32,6 +32,8 @@ export interface TaskDetailProps {
   pullsCopy?: boolean;
   /** The monday.com key prefix, to tell its keys from Jira's. */
   mondayPrefix?: string;
+  /** Jira's status for each synced issue key, from the Jira sync. */
+  jiraStatuses?: ReadonlyMap<string, string> | null;
   /** Commander's latest request about the task, in one line, if any. */
   request?: string | null;
   /** Why Commander actions are off, while a request is still open. */
@@ -62,6 +64,19 @@ const pullStateWords: Record<PullRequest["state"], string> = {
   merged: "Merged",
   closed: "Closed",
 };
+
+/**
+ * The status the ticket line shows: Jira's own status when the Jira sync
+ * has the issue, otherwise the task's status in Atlas.
+ */
+export function ticketStatusOf(
+  key: string | undefined,
+  system: string | null,
+  jiraStatuses: ReadonlyMap<string, string> | null | undefined,
+  fallback: string,
+): string {
+  return (system === "jira" && key && jiraStatuses?.get(key)) || fallback;
+}
 
 function pullFacts(pull: PullRequest): string {
   const review =
@@ -103,6 +118,7 @@ export function TaskDetail({
   pulls,
   pullsCopy = false,
   mondayPrefix,
+  jiraStatuses,
   request,
   commanderBusy,
   moves,
@@ -130,9 +146,11 @@ export function TaskDetail({
   const system = key ? trackerSystem(key, mondayPrefix) : null;
   const trackerUrl = safeUrl(field(fields, "url")) ?? safeUrl(task.link);
   const busy = Boolean(commanderBusy);
+  const statusWord = `${status.label[0]!.toUpperCase()}${status.label.slice(1)}`;
+  const ticketStatus = ticketStatusOf(key, system, jiraStatuses, statusWord);
 
   const facts: Array<[string, string]> = [
-    ["Status", `${status.label[0]!.toUpperCase()}${status.label.slice(1)}`],
+    ["Status", statusWord],
     ["Quadrant", quadrantWords[quadrantOf(task)] ?? "Ungraded"],
     ["System", systemName],
     [
@@ -251,7 +269,7 @@ export function TaskDetail({
               ) : (
                 <span>{key}</span>
               )}
-              <span className="console-ticket-status"> · {status.why}</span>
+              <span className="console-ticket-status"> · {ticketStatus}</span>
             </p>
           </section>
         ) : null}

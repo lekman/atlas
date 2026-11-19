@@ -57,7 +57,7 @@ export {
 } from "./MissionsList";
 export { SegmentedSwitch, type SegmentedSwitchProps } from "./SegmentedSwitch";
 export { TaskRow, type TaskRowProps } from "./TaskRow";
-export { TaskDetail, type TaskDetailProps } from "./TaskDetail";
+export { TaskDetail, ticketStatusOf, type TaskDetailProps } from "./TaskDetail";
 export {
   ScopeSheet,
   type ScopeChoice,

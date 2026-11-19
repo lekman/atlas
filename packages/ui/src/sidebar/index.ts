@@ -114,6 +114,7 @@ export {
   jiraErrorText,
   jiraGroup,
   jiraPriority,
+  jiraStatuses,
   readJira,
   sortJira,
   type JiraDoc,

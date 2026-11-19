@@ -50,6 +50,22 @@ export function readJira(value: unknown): JiraDoc | null {
   };
 }
 
+/**
+ * Each synced issue's Jira status by key, every issue type included, so a
+ * task can show its ticket's status. Null when the value isn't a copy.
+ * The sync leaves out done issues, so a missing key has no known status.
+ */
+export function jiraStatuses(value: unknown): Map<string, string> | null {
+  if (typeof value !== "object" || value === null) return null;
+  const items = (value as { items?: unknown }).items;
+  const statuses = new Map<string, string>();
+  for (const i of Array.isArray(items) ? (items as JiraIssue[]) : []) {
+    const status = typeof i?.status === "string" ? i.status.trim() : "";
+    if (typeof i?.key === "string" && status) statuses.set(i.key, status);
+  }
+  return statuses;
+}
+
 /** Why the last sync failed, in words. */
 export function jiraErrorText(error: string | null | undefined): string {
   switch (error) {

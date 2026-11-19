@@ -23,7 +23,7 @@ import {
   type Section,
   type ShieldRow,
 } from "@atlas/ui/console";
-import { referenceText, type WorkItem } from "@atlas/ui/sidebar";
+import { jiraStatuses, referenceText, type WorkItem } from "@atlas/ui/sidebar";
 import { useMemo, useState } from "react";
 
 import type { SidebarConfig } from "../config";
@@ -35,6 +35,7 @@ import { useHosts } from "../useHosts";
 import { useNow } from "../useNow";
 import { usePullRequests } from "../usePullRequests";
 import { useStored } from "../useStored";
+import { useSync } from "../useSync";
 import { copyText, useTaskActions } from "../useTaskActions";
 import { useWorklist } from "../useWorklist";
 import { relayStateOf } from "./relay";
@@ -101,6 +102,11 @@ export function ConsoleApp({
   const network = useHostNetwork(runtime);
   const jiraSynced = useStored(runtime, "board/jira", syncedAtOf);
   const eventsSynced = useStored(runtime, "board/events", syncedAtOf);
+  const jira = useStored(runtime, "board/jira", jiraStatuses);
+  useSync(runtime, {
+    jira: jiraSynced ?? undefined,
+    events: eventsSynced ?? undefined,
+  });
   const detailsIndex = useStored(runtime, "board/details", readDetailsIndex);
 
   const [section, setSection] = useState<Section>("missions");
@@ -326,6 +332,7 @@ export function ConsoleApp({
             mondayPrefix={
               config.trackers.find((t) => t.monday)?.monday?.keyPrefix
             }
+            jiraStatuses={jira}
             request={requestLine}
             commanderBusy={commander.open(task.ref) ? PENDING_NOTE : null}
             moves={fromDatabase(task) ? movesFor(range) : []}
