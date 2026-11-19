@@ -120,6 +120,25 @@ try {
         .catch(() => false)
     )
       problems.push(`${at}: Plan shows on a task that has a details page`);
+    // A refused save puts the old status back and says why beside it.
+    await tab.evaluate(() => {
+      (window as unknown as { __refuse?: string }).__refuse = "task_state";
+    });
+    const statusPick = tab.getByRole("combobox", { name: "Status" });
+    await statusPick.selectOption("review");
+    const refused = await tab
+      .getByRole("alert")
+      .filter({ hasText: "isn't switched on" })
+      .waitFor({ timeout: 3000 })
+      .then(() => true)
+      .catch(() => false);
+    if (!refused)
+      problems.push(`${at}: a refused status change shows no reason`);
+    if ((await statusPick.inputValue()) !== "todo")
+      problems.push(`${at}: a refused status change did not go back`);
+    await tab.evaluate(() => {
+      (window as unknown as { __refuse?: string }).__refuse = undefined;
+    });
     await tab.getByRole("combobox", { name: "Value" }).selectOption("high");
     await tab.getByRole("combobox", { name: "Effort" }).selectOption("S");
     await tab.getByRole("combobox", { name: "Status" }).selectOption("done");

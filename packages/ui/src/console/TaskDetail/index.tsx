@@ -1,5 +1,5 @@
 import { parseMarkdown, splitFrontMatter } from "@atlas/core/markdown";
-import { useMemo, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { MarkdownBlocks } from "../../markdown/MarkdownBlocks";
 import type { DetailsState } from "../../sidebar/DetailsView";
@@ -47,12 +47,19 @@ export interface TaskDetailProps {
   /** Marks a task from Dashboard.md done; database tasks use `onState`. */
   onDone(task: WorkItem): void;
   /** Sets a database task's state, from the Status dropdown. */
-  onState?(task: WorkItem, state: DatabaseState): void;
+  /** Gives null once saved, or why it failed; the dropdown waits for it. */
+  onState?(
+    task: WorkItem,
+    state: DatabaseState,
+  ): Promise<string | null | undefined> | void;
   onMove(task: WorkItem, to: Range): void;
   onStatus(task: WorkItem): void;
   onExecute(task: WorkItem): void;
   /** Sets or clears (null) a database task's business value or effort, from the Grade selectors. */
-  onAssess?(task: WorkItem, change: GradeChange): void;
+  onAssess?(
+    task: WorkItem,
+    change: GradeChange,
+  ): Promise<string | null | undefined> | void;
   /** Asks Commander for a details page with a test plan. Offered only when there is none. */
   onPlan?(task: WorkItem): void;
   onCopyReference(task: WorkItem): void;
@@ -87,6 +94,8 @@ export type GradeChange = {
   value?: (typeof VALUE_CHOICES)[number] | null;
   effort?: (typeof EFFORT_CHOICES)[number] | null;
 };
+
+type Field = "status" | "value" | "effort";
 
 export type DatabaseState =
   "todo" | "doing" | "review" | "approved" | "merged" | "done" | "dropped";
@@ -215,21 +224,71 @@ export function TaskDetail({
 
   const fromDatabase = Boolean(task.ref?.startsWith("db:"));
   const state = databaseStateOf(task);
+
+  // A change shows at once; its control waits, with a spinner, until the
+  // save is confirmed, and goes back with the reason if it failed.
+  const [pending, setPending] = useState<{
+    field: Field;
+    value: string;
+  } | null>(null);
+  const [failed, setFailed] = useState<{ field: Field; why: string } | null>(
+    null,
+  );
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a new task starts clean.
+  useEffect(() => {
+    setPending(null);
+    setFailed(null);
+  }, [task.ref]);
+  const change = async (
+    field: Field,
+    value: string,
+    save: () => Promise<string | null | undefined> | void,
+  ) => {
+    setFailed(null);
+    setPending({ field, value });
+    const why = await save();
+    setPending(null);
+    if (why) setFailed({ field, why });
+  };
+  const shown = (field: Field, current: string) =>
+    pending?.field === field ? pending.value : current;
+  const after = (field: Field): ReactNode => (
+    <>
+      {pending?.field === field ? (
+        <span className="console-saving" role="status" aria-label="Saving" />
+      ) : null}
+      {failed?.field === field ? (
+        <span className="console-field-error" role="alert">
+          {failed.why}
+        </span>
+      ) : null}
+    </>
+  );
+
+  const statusShown = shown("status", state) as DatabaseState;
   const statusValue: ReactNode =
     fromDatabase && onState ? (
-      <select
-        className="console-state"
-        aria-label="Status"
-        data-state={state}
-        value={state}
-        onChange={(e) => onState(task, e.target.value as DatabaseState)}
-      >
-        {(Object.keys(DATABASE_STATE_WORDS) as DatabaseState[]).map((s) => (
-          <option key={s} value={s}>
-            {DATABASE_STATE_WORDS[s]}
-          </option>
-        ))}
-      </select>
+      <span className="console-pick">
+        <select
+          className="console-state"
+          aria-label="Status"
+          data-state={statusShown}
+          value={statusShown}
+          disabled={pending?.field === "status"}
+          onChange={(e) =>
+            change("status", e.target.value, () =>
+              onState(task, e.target.value as DatabaseState),
+            )
+          }
+        >
+          {(Object.keys(DATABASE_STATE_WORDS) as DatabaseState[]).map((s) => (
+            <option key={s} value={s}>
+              {DATABASE_STATE_WORDS[s]}
+            </option>
+          ))}
+        </select>
+        {after("status")}
+      </span>
     ) : task.done || fromDatabase ? (
       statusWord
     ) : (
@@ -245,45 +304,59 @@ export function TaskDetail({
       </select>
     );
 
+  const valueShown = shown("value", task.value ?? "");
+  const effortShown = shown("effort", task.effort ?? "");
   const gradeValue: ReactNode =
     fromDatabase && onAssess ? (
       <span className="console-grade-picks">
-        <select
-          className="console-state"
-          aria-label="Value"
-          data-state={task.value ? "set" : "none"}
-          value={task.value ?? ""}
-          onChange={(e) =>
-            onAssess(task, {
-              value: (e.target.value || null) as GradeChange["value"],
-            })
-          }
-        >
-          <option value="">Value not set</option>
-          {VALUE_CHOICES.map((v) => (
-            <option key={v} value={v}>
-              {`${VALUE_TEXT[v]} value`.replace(/^./, (c) => c.toUpperCase())}
-            </option>
-          ))}
-        </select>
-        <select
-          className="console-state"
-          aria-label="Effort"
-          data-state={task.effort ? "set" : "none"}
-          value={task.effort ?? ""}
-          onChange={(e) =>
-            onAssess(task, {
-              effort: (e.target.value || null) as GradeChange["effort"],
-            })
-          }
-        >
-          <option value="">Effort not set</option>
-          {EFFORT_CHOICES.map((v) => (
-            <option key={v} value={v}>
-              {v}
-            </option>
-          ))}
-        </select>
+        <span className="console-pick">
+          <select
+            className="console-state"
+            aria-label="Value"
+            data-state={valueShown ? "set" : "none"}
+            value={valueShown}
+            disabled={pending?.field === "value"}
+            onChange={(e) =>
+              change("value", e.target.value, () =>
+                onAssess(task, {
+                  value: (e.target.value || null) as GradeChange["value"],
+                }),
+              )
+            }
+          >
+            <option value="">Value not set</option>
+            {VALUE_CHOICES.map((v) => (
+              <option key={v} value={v}>
+                {`${VALUE_TEXT[v]} value`.replace(/^./, (c) => c.toUpperCase())}
+              </option>
+            ))}
+          </select>
+          {after("value")}
+        </span>
+        <span className="console-pick">
+          <select
+            className="console-state"
+            aria-label="Effort"
+            data-state={effortShown ? "set" : "none"}
+            value={effortShown}
+            disabled={pending?.field === "effort"}
+            onChange={(e) =>
+              change("effort", e.target.value, () =>
+                onAssess(task, {
+                  effort: (e.target.value || null) as GradeChange["effort"],
+                }),
+              )
+            }
+          >
+            <option value="">Effort not set</option>
+            {EFFORT_CHOICES.map((v) => (
+              <option key={v} value={v}>
+                {v}
+              </option>
+            ))}
+          </select>
+          {after("effort")}
+        </span>
       </span>
     ) : (
       [

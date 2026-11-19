@@ -87,7 +87,8 @@ export const shim = `(() => {
     },
     "Cloudflare Developer Platform/d1_database_query": () => ({ payload: [{ results: [] }] }),
     "host:dashboard/task_grade_many": (args) => ({ structuredContent: { graded: args.grades.map((g) => g.ref), skipped: [] } }),
-    "host:dashboard/task_assess": () => ({ structuredContent: {} }),
+    // window.__slowSave holds a grade change back, to show the saving state.
+    "host:dashboard/task_assess": () => window.__slowSave ? new Promise(() => {}) : ({ structuredContent: {} }),
     "host:dashboard/commander_plan": (args) => ({ structuredContent: { request: {
       id: args.id, state: "received", action: "plan", updatedAt: new Date().toISOString() } } }),
     "host:dashboard/release_status": () => ({ structuredContent: {

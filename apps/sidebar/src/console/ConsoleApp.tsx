@@ -344,11 +344,11 @@ export function ConsoleApp({
             onDone={(t) => void actions.act(t, "task_done")}
             onState={(t, state) =>
               // Done keeps the done tool, which every host and the phone inbox know.
-              void (state === "done"
-                ? actions.act(t, "task_done")
-                : actions.act(t, "task_state", { state }))
+              state === "done"
+                ? actions.save(t, "task_done")
+                : actions.save(t, "task_state", { state })
             }
-            onAssess={(t, change) => void actions.act(t, "task_assess", change)}
+            onAssess={(t, change) => actions.save(t, "task_assess", change)}
             onMove={(t, to) => void actions.act(t, "task_move", { to })}
             onStatus={(t) => void commander.send(t, "status")}
             onExecute={(t) => void commander.send(t, "execute")}

@@ -1160,6 +1160,52 @@
   --state: var(--label);
 }
 
+/* While a change saves, its spinner takes the arrow's place, so nothing moves. */
+.console-state:disabled {
+  background-image: none;
+  cursor: progress;
+  opacity: 0.8;
+}
+
+.console-pick {
+  position: relative;
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+
+.console-saving {
+  position: absolute;
+  top: 50%;
+  right: 9px;
+  margin-top: -7px;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--line-strong);
+  border-top-color: var(--amber);
+  border-radius: 50%;
+  animation: console-spin 0.8s linear infinite;
+}
+
+@keyframes console-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .console-saving {
+    animation-duration: 2.4s;
+  }
+}
+
+.console-field-error {
+  flex-basis: 100%;
+  color: var(--coral);
+  font-size: 12px;
+}
+
 .console-state option {
   background: var(--panel);
   color: var(--text);
