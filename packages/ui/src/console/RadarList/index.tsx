@@ -32,8 +32,8 @@ export interface RadarListProps {
 }
 
 const VIEWS: ReadonlyArray<{ value: RadarView; name: string }> = [
-  { value: "tickets", name: "Tickets" },
   { value: "meetings", name: "Meetings" },
+  { value: "tickets", name: "Tickets" },
 ];
 
 const hhmm = (d: Date) =>
@@ -306,7 +306,12 @@ function MeetingRow({
   event: CalendarEvent;
   systemName(client: string): string;
 }) {
-  const join = safeUrl(e.join ?? null) ?? safeUrl(e.link ?? null);
+  // A location that is a web address is the meeting's link, not a place.
+  const whereUrl = e.where && /^https?:\/\//i.test(e.where.trim());
+  const join =
+    safeUrl(e.join ?? null) ??
+    (whereUrl ? safeUrl(e.where!.trim()) : null) ??
+    safeUrl(e.link ?? null);
   return (
     <li className="console-task console-radar-meeting">
       <div className="console-task-open">
@@ -316,8 +321,10 @@ function MeetingRow({
             {e.allDay ? "All day" : `${hhmm(e.start)}–${hhmm(e.end)}`}
           </span>
           <span className="console-task-fact">{systemName(e.client)}</span>
-          {e.where ? (
-            <span className="console-task-fact">{e.where}</span>
+          {e.where && !whereUrl ? (
+            <span className="console-task-fact console-clip" title={e.where}>
+              {e.where}
+            </span>
           ) : null}
         </span>
       </div>

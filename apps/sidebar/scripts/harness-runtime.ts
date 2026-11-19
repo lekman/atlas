@@ -52,7 +52,16 @@ export const shim = `(() => {
           status: "In Progress", category: "indeterminate", type: "Story" }] } } } }),
     "Google Calendar/list_events": () => ({ payload: { events: [{ summary: "Harness Google meeting",
       start: { dateTime: new Date(Date.now() + 30 * 60000).toISOString() },
-      end: { dateTime: new Date(Date.now() + 60 * 60000).toISOString() } }] } }),
+      end: { dateTime: new Date(Date.now() + 60 * 60000).toISOString() } },
+      // Long locations: a meeting address, and a place longer than a phone is wide.
+      { summary: "Harness long-link meeting",
+        location: "https://teams.microsoft.com/l/meetup-join/19%3ameeting_YWE3Mjk2OGUtY2Q2My00Mjc4LWIzODktZmVmMGQ1MWMxNjk3%40thread.v2/0",
+        start: { dateTime: new Date(Date.now() + 90 * 60000).toISOString() },
+        end: { dateTime: new Date(Date.now() + 120 * 60000).toISOString() } },
+      { summary: "Harness long-place meeting",
+        location: "Conference room Aurora, fourth floor, north wing, behind the reception desk",
+        start: { dateTime: new Date(Date.now() + 150 * 60000).toISOString() },
+        end: { dateTime: new Date(Date.now() + 180 * 60000).toISOString() } }] } }),
     "Microsoft 365/outlook_calendar_search": () => ({ content: [{ type: "text", text: JSON.stringify({
       id: "o1", subject: "Harness Outlook meeting",
       start: { dateTime: new Date(Date.now() + 90 * 60000).toISOString().replace("Z", ""), timeZone: "UTC" },

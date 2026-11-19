@@ -179,6 +179,19 @@ try {
       .getByRole("button", { name: /^Radar/ })
       .first()
       .click();
+    // A long meeting location never makes the list wider than the pane.
+    await tab
+      .getByText("Harness long-place meeting")
+      .waitFor({ timeout: 5000 })
+      .catch(() => undefined);
+    const wide = await tab.evaluate(() =>
+      [...document.querySelectorAll(".console-pane, .console-radar")].some(
+        (el) => el.scrollWidth > el.clientWidth + 1,
+      ),
+    );
+    if (wide) problems.push(`${at}: a Radar meeting is wider than the pane`);
+    // Radar opens on Meetings; tickets are the second view.
+    await tab.getByRole("button", { name: "Tickets", exact: true }).click();
     const ticket = tab.getByText("Harness board item", { exact: true });
     if (
       !(await ticket

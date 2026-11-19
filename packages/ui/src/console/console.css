@@ -347,6 +347,7 @@
 
 .console-pane {
   min-height: 0;
+  overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 14px 16px 24px;
@@ -585,7 +586,22 @@
   grid-column: 1;
 }
 
+/* A fact too long for the row is cut with an ellipsis; its title holds the whole. */
+.console-clip {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.console-task-meta {
+  min-width: 0;
+}
+
 .console-task-fact {
+  max-width: 100%;
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -1496,6 +1512,12 @@
 
 .console-radar-tracked {
   margin: 0 0 10px;
+}
+
+.console-radar-meeting .console-task-side {
+  width: auto;
+  justify-content: center;
+  padding: 6px 8px 6px 0;
 }
 
 .console-radar-join {

@@ -173,7 +173,7 @@ export function ConsoleApp({
     ...(github.error ? [github.error.text] : []),
     ...calendar.errors.map((e) => e.text),
   ];
-  const [radarView, setRadarView] = useState<RadarView>("tickets");
+  const [radarView, setRadarView] = useState<RadarView>("meetings");
   const [showTracked, setShowTracked] = useState(false);
   const ticketRef = (t: RadarTicket) => `${t.system}:${t.key}`;
 
