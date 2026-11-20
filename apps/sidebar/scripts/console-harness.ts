@@ -508,6 +508,50 @@ try {
         .catch(() => false))
     )
       problems.push(`${at}: an open question does not open Beam`);
+    // The Map fills the panes; a tap on a system opens its card, which narrows the page.
+    await tab.getByRole("button", { name: /^Map/ }).first().click();
+    const canvas = tab.locator(".console-map canvas");
+    if (
+      !(await canvas
+        .waitFor({ timeout: 5000 })
+        .then(() => true)
+        .catch(() => false))
+    )
+      problems.push(`${at}: the Map draws no star map`);
+    else {
+      if (!(await tab.getByText(/1 system · 1 agent working/).isVisible()))
+        problems.push(`${at}: the Map shows no counts`);
+      await tab.waitForTimeout(1500);
+      if (process.env.SHOTS)
+        await tab.screenshot({
+          path: join(process.env.SHOTS, `map-${size.width}.png`),
+        });
+      // A tap on the home system opens its summary card.
+      const box = await canvas.boundingBox();
+      if (box)
+        await tab.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+      const card = tab.getByRole("complementary", { name: "Kestrel Freight" });
+      if (
+        !(await card
+          .waitFor({ timeout: 3000 })
+          .then(() => true)
+          .catch(() => false))
+      )
+        problems.push(`${at}: a tap on a system opens no card`);
+      else {
+        if (
+          !(await card
+            .getByRole("button", { name: "Narrow to this system" })
+            .isVisible())
+        )
+          problems.push(`${at}: the system card cannot narrow the page`);
+        if (process.env.SHOTS)
+          await tab.screenshot({
+            path: join(process.env.SHOTS, `map-card-${size.width}.png`),
+          });
+        await card.getByRole("button", { name: "Close the card" }).click();
+      }
+    }
     // Log lists what was finished, with its points.
     await tab.getByRole("button", { name: /^Log/ }).first().click();
     if (

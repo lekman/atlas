@@ -1,3 +1,4 @@
+import type { Dataset } from "@atlas/core";
 import { describeError, type Runtime, type RuntimeError } from "@atlas/runtime";
 import {
   ConsoleFrame,
@@ -17,6 +18,7 @@ import {
   radarTickets,
   type RadarTicket,
   type RadarView,
+  MapView,
   MissionsList,
   TriagePanel,
   type TriageButtonState,
@@ -123,6 +125,26 @@ function feedNote(
 
 const SCOPE_KEY = "atlas-console-scope";
 const CLOSED_KEY = "atlas-console-agent-closed";
+
+/** The map tool's answer: a dataset and each Atlas client's system key. */
+interface MapDoc {
+  dataset: Dataset;
+  systems?: Record<string, string>;
+  fetchedAt?: string;
+}
+
+function readMap(value: unknown): MapDoc | null {
+  const doc = value as Partial<MapDoc> | null;
+  const d = doc?.dataset as Partial<Dataset> | undefined;
+  return d &&
+    Array.isArray(d.clients) &&
+    Array.isArray(d.groups) &&
+    Array.isArray(d.agents) &&
+    Array.isArray(d.workstreams) &&
+    Array.isArray(d.items)
+    ? (doc as MapDoc)
+    : null;
+}
 const TRIAGE_SAVED_KEY = "atlas-console-triage-saved";
 
 /** The triage request whose suggestions this device saved, so its pane stays closed. */
@@ -388,6 +410,24 @@ export function ConsoleApp({
     return last.answer?.choice === DISMISS_CHOICE ? "Dismissed" : "Answered";
   };
   const [section, setSection] = useState<Section>("missions");
+  // The Map: Atlas's dataset through the dashboard host, read only while
+  // the Map is open, every 15 seconds. Not stored: it is large.
+  const mapFeed = useFeed(
+    runtime,
+    section === "map"
+      ? {
+          server: "host:dashboard",
+          tool: "atlas_map",
+          accept: readMap,
+          watch: {
+            refetchInterval: 15000,
+            cache: { staleTime: 10000, gcTime: 600000 },
+          },
+        }
+      : null,
+    "The dashboard host",
+    section === "map" ? "map" : "",
+  );
   // Agents: every agent from Atlas through the dashboard host, stored for the
   // phone. Every 15 seconds while Agents is open, every minute otherwise.
   const agentsFast = section === "agents";
@@ -865,6 +905,26 @@ export function ConsoleApp({
           setSelected(taskKey(t.task));
         }}
       />
+    ) : section === "map" ? (
+      <MapView
+        dataset={mapFeed.data?.dataset ?? null}
+        note={
+          mapFeed.error?.text ??
+          (mapFeed.failure && !mapFeed.data
+            ? "The map comes from the dashboard server on your Mac, and this device can't reach it."
+            : null)
+        }
+        systemOf={(clientId) => mapFeed.data?.systems?.[clientId] ?? null}
+        scope={scope}
+        systemName={systemName}
+        onScope={setScope}
+        onOpenAgent={(id) => {
+          setSection("agents");
+          setAgentResult(null);
+          setAgentSelected(id);
+        }}
+        onOpenTask={(ref) => openAgentTask(ref)}
+      />
     ) : (
       <>
         <SectionHeading title={sectionNames[section]} />
@@ -877,6 +937,7 @@ export function ConsoleApp({
 
   return (
     <ConsoleFrame
+      wide={section === "map"}
       fleets={[]}
       fleetId=""
       score={null}
