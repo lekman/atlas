@@ -39,6 +39,18 @@ export interface WaitingItem {
   title?: string;
   /** When it started waiting, ISO 8601. */
   since?: string;
+  /**
+   * An Atlas question of several parts: each with its own choices. The
+   * answer names each part by its question text, exactly as here.
+   */
+  parts?: AskPart[];
+}
+
+/** One part of a question that asks several things. */
+export interface AskPart {
+  question: string;
+  header?: string;
+  options: AskOption[];
 }
 
 /** The tool's answer, and the stored copy (`board/waiting`) with `storedAt`. */

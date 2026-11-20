@@ -34,7 +34,13 @@ export const shim = `(() => {
         { label: "Thursday", description: "The team is free all afternoon.", recommended: true },
         { label: "Friday" }] },
       { kind: "question", id: "q2", ask: "Keep the Friday retro?" },
-      { kind: "question", id: "q3", ask: "Move the standup to 09:30?" }] } }),
+      { kind: "question", id: "q3", ask: "Move the standup to 09:30?" },
+      { kind: "atlas", id: "q-parts", ask: "How should the harness map behave?", worker: "atlas", customer: "kestrel",
+        since: new Date(Date.now() - 300000).toISOString(),
+        parts: [
+          { question: "Where should the map sit?", header: "Layout", options: [
+            { label: "Fill the screen", description: "Most room for the map.", recommended: true }, { label: "Beside a list" }] },
+          { question: "What should a tap do?", header: "Taps", options: [{ label: "Open the page" }, { label: "Show a card" }] }] }] } }),
     "host:dashboard/commander_answer": (args) => ({ structuredContent: { request: {
       id: args.id, state: "received", action: "answer", summary: "Harness Commander has the answer", updatedAt: new Date().toISOString() } } }),
     "monday.com/get_board_items_page": () => ({ payload: { items: [{

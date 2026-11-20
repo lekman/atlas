@@ -2231,3 +2231,21 @@
 .console-triage-row > * {
   grid-column: 1;
 }
+
+/* Beam: a question of several parts shows each part above its choices. */
+.console-beam-part {
+  margin: 0 0 8px;
+  font: 500 14px/1.45 var(--face-body);
+}
+
+.console-beam-own {
+  width: 100%;
+  min-height: 36px;
+  margin-top: 6px;
+  padding: 6px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--card);
+  color: var(--text);
+  font: inherit;
+}
