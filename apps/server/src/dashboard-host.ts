@@ -24,6 +24,7 @@ export const dashboardTools = [
   "commander_plan",
   "commander_requests",
   "commander_send",
+  "commander_triage",
   "details_read",
   "host_network",
   "host_stats",

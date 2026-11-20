@@ -18,6 +18,9 @@ import {
   type RadarTicket,
   type RadarView,
   MissionsList,
+  TriagePanel,
+  type TriageButtonState,
+  type TriageRow,
   movesFor,
   scopeChoices,
   ScopeSheet,
@@ -45,7 +48,10 @@ import {
   askReference,
   DISMISS_CHOICE,
   formatAgo,
+  isWorklistDoc,
   jiraErrorText,
+  OPEN_STATES,
+  quadrantOf,
   jiraStatuses,
   readJira,
   referenceText,
@@ -117,6 +123,24 @@ function feedNote(
 
 const SCOPE_KEY = "atlas-console-scope";
 const CLOSED_KEY = "atlas-console-agent-closed";
+const TRIAGE_SAVED_KEY = "atlas-console-triage-saved";
+
+/** The triage request whose suggestions this device saved, so its pane stays closed. */
+function readTriageSaved(): string | null {
+  try {
+    return globalThis.localStorage?.getItem(TRIAGE_SAVED_KEY) || null;
+  } catch {
+    return null;
+  }
+}
+
+function keepTriageSaved(id: string): void {
+  try {
+    globalThis.localStorage?.setItem(TRIAGE_SAVED_KEY, id);
+  } catch {
+    // Not kept; the pane stays closed until the page reloads.
+  }
+}
 const HIDE_IDLE_KEY = "atlas-console-agents-hide-idle";
 
 /** A filter choice this device keeps, such as showing closed messages. */
@@ -179,6 +203,84 @@ export function ConsoleApp({
   const prefs = usePreferences();
   const commander = useCommander(runtime, config.inbox);
   const actions = useTaskActions(runtime, commander, worklist.apply);
+  // Triage: Commander suggests a value and an effort for each ungraded
+  // database task; the pane opens when the suggestions arrive, and saving
+  // them closes it until something needs a triage again.
+  const ungradedTasks = (worklist.doc?.items ?? []).filter(
+    (t) =>
+      t.ref?.startsWith("db:") &&
+      !t.done &&
+      !t.meeting &&
+      quadrantOf(t) === "unsized",
+  );
+  const triageRequest = commander.latest("triage");
+  const [triageSaved, setTriageSaved] = useState(readTriageSaved);
+  const [triageOpen, setTriageOpen] = useState(false);
+  const [triageSaving, setTriageSaving] = useState(false);
+  const [triageFailed, setTriageFailed] = useState<string | null>(null);
+  const triageRows: TriageRow[] =
+    triageRequest?.state === "done" && triageRequest.id !== triageSaved
+      ? (triageRequest.suggestions ?? []).flatMap((s) => {
+          const task = ungradedTasks.find((t) => t.ref === s.ref);
+          return task
+            ? [
+                {
+                  task,
+                  value: s.value,
+                  effort: s.effort,
+                  ...(s.why ? { why: s.why } : {}),
+                },
+              ]
+            : [];
+        })
+      : [];
+  const triageState: TriageButtonState =
+    triageRequest && OPEN_STATES.has(triageRequest.state)
+      ? "pending"
+      : triageRows.length
+        ? "ready"
+        : ungradedTasks.length
+          ? "send"
+          : "none";
+  // Open the pane once, when this page sees the suggestions arrive.
+  const [triageSeenPending, setTriageSeenPending] = useState<string | null>(
+    null,
+  );
+  useEffect(() => {
+    if (triageState === "pending" && triageRequest)
+      setTriageSeenPending(triageRequest.id);
+    if (
+      triageState === "ready" &&
+      triageRequest &&
+      triageSeenPending === triageRequest.id
+    ) {
+      setTriageSeenPending(null);
+      setTriageFailed(null);
+      setTriageOpen(true);
+    }
+  }, [triageState, triageRequest, triageSeenPending]);
+  const saveTriage = (
+    grades: Array<{ ref: string; value: string; effort: string }>,
+  ) => {
+    if (!triageRequest) return;
+    setTriageSaving(true);
+    setTriageFailed(null);
+    runtime
+      .call("host:dashboard", "task_grade_many", { grades }, { cache: false })
+      .then((answer) => {
+        const tasks = (answer as { tasks?: unknown } | null)?.tasks;
+        if (isWorklistDoc(tasks)) worklist.apply(tasks);
+        keepTriageSaved(triageRequest.id);
+        setTriageSaved(triageRequest.id);
+        setTriageOpen(false);
+      })
+      .catch((err: { message?: string }) =>
+        setTriageFailed(
+          `Not saved: ${(err?.message || "the dashboard host refused it").replace(/[.\s]+$/, "")}. Your choices are kept.`,
+        ),
+      )
+      .finally(() => setTriageSaving(false));
+  };
   const items = worklist.doc?.items ?? [];
   const hosts = useHosts(runtime);
   const network = useHostNetwork(runtime);
@@ -625,8 +727,17 @@ export function ConsoleApp({
             }}
             onViewChange={setView}
             onScope={() => setPicking(true)}
-            onTriage={() => {}}
+            triage={triageState}
+            onTriage={() => {
+              if (triageState === "ready") {
+                setTriageFailed(null);
+                setSelected(null);
+                setTriageOpen(true);
+              } else if (triageState === "send")
+                void commander.triage(ungradedTasks.length);
+            }}
             onSelect={(t) => {
+              setTriageOpen(false);
               setSelected(taskKey(t));
               setNote(null);
             }}
@@ -792,7 +903,17 @@ export function ConsoleApp({
       }
       list={list}
       detail={
-        section === "shields" && shield ? (
+        section === "missions" && triageOpen && triageRows.length ? (
+          <TriagePanel
+            key={triageRequest?.id}
+            rows={triageRows}
+            systemName={systemName}
+            onSave={saveTriage}
+            onCancel={() => setTriageOpen(false)}
+            saving={triageSaving}
+            failed={triageFailed}
+          />
+        ) : section === "shields" && shield ? (
           <ShieldDetail
             row={
               shieldRows(shieldData).find((r) => r.id === shield.id) ?? shield
@@ -934,6 +1055,7 @@ export function ConsoleApp({
         setSettingsOpen(false);
       }}
       onBack={() => {
+        setTriageOpen(false);
         setSelected(null);
         setShield(null);
         setAskSelected(null);

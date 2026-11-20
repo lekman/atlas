@@ -6,7 +6,51 @@
  */
 
 export type RequestAction =
-  "status" | "execute" | "plan" | "done" | "move" | "answer";
+  "status" | "execute" | "plan" | "done" | "move" | "answer" | "triage";
+
+/** Commander's suggested grade for one task, from a triage request. */
+export interface TriageSuggestion {
+  ref: string;
+  value: string;
+  effort: string;
+  why?: string;
+}
+
+const SUGGESTED_VALUES = new Set([
+  "negative",
+  "none",
+  "low",
+  "medium",
+  "high",
+  "veryHigh",
+]);
+const SUGGESTED_EFFORTS = new Set(["XS", "S", "M", "L", "XL"]);
+
+/** A triage request's suggestions, each with a db: ref and grades from the fixed lists. */
+export function readSuggestions(raw: unknown): TriageSuggestion[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const out: TriageSuggestion[] = [];
+  for (const x of raw.slice(0, 80)) {
+    if (!x || typeof x !== "object") continue;
+    const { ref, value, effort, why } = x as Record<string, unknown>;
+    if (
+      typeof ref !== "string" ||
+      !ref.startsWith("db:") ||
+      typeof value !== "string" ||
+      !SUGGESTED_VALUES.has(value) ||
+      typeof effort !== "string" ||
+      !SUGGESTED_EFFORTS.has(effort)
+    )
+      continue;
+    out.push({
+      ref,
+      value,
+      effort,
+      ...(typeof why === "string" && why ? { why: why.slice(0, 240) } : {}),
+    });
+  }
+  return out.length ? out : undefined;
+}
 
 export type RequestState =
   | "sending"
@@ -35,6 +79,8 @@ export interface CommanderRequest {
   via?: "inbox";
   /** For an answer: what the operator chose or wrote, to show back to them. */
   answer?: { choice?: string; text?: string; always?: boolean };
+  /** For a triage request: Commander's suggested grades, once it answers. */
+  suggestions?: TriageSuggestion[];
 }
 
 /** States in which a request is still open, and the task's actions wait for it. */
@@ -66,6 +112,7 @@ const ACTIONS: ReadonlySet<string> = new Set([
   "done",
   "move",
   "answer",
+  "triage",
 ]);
 
 /**
@@ -79,8 +126,11 @@ export function pickUpdate(x: {
   summary?: unknown;
   worker?: unknown;
   updatedAt?: unknown;
+  suggestions?: unknown;
 }): Partial<CommanderRequest> {
+  const suggestions = readSuggestions(x.suggestions);
   return {
+    ...(suggestions ? { suggestions } : {}),
     ...(typeof x.state === "string" && KNOWN_STATES.has(x.state)
       ? { state: x.state as RequestState }
       : {}),

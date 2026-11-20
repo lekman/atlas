@@ -278,6 +278,63 @@ try {
       )
         problems.push(`${at}: Beam does not say the answered ask is hidden`);
     }
+    // Triage asks Commander, opens with its suggestions, and saving closes it.
+    await tab
+      .getByRole("button", { name: /^Missions/ })
+      .first()
+      .click();
+    await tab
+      .getByRole("button", { name: /^Triage/ })
+      .first()
+      .click();
+    if (
+      !(await tab
+        .getByRole("heading", { name: "Triage", level: 2 })
+        .waitFor({ timeout: 8000 })
+        .then(() => true)
+        .catch(() => false))
+    )
+      problems.push(
+        `${at}: Triage does not open with Commander's suggestions (calls: ${(
+          (await tab.evaluate(
+            () => (window as unknown as { __calls?: Calls }).__calls ?? [],
+          )) as Calls
+        )
+          .map((c) => c.tool)
+          .filter((t) => /triage|requests/.test(t))
+          .join(", ")}; button: ${await tab
+          .getByRole("button", { name: /^Triage/ })
+          .first()
+          .getAttribute("data-triage")})`,
+      );
+    else {
+      if (process.env.SHOTS)
+        await tab.screenshot({
+          path: join(process.env.SHOTS, `triage-${size.width}.png`),
+        });
+      if (
+        (await tab
+          .getByRole("combobox", { name: /^Value for Harness second task/ })
+          .inputValue()) !== "medium"
+      )
+        problems.push(`${at}: Triage does not fill in the suggested value`);
+      await tab.getByRole("button", { name: "Save 1", exact: true }).click();
+      await tab.waitForTimeout(300);
+      const graded = (
+        (await tab.evaluate(
+          () => (window as unknown as { __calls?: Calls }).__calls ?? [],
+        )) as Calls
+      ).some(
+        (c) =>
+          c.tool === "task_grade_many" &&
+          JSON.stringify(c.args).includes('"effort":"S"'),
+      );
+      if (!graded) problems.push(`${at}: Triage's Save did not grade`);
+      if (
+        await tab.getByRole("heading", { name: "Triage", level: 2 }).isVisible()
+      )
+        problems.push(`${at}: the Triage pane stays open after Save`);
+    }
     // A claimed task links to its agent.
     await tab
       .getByRole("button", { name: /^Missions/ })
@@ -511,5 +568,5 @@ if (problems.length) {
   process.exit(1);
 }
 console.log(
-  `✓ one file, ${Math.round(source.length / 1024)} KB; sidebar, folding phone closed and open, and laptop render with no errors; Status to Done, Grade, Move, Radar's Plan, a Beam answer, an Agents nudge, an agent's live view and messages, the Log (and without one), the task detail with its page and pull request, Shields and an offline move work`,
+  `✓ one file, ${Math.round(source.length / 1024)} KB; sidebar, folding phone closed and open, and laptop render with no errors; Status to Done, Grade, Move, Radar's Plan, a Triage round trip, a Beam answer, an Agents nudge, an agent's live view and messages, the Log (and without one), the task detail with its page and pull request, Shields and an offline move work`,
 );

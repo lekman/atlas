@@ -55,12 +55,28 @@ export interface MissionsListProps {
   onViewChange(view: MissionsView): void;
   onScope(): void;
   onTriage(): void;
+  /**
+   * Where triage stands: `send` asks Commander, `pending` waits for its
+   * suggestions, `ready` opens the Triage pane with them, `none` has
+   * nothing to triage. Pending and none disable the button.
+   */
+  triage?: TriageButtonState;
   onSelect(task: WorkItem): void;
   onQuery?(query: string): void;
   onFilter?(filter: MissionsFilter): void;
   /** Called with the systems to fold: all of them, or none to expand all. */
   onFold?(folded: ReadonlySet<string>): void;
 }
+
+export type TriageButtonState = "send" | "pending" | "ready" | "none";
+
+const triageHint: Record<TriageButtonState, string> = {
+  send: "Ask Commander to suggest a value and an effort for each ungraded task",
+  pending:
+    "Commander is suggesting grades; the Triage pane opens when they arrive",
+  ready: "Open the Triage pane with Commander's suggestions",
+  none: "Nothing to triage: every open task has a value and an effort",
+};
 
 /** A task's key for selection and React: its ref, else its title. */
 export const taskKey = (task: WorkItem): string => task.ref ?? task.title;
@@ -101,6 +117,7 @@ export function MissionsList({
   onViewChange,
   onScope,
   onTriage,
+  triage = "send",
   onSelect,
   onQuery = () => {},
   onFilter = () => {},
@@ -171,12 +188,29 @@ export function MissionsList({
       >
         <button
           type="button"
-          className="console-chip console-chip-strong"
-          onClick={onTriage}
+          className="console-chip console-chip-strong console-triage"
+          data-triage={triage}
+          aria-disabled={
+            triage === "pending" || triage === "none" ? true : undefined
+          }
+          title={triageHint[triage]}
+          onClick={() =>
+            triage === "pending" || triage === "none" ? undefined : onTriage()
+          }
         >
+          {triage === "pending" ? (
+            <span className="console-triage-spin" aria-hidden="true" />
+          ) : null}
           Triage{ungraded ? ` ${ungraded}` : ""}
           {ungraded ? (
             <span className="console-visually-hidden"> ungraded</span>
+          ) : null}
+          {triage === "pending" ? (
+            <span className="console-visually-hidden">
+              , waiting for Commander
+            </span>
+          ) : triage === "ready" ? (
+            <span className="console-visually-hidden">, suggestions ready</span>
           ) : null}
         </button>
       </SectionHeading>
