@@ -227,12 +227,14 @@ export {
   OPEN_STATES,
   openRequest,
   pickUpdate,
+  readSuggestions,
   referenceText,
   requestTone,
   toStore,
   type CommanderRequest,
   type RequestAction,
   type RequestState,
+  type TriageSuggestion,
 } from "./requests/model";
 export {
   AssessForm,

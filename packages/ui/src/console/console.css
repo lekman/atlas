@@ -2148,3 +2148,86 @@
 .console-agent-fact-wide {
   grid-column: 1 / -1;
 }
+
+/* Triage: disabled while Commander suggests or when nothing needs it; a dot once suggestions wait. */
+.console-triage {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.console-triage[aria-disabled] {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.console-triage[data-triage="pending"] {
+  cursor: progress;
+}
+
+.console-triage-spin {
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--line-strong);
+  border-top-color: var(--amber);
+  border-radius: 50%;
+  animation: console-spin 0.8s linear infinite;
+}
+
+.console-triage[data-triage="ready"]::after {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--amber);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .console-triage-spin {
+    animation: none;
+  }
+}
+
+/* The Triage pane: one row per task, its suggested grades and Commander's reason. */
+.console-triage-rows {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.console-triage-row {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--card);
+}
+
+.console-triage-row[data-off] {
+  opacity: 0.55;
+}
+
+.console-triage-title {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  overflow-wrap: anywhere;
+}
+
+.console-triage-title input {
+  margin-top: 3px;
+  accent-color: var(--amber);
+}
+
+.console-triage-why {
+  margin: 0;
+  color: var(--secondary);
+  font-size: 12px;
+}
+
+.console-triage-row > * {
+  grid-column: 1;
+}

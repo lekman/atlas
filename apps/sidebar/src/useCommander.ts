@@ -84,6 +84,12 @@ export interface Commander {
     args: Record<string, unknown>,
     queuedSummary: string,
   ) => Promise<boolean>;
+  /**
+   * Asks Commander to suggest a value and an effort for every open task
+   * that has neither. Kept under the ref `triage`; the answer carries the
+   * suggestions. Needs the dashboard host, so not from the phone.
+   */
+  triage: (count: number) => Promise<void>;
   /** Why the last request could not be sent at all, in words. */
   error: string | null;
   /** Hides the error, from its close button. */
@@ -320,13 +326,16 @@ export function useCommander(
     [runtime, update, patch, queue],
   );
 
-  // While a request is open, ask about it once a minute: the inbox for the
-  // ones it carries, the local server for the rest.
-  const anyOpen = Object.values(records).some(
-    (r) => OPEN_STATES.has(r.state) && r.state !== "sending",
-  );
+  // While a request is open, ask about it once a minute, and at once when a
+  // request opens or settles: the inbox for the ones it carries, the local
+  // server for the rest.
+  const openIds = Object.values(records)
+    .filter((r) => OPEN_STATES.has(r.state) && r.state !== "sending")
+    .map((r) => r.id)
+    .sort()
+    .join(",");
   useEffect(() => {
-    if (!anyOpen) return;
+    if (!openIds) return;
     const tick = async () => {
       const open = Object.values(current.current).filter(
         (r) => OPEN_STATES.has(r.state) && r.state !== "sending",
@@ -388,7 +397,7 @@ export function useCommander(
     tick().catch(() => undefined);
     const timer = setInterval(() => tick().catch(() => undefined), 60000);
     return () => clearInterval(timer);
-  }, [anyOpen, runtime, inbox, d1, patch]);
+  }, [openIds, runtime, inbox, d1, patch]);
 
   return {
     records,
@@ -419,6 +428,23 @@ export function useCommander(
           ref: item.ref,
           item: itemOf(item),
         }),
+      );
+    },
+    triage: async (count) => {
+      if (!runtime.present) {
+        setError(
+          "Triage works in the Claude desktop app on your Mac, with the local dashboard server running.",
+        );
+        return;
+      }
+      await request(
+        {
+          ref: "triage",
+          title: `Triage ${count} ungraded task${count === 1 ? "" : "s"}`,
+        },
+        "triage",
+        "commander_triage",
+        (id) => ({ id }),
       );
     },
     planTracker: async (item) => {

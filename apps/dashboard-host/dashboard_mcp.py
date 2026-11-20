@@ -368,13 +368,68 @@ def commander_record(x) -> dict | None:
     if not isinstance(x, dict) or not REQ_ID.match(str(x.get("id") or "")):
         return None
     state = str(x.get("state") or "received")
-    action = x.get("action") if x.get("action") in ("status", "execute", "plan", "answer") else "status"
-    return {"id": str(x["id"]), "action": action,
-            "state": state if state in STATES else "received",
-            "summary": " ".join(str(x.get("summary") or "").split())[:300],
-            "worker": str(x["worker"])[:80] if x.get("worker") else None,
-            "updatedAt": str(x.get("updatedAt") or "")[:40] or None,
-            "options": ask_options(x.get("options"))}
+    action = x.get("action") if x.get("action") in ("status", "execute", "plan", "answer", "triage") else "status"
+    out = {"id": str(x["id"]), "action": action,
+           "state": state if state in STATES else "received",
+           "summary": " ".join(str(x.get("summary") or "").split())[:300],
+           "worker": str(x["worker"])[:80] if x.get("worker") else None,
+           "updatedAt": str(x.get("updatedAt") or "")[:40] or None,
+           "options": ask_options(x.get("options"))}
+    if action == "triage":
+        out["ref"] = TRIAGE_REF
+        out["suggestions"] = triage_suggestions(x.get("suggestions"))
+    return out
+
+
+TRIAGE_REF = "triage"
+GRADE_VALUES = ("negative", "none", "low", "medium", "high", "veryHigh")
+GRADE_EFFORTS = ("XS", "S", "M", "L", "XL")
+
+
+def triage_suggestions(raw) -> list | None:
+    """Commander's suggested grades for a triage request: {ref, value, effort, why?}, values from the fixed lists."""
+    if not isinstance(raw, list):
+        return None
+    out = []
+    for o in raw[:80]:
+        if not isinstance(o, dict):
+            continue
+        ref, value, effort = str(o.get("ref") or ""), o.get("value"), o.get("effort")
+        if not ref.startswith("db:") or value not in GRADE_VALUES or effort not in GRADE_EFFORTS:
+            continue
+        item = {"ref": ref[:140], "value": value, "effort": effort}
+        if o.get("why"):
+            item["why"] = " ".join(str(o["why"]).split())[:240]
+        out.append(item)
+    return out or None
+
+
+def commander_triage(args: dict) -> dict:
+    """Ask Commander to suggest a business value and an effort for every open, ungraded task database item.
+    Commander answers with the request done and its suggestions; the page then opens its Triage pane."""
+    if RELAY_ONLY:
+        raise ValueError("triage needs the dashboard host on a Mac, with the task database")
+    rid = str(args.get("id") or "")
+    if not REQ_ID.match(rid):
+        rid = f"dash-{uuid.uuid4()}"
+    doc = tasks_doc(host_config.DASHBOARD)
+    names = host_config.clients()["names"]
+    items = [{"ref": i["ref"], "title": i.get("title"), "customer": names.get(i.get("customer"), i.get("customer")),
+              "key": i.get("key"), "details": i.get("details")}
+             for i in doc["items"]
+             if str(i.get("ref") or "").startswith("db:") and not i.get("done") and not i.get("meeting")
+             and not str(i.get("quadrant") or "").startswith("Q")][:80]
+    if not items:
+        raise ValueError("nothing to triage: every open task has a value and an effort")
+    now = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+    title = f"Triage {len(items)} ungraded task{'s' if len(items) != 1 else ''}"
+    body = {"id": rid, "action": "triage", "client": "All systems", "title": title, "ref": TRIAGE_REF,
+            "items": items, "requestedAt": now}
+    rec = commander_record(commander_http("POST", "/requests", body)) or {}
+    out = {"id": rid, "action": "triage", "state": "received", "summary": "", "worker": None, "updatedAt": now}
+    out.update({k: v for k, v in rec.items() if v not in (None, "")})
+    out.update(ref=TRIAGE_REF, title=title, requestedAt=now, count=len(items))
+    return {"ok": True, "request": out}
 
 
 def ask_options(raw) -> list | None:
@@ -890,6 +945,16 @@ TOOLS = [{
         "required": ["refs", "to"], "additionalProperties": False},
     "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True},
 }, {
+    "name": "commander_triage",
+    "title": "Ask Commander to triage",
+    "description": "Sends every open task database item that has no business value or effort to Commander, which "
+                   "suggests both for each. The answer comes back on the request (commander_requests) as "
+                   "suggestions [{ref, value, effort, why}]; nothing is graded until the page saves them with "
+                   "task_grade_many. Returns the request.",
+    "inputSchema": {"type": "object", "properties": {"id": {"type": "string", "maxLength": 80}},
+                    "additionalProperties": False},
+    "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False},
+}, {
     "name": "task_grade_many",
     "title": "Grade several task database items",
     "description": "Set business value and effort on task database items (refs starting db:), so each gets a Covey "
@@ -1145,11 +1210,13 @@ def handle(msg: dict):
                 log(name, "failed:", ex)
                 return {"content": [{"type": "text", "text": str(ex)[:300]}], "isError": True}
         if name in ("commander_send", "commander_requests", "commander_plan", "details_read", "task_prs", "host_stats",
-                    "host_network", "waiting_on_you", "commander_answer", "agents", "agent_message", "agent_feed"):
+                    "host_network", "waiting_on_you", "commander_answer", "agents", "agent_message", "agent_feed",
+                    "commander_triage"):
             try:
                 fn = {"commander_send": commander_send, "commander_requests": commander_requests,
                       "commander_plan": commander_plan, "details_read": details_read, "task_prs": task_prs,
                       "host_stats": host_stats, "host_network": host_network, "waiting_on_you": waiting_on_you, "commander_answer": commander_answer,
+                      "commander_triage": commander_triage,
                       "agents": agents, "agent_message": agent_message,
                       "agent_feed": agent_feed}[name]
                 result = fn(params.get("arguments") or {})

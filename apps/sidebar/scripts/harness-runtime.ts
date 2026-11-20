@@ -127,6 +127,16 @@ export const shim = `(() => {
         t.ref === args.ref ? { ...t, state: args.state, done: args.state === "done" } : t) } } };
     },
     "Cloudflare Developer Platform/d1_database_query": () => ({ payload: [{ results: [] }] }),
+    // Triage: the request is received, and the next read of requests finds Commander's suggestions.
+    "host:dashboard/commander_triage": (args) => {
+      window.__triageId = args.id;
+      return { structuredContent: { ok: true, request: { id: args.id, action: "triage", state: "received", ref: "triage",
+        title: "Triage 2 ungraded tasks", updatedAt: new Date().toISOString() } } };
+    },
+    "host:dashboard/commander_requests": () => ({ structuredContent: { items: window.__triageId ? [{
+      id: window.__triageId, action: "triage", state: "done", ref: "triage", summary: "Suggested 1 of 2",
+      updatedAt: new Date(Date.now() + 1000).toISOString(),
+      suggestions: [{ ref: "db:2", value: "medium", effort: "S", why: "A small change with a clear use" }] }] : [] } }),
     "host:dashboard/task_grade_many": (args) => ({ structuredContent: { graded: args.grades.map((g) => g.ref), skipped: [] } }),
     // window.__slowSave holds a grade change back, to show the saving state.
     "host:dashboard/task_assess": () => window.__slowSave ? new Promise(() => {}) : ({ structuredContent: {} }),
