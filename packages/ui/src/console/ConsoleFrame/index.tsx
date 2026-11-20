@@ -23,6 +23,8 @@ export interface ConsoleFrameProps extends Omit<TopBarProps, "compact"> {
   settingsOpen?: boolean;
   /** The section's list. */
   list: ReactNode;
+  /** The list fills both panes and the detail is not shown, as the Map does. */
+  wide?: boolean;
   /** The selected item, or null when nothing is selected. */
   detail: ReactNode | null;
   /** The settings screen, shown across both panes while it is open. */
@@ -61,6 +63,7 @@ export function ConsoleFrame({
   counts,
   settingsOpen = false,
   list,
+  wide = false,
   detail,
   settings,
   emptyDetail,
@@ -108,6 +111,15 @@ export function ConsoleFrame({
         tabIndex={0}
       >
         {settings}
+      </section>
+    );
+  else if (wide)
+    panes = (
+      <section
+        className="console-pane console-pane-whole console-pane-wide"
+        aria-label="Map"
+      >
+        {list}
       </section>
     );
   else if (layout === "single")

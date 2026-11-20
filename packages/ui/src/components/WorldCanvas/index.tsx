@@ -42,6 +42,12 @@ export interface WorldCanvasProps {
    * view and passes the client back as `zoomClientId`.
    */
   onOpenSystem?(clientId: string): void;
+  /**
+   * A single tap in full detail on a system but on no record: the client
+   * under it. Without it, such a tap goes back to the whole map, as on
+   * empty space.
+   */
+  onSystemTap?(clientId: string): void;
   /** Fly in to this client's system. Change `zoomRequest` to ask again. */
   zoomClientId?: string | null;
   /** Any new value repeats the flight to `zoomClientId`. */
@@ -491,7 +497,14 @@ export function WorldCanvas(props: WorldCanvasProps) {
         } else if (full() && selected) {
           live.current.onSelect(selected);
         } else if (full()) {
+          const system = live.current.onSystemTap
+            ? systemAt(point.x, point.y)
+            : null;
           pendingTap = window.setTimeout(() => {
+            if (system) {
+              live.current.onSystemTap?.(system);
+              return;
+            }
             flyToGalaxy();
             live.current.onSelect(null);
           }, doubleTapMilliseconds);

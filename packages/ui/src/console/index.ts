@@ -169,3 +169,4 @@ export {
   type TriagePanelProps,
   type TriageRow,
 } from "./TriagePanel";
+export { MapView, type MapViewProps } from "./MapView";

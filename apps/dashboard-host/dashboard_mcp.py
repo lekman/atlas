@@ -897,6 +897,21 @@ def _atlas_get(path: str) -> dict:
         raise RuntimeError("Atlas's answer wasn't JSON") from None
 
 
+def atlas_map(args: dict) -> dict:
+    """The map's data from the Atlas server: clients, groups, agents and workstreams as served, and only the
+    open work items, without their history or summary, since the map draws neither done work nor summaries."""
+    dataset = _atlas_get("/api/dataset")
+    if not isinstance(dataset, dict) or not isinstance(dataset.get("items"), list):
+        raise RuntimeError("Atlas's dataset had no items")
+    dataset["items"] = [{k: v for k, v in {**i, "history": []}.items() if k != "summary"}
+                        for i in dataset["items"] if isinstance(i, dict) and i.get("state") != "done"]
+    import tasks_source
+    conf = tasks_source.config() or {"clients": {}}
+    # The page's system key for each Atlas client, so a tap can narrow the page to it.
+    return {"dataset": dataset, "systems": dict(conf.get("clients") or {}),
+            "fetchedAt": datetime.now(timezone.utc).isoformat()}
+
+
 def agent_feed(args: dict) -> dict:
     """One agent's feed from the Atlas server: its status reports and its questions, newest first."""
     agent = str(args.get("agentId") or "")
@@ -1104,6 +1119,14 @@ TOOLS = [{
     "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
     "annotations": {"readOnlyHint": True, "openWorldHint": True},
 }, {
+    "name": "atlas_map",
+    "title": "Atlas map",
+    "description": "The star map's data from the Atlas server: {dataset: {clients, accounts, groups, agents, requirements, "
+                   "workstreams, items, questions, decisions}, systems: {clientId: the page's system key}, fetchedAt}. Items are the open ones only, with history "
+                   "and summary left out. Changes nothing.",
+    "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
+    "annotations": {"readOnlyHint": True, "openWorldHint": True},
+}, {
     "name": "agent_feed",
     "title": "Agent feed",
     "description": "One agent's feed from the Atlas server, newest first: its own status reports (done, error, "
@@ -1231,12 +1254,12 @@ def handle(msg: dict):
                 return {"content": [{"type": "text", "text": str(ex)[:300]}], "isError": True}
         if name in ("commander_send", "commander_requests", "commander_plan", "details_read", "task_prs", "host_stats",
                     "host_network", "waiting_on_you", "commander_answer", "agents", "agent_message", "agent_feed",
-                    "commander_triage"):
+                    "commander_triage", "atlas_map"):
             try:
                 fn = {"commander_send": commander_send, "commander_requests": commander_requests,
                       "commander_plan": commander_plan, "details_read": details_read, "task_prs": task_prs,
                       "host_stats": host_stats, "host_network": host_network, "waiting_on_you": waiting_on_you, "commander_answer": commander_answer,
-                      "commander_triage": commander_triage,
+                      "commander_triage": commander_triage, "atlas_map": atlas_map,
                       "agents": agents, "agent_message": agent_message,
                       "agent_feed": agent_feed}[name]
                 result = fn(params.get("arguments") or {})

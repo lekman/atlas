@@ -106,6 +106,7 @@ describe("the dashboard tool route", () => {
       "agent_feed",
       "agent_message",
       "agents",
+      "atlas_map",
       "commander_answer",
       "commander_plan",
       "commander_requests",
