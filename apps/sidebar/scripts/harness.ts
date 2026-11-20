@@ -344,7 +344,7 @@ try {
         }
       ).__docs.get("board/waiting"),
     );
-    if (!waiting?.storedAt || waiting.items?.length !== 3) {
+    if (!waiting?.storedAt || waiting.items?.length !== 4) {
       problems.push(`${width}px: board/waiting was not stored with storedAt`);
     }
     // Writes, against the stand-in. Status from a task's menu shows Commander's answer under it.
