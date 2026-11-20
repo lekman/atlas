@@ -281,14 +281,35 @@ export function BeamDetail({
     options.length ? null : OTHER,
   );
   const [text, setText] = useState("");
+  const parts = item.parts && item.parts.length > 1 ? item.parts : null;
+  // A question of several parts: one choice (or own words) per part, by its question text.
+  const [partChoice, setPartChoice] = useState<Record<string, string>>({});
+  const [partWords, setPartWords] = useState<Record<string, string>>({});
+  const partAnswer = (question: string) =>
+    partChoice[question] === OTHER
+      ? (partWords[question] ?? "").trim()
+      : (partChoice[question] ?? "");
   const other = choice === OTHER;
-  const ready = other ? Boolean(text.trim()) : choice !== null;
+  const ready = parts
+    ? parts.every((p) => Boolean(partAnswer(p.question)))
+    : other
+      ? Boolean(text.trim())
+      : choice !== null;
   const from = whoAsks(item);
   const source = waitingSource(item, clientName).filter(
     (part) => part !== "Commander asks",
   );
   const send = () => {
     if (!ready || pending) return;
+    if (parts) {
+      onSend({
+        answers: Object.fromEntries(
+          parts.map((p) => [p.question, partAnswer(p.question).slice(0, 1000)]),
+        ),
+        ...(text.trim() ? { text: text.trim().slice(0, 2000) } : {}),
+      });
+      return;
+    }
     const picked = options.find((o) => o.label === choice);
     onSend({
       ...(other ? {} : { choice: choice! }),
@@ -339,41 +360,108 @@ export function BeamDetail({
           send();
         }}
       >
+        {parts
+          ? parts.map((p, n) => (
+              <fieldset
+                key={p.question}
+                className="console-beam-choices"
+                disabled={pending}
+              >
+                <legend className="console-label">
+                  {`${n + 1} of ${parts.length}${p.header ? ` · ${p.header}` : ""}`}
+                </legend>
+                <p className="console-beam-part">{p.question}</p>
+                <div className="console-choices">
+                  {[...p.options, { label: OTHER }].map((o) => {
+                    const own = o.label === OTHER;
+                    return (
+                      <label key={o.label} className="console-choice">
+                        <input
+                          type="radio"
+                          name={`${name}-${n}`}
+                          checked={partChoice[p.question] === o.label}
+                          onChange={() =>
+                            setPartChoice({
+                              ...partChoice,
+                              [p.question]: o.label,
+                            })
+                          }
+                        />
+                        <span>
+                          <strong>
+                            {own ? "Other" : o.label}
+                            {"recommended" in o && o.recommended
+                              ? " (Recommended)"
+                              : ""}
+                          </strong>
+                          {own ? (
+                            partChoice[p.question] === OTHER ? (
+                              <input
+                                type="text"
+                                className="console-beam-own"
+                                aria-label={`Your words for part ${n + 1}`}
+                                maxLength={1000}
+                                value={partWords[p.question] ?? ""}
+                                onChange={(e) =>
+                                  setPartWords({
+                                    ...partWords,
+                                    [p.question]: e.target.value,
+                                  })
+                                }
+                              />
+                            ) : (
+                              <em>Answer in your own words.</em>
+                            )
+                          ) : "description" in o && o.description ? (
+                            <em>{o.description}</em>
+                          ) : null}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </fieldset>
+            ))
+          : null}
         <fieldset className="console-beam-choices" disabled={pending}>
-          <legend className="console-label">Your answer</legend>
-          <div className="console-choices">
-            {options.map((o) => (
-              <label key={o.label} className="console-choice">
-                <input
-                  type="radio"
-                  name={name}
-                  checked={choice === o.label}
-                  onChange={() => setChoice(o.label)}
-                />
-                <span>
-                  <strong>
-                    {o.label}
-                    {o.recommended ? " (Recommended)" : ""}
-                  </strong>
-                  {o.description ? <em>{o.description}</em> : null}
-                </span>
-              </label>
-            ))}
-            {options.length ? (
-              <label className="console-choice">
-                <input
-                  type="radio"
-                  name={name}
-                  checked={other}
-                  onChange={() => setChoice(OTHER)}
-                />
-                <span>
-                  <strong>Other</strong>
-                  <em>Answer in your own words.</em>
-                </span>
-              </label>
-            ) : null}
-          </div>
+          {parts ? null : (
+            <legend className="console-label">Your answer</legend>
+          )}
+          {parts ? null : (
+            <div className="console-choices">
+              {options.map((o) => (
+                <label key={o.label} className="console-choice">
+                  <input
+                    type="radio"
+                    name={name}
+                    checked={choice === o.label}
+                    onChange={() => setChoice(o.label)}
+                  />
+                  <span>
+                    <strong>
+                      {o.label}
+                      {o.recommended ? " (Recommended)" : ""}
+                    </strong>
+                    {o.description ? <em>{o.description}</em> : null}
+                  </span>
+                </label>
+              ))}
+              {options.length ? (
+                <label className="console-choice">
+                  <input
+                    type="radio"
+                    name={name}
+                    checked={other}
+                    onChange={() => setChoice(OTHER)}
+                  />
+                  <span>
+                    <strong>Other</strong>
+                    <em>Answer in your own words.</em>
+                  </span>
+                </label>
+              ) : null}
+            </div>
+          )}
           <label className="console-beam-note">
             <span className="console-visually-hidden">
               {other ? "Your words" : "A note with your answer"}

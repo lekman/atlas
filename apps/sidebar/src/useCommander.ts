@@ -485,7 +485,8 @@ export function useCommander(
             ...(item.title ? { title: item.title } : {}),
           },
           answer: {
-            ...(answer.choice ? { choice: answer.choice.slice(0, 80) } : {}),
+            ...(answer.choice ? { choice: answer.choice.slice(0, 200) } : {}),
+            ...(answer.answers ? { answers: answer.answers } : {}),
             ...(answer.always ? { always: true } : {}),
             ...(answer.text ? { text: answer.text.slice(0, 2000) } : {}),
           },

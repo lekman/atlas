@@ -72,6 +72,7 @@ export {
   waitingSource,
   type WaitingDoc,
   type AskOption,
+  type AskPart,
   YES_NO_OPTIONS,
   type WaitingItem,
 } from "./waiting/model";

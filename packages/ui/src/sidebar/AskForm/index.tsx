@@ -10,6 +10,8 @@ export interface AskAnswer {
   always?: boolean;
   /** The operator's own words: the Other answer, or a note with a choice. */
   text?: string;
+  /** For a question of several parts: each part's answer, by its question text. */
+  answers?: Record<string, string>;
 }
 
 export interface AskFormProps {

@@ -277,6 +277,45 @@ try {
           .isVisible())
       )
         problems.push(`${at}: Beam does not say the answered ask is hidden`);
+      // A question of several parts shows every part and answers each by its question.
+      await tab
+        .getByRole("button", { name: /How should the harness map behave/ })
+        .click();
+      if (!(await tab.getByText("What should a tap do?").isVisible()))
+        problems.push(`${at}: Beam shows only the first part of a question`);
+      if (!(await tab.getByText(/· waiting 5m ago/).isVisible()))
+        problems.push(
+          `${at}: Beam's waiting time is wrong for an Atlas question`,
+        );
+      await tab.getByRole("radio", { name: /Fill the screen/ }).check();
+      await tab
+        .getByRole("radio", { name: /^Other/ })
+        .nth(1)
+        .check();
+      await tab
+        .getByRole("textbox", { name: "Your words for part 2" })
+        .fill("Open the page and fly in");
+      await tab.getByRole("button", { name: "Send", exact: true }).click();
+      await tab.waitForTimeout(300);
+      const parted = (
+        (await tab.evaluate(
+          () => (window as unknown as { __calls?: Calls }).__calls ?? [],
+        )) as Calls
+      ).find(
+        (c) =>
+          c.tool === "commander_answer" &&
+          JSON.stringify(c.args).includes("Where should the map sit?"),
+      );
+      const answers = (
+        parted?.args as { answer?: { answers?: Record<string, string> } }
+      )?.answer?.answers;
+      if (
+        answers?.["Where should the map sit?"] !== "Fill the screen" ||
+        answers?.["What should a tap do?"] !== "Open the page and fly in"
+      )
+        problems.push(
+          `${at}: Beam does not answer each part by its question (${JSON.stringify(answers)})`,
+        );
     }
     // Triage asks Commander, opens with its suggestions, and saving closes it.
     await tab

@@ -509,10 +509,13 @@ def commander_answer(args: dict) -> dict:
         raise ValueError("ask.kind must be task, commander or question")
     if not isinstance(answer, dict):
         raise ValueError("answer must be an object with choice, text or both")
-    choice = clean(answer.get("choice"), 80)
+    choice = clean(answer.get("choice"), 200)
     text = str(answer.get("text") or "").strip()[:2000]
-    if not choice and not text:
-        raise ValueError("answer needs a choice or text")
+    parts = answer.get("answers")
+    parts = {str(k)[:1000]: str(v).strip()[:1000] for k, v in parts.items() if str(v).strip()} \
+        if isinstance(parts, dict) and ask.get("kind") == "atlas" else {}
+    if not choice and not text and not parts:
+        raise ValueError("answer needs a choice, text or answers")
     ref = str(args.get("ref") or "")
     if not ANSWER_REF.match(ref):
         raise ValueError("ref must be db:<task id> or ask:<kind>:<id>")
@@ -520,7 +523,7 @@ def commander_answer(args: dict) -> dict:
     if not REQ_ID.match(rid):
         rid = f"dash-{uuid.uuid4()}"
     if ask["kind"] == "atlas":
-        return answer_atlas_question(ask, choice, text, rid, ref)
+        return answer_atlas_question(ask, choice, text, rid, ref, parts)
     sent_ask = {"kind": ask["kind"], "ask": clean(ask.get("ask"), 300)}
     for key, n in (("id", 80), ("ref", 140), ("worker", 80), ("customer", 40), ("title", 300)):
         if ask.get(key):
@@ -543,7 +546,7 @@ def commander_answer(args: dict) -> dict:
     return result
 
 
-def answer_atlas_question(ask: dict, choice: str, text: str, rid: str, ref: str) -> dict:
+def answer_atlas_question(ask: dict, choice: str, text: str, rid: str, ref: str, parts: dict | None = None) -> dict:
     """An answer to a question asked through Atlas: posted to the Atlas server, which hands it to the
     session that asked. Dismiss withdraws the question instead. The first answer wins there."""
     qid = str(ask.get("id") or "")
@@ -551,6 +554,9 @@ def answer_atlas_question(ask: dict, choice: str, text: str, rid: str, ref: str)
         raise ValueError("an Atlas question needs its id")
     if choice == DISMISS:
         path, body = "close", {"resolution": "withdrawn", **({"note": text} if text else {})}
+    elif parts:
+        # A question of several parts: each answered by its question text; the note goes with them.
+        path, body = "answer", {"answers": parts, **({"note": text} if text else {})}
     else:
         path, body = "answer", {"answer": (choice or text)[:1000], **({"note": text} if choice and text else {})}
     req = urllib.request.Request(f"{_atlas_url()}/api/questions/{qid}/{path}", method="POST",
@@ -594,25 +600,39 @@ def atlas_questions(conf) -> list:
         text = " ".join(str(first.get("question") or q.get("title") or "").split())
         if not text:
             continue
-        item = {"kind": "atlas", "id": str(q.get("id"))[:80], "ask": text[:300],
+        several = len(q["questions"]) > 1
+        item = {"kind": "atlas", "id": str(q.get("id"))[:80],
+                "ask": " ".join(str(q.get("title") or text).split())[:300] if several else text[:300],
                 "worker": clean_name((q.get("session") or {}).get("address")) or "an agent",
                 "customer": clients.get(q.get("clientId"), "other"),
-                "since": str(q.get("askedAt") or "")[:10] or None}
-        options = []
-        for o in first.get("options") or []:
-            if isinstance(o, dict) and o.get("label"):
-                label = " ".join(str(o["label"]).split())[:120]
-                recommended = "(recommended)" in label.lower()
-                options.append({"label": re.sub(r"\s*\(recommended\)\s*", " ", label, flags=re.I).strip() or label,
-                                **({"description": " ".join(str(o["description"]).split())[:300]}
-                                   if o.get("description") else {}),
-                                **({"recommended": True} if recommended else {})})
+                "since": str(q.get("askedAt") or "")[:40] or None}
+        options = atlas_options(first)
         if options:
-            item["options"] = options[:4]
+            item["options"] = options
+        if several:
+            # Each part with its own choices; the answer names each part by its question text, exactly.
+            item["parts"] = [{"question": str(p.get("question"))[:1000],
+                              **({"header": clean_name(p.get("header"))[:60]} if p.get("header") else {}),
+                              "options": atlas_options(p)}
+                             for p in q["questions"][:4] if isinstance(p, dict) and p.get("question")]
         if q.get("taskId"):
             item["ref"] = "db:" + str(q["taskId"])[:120]
         items.append(item)
     return items
+
+
+def atlas_options(part: dict) -> list:
+    """Up to eight choices of one question: the label without "(Recommended)", which becomes a flag."""
+    options = []
+    for o in part.get("options") or []:
+        if isinstance(o, dict) and o.get("label"):
+            label = " ".join(str(o["label"]).split())[:200]
+            recommended = "(recommended)" in label.lower()
+            options.append({"label": re.sub(r"\s*\(recommended\)\s*", " ", label, flags=re.I).strip() or label,
+                            **({"description": " ".join(str(o["description"]).split())[:500]}
+                               if o.get("description") else {}),
+                            **({"recommended": True} if recommended else {})})
+    return options[:8]
 
 
 def clear_answered_task(task_id: str, rid: str, said: str) -> str | None:
