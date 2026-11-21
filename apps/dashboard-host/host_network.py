@@ -5,8 +5,8 @@ Collects, with macOS's own commands:
 
 - local IPv4 addresses per interface (`ifconfig`), leaving out loopback, the
   Tailscale tunnel and Apple's link-local interfaces;
-- the external address, asked of OpenDNS over DNS (`dig`), so no web service
-  sees the request;
+- the external address, asked of OpenDNS over DNS (`dig`), or of an HTTPS
+  echo (api.ipify.org) where the network intercepts outgoing DNS;
 - the DNS servers in use (`scutil --dns`);
 - the Wi-Fi network's name (`ipconfig getsummary`), or none on a cable or
   when macOS hides it;
@@ -61,9 +61,21 @@ def local_addresses() -> list[dict]:
     return found[:32]
 
 
+ADDRESS = re.compile(r"[0-9a-fA-F:.]{3,64}")
+
+
 def external_address() -> str | None:
+    """Asked of OpenDNS over DNS first; where the network intercepts outgoing DNS and that
+    gives no answer, of an HTTPS echo (api.ipify.org), which sees only the request."""
     out = run(["/usr/bin/dig", "+short", "+time=3", "+tries=1", "myip.opendns.com", "@resolver1.opendns.com"]).strip()
-    return out if re.fullmatch(r"[0-9a-fA-F:.]{3,64}", out) else None
+    if ADDRESS.fullmatch(out):
+        return out
+    try:
+        with urllib.request.urlopen("https://api.ipify.org", timeout=5) as response:
+            echoed = response.read(64).decode("ascii", "replace").strip()
+        return echoed if ADDRESS.fullmatch(echoed) else None
+    except (urllib.error.URLError, TimeoutError, OSError, ValueError):
+        return None
 
 
 def dns_servers() -> list[str]:
@@ -122,7 +134,9 @@ def listening_ports() -> list[dict]:
         parts = line.split()
         if len(parts) < 9:
             continue
-        process, name = parts[0], parts[8]
+        # lsof escapes spaces and other bytes in program names as \xNN.
+        process = re.sub(r"\\x([0-9a-fA-F]{2})", lambda m: chr(int(m.group(1), 16)), parts[0])
+        name = parts[8]
         match = re.match(r"^(.*):(\d+)$", name)
         if not match:
             continue
