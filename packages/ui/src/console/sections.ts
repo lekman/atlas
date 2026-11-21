@@ -1,6 +1,6 @@
 /**
- * The console's seven sections, in rail order, and the line icons the rail
- * and the top bar draw. Each icon is the inner markup of a 24 by 24 SVG,
+ * The console's sections, the order the rail shows them in, and the line
+ * icons the rail and the top bar draw. Each icon is the inner markup of a 24 by 24 SVG,
  * drawn with `currentColor` strokes so it takes the colour of its button.
  */
 
@@ -14,6 +14,19 @@ export const sections = [
   "log",
 ] as const;
 export type Section = (typeof sections)[number];
+
+/**
+ * The sections the rail offers, in its order. The Map is left out until it
+ * has a clear use; its code stays, and nothing else changes for it.
+ */
+export const railSections: readonly Section[] = [
+  "missions",
+  "beam",
+  "radar",
+  "agents",
+  "shields",
+  "log",
+];
 
 /** The word each section is shown by, in the rail and in its heading. */
 export const sectionNames: Record<Section, string> = {
