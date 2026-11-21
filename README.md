@@ -17,15 +17,16 @@ The screenshots use invented clients. Each one opens its live story in
 
 ## What You Can Do
 
-| Section  | What it holds                                                   | Status    |
-| -------- | --------------------------------------------------------------- | --------- |
-| Missions | Today, tomorrow and the backlog, by client or by Covey quadrant | Available |
-| Triage   | Grading new tasks by value and effort, one at a time            | Next      |
-| Beam     | Approvals and questions from your agents, answered in place     | Planned   |
-| Agents   | Every agent by the machine it runs on, and what it is doing     | Planned   |
-| Radar    | Alerts, tickets and meetings that are not yet your work         | Planned   |
-| Shields  | Host health, the link to your server, and each integration      | Planned   |
-| Log      | Scores by day and week, and completed work                      | Planned   |
+The menu holds six sections, in this order:
+
+| Section  | What it holds                                                                             |
+| -------- | ----------------------------------------------------------------------------------------- |
+| Missions | Today, tomorrow and the backlog, by client or by Covey quadrant, with Triage              |
+| Beam     | Approvals and questions from your agents, answered in place                               |
+| Radar    | Tickets and meetings that are not yet your work                                           |
+| Agents   | Every agent by client: what it is doing, a live view of its work, and its messages to you |
+| Shields  | Host health, the link to your server, and each integration                                |
+| Log      | Finished work and its points, by day or by week                                           |
 
 In Missions you can:
 
@@ -33,11 +34,24 @@ In Missions you can:
   meeting time and the blocked tasks left out (Atlas sets no limit, because
   what fits a day is your call);
 - narrow the list to one client with the scope button;
-- open a task, mark it done, or move it to today, tomorrow or the backlog.
+- open a task, change its status, value and effort in place, mark it done, or
+  move it to today, tomorrow or the backlog;
+- press **Triage** to have your coordinating agent suggest a value and an
+  effort for every task that has none. When its suggestions arrive, the
+  Triage pane opens; change any, then save.
+
+In Beam, a question can have several parts, each with its own choices. In
+Agents, an agent's page shows its live view, the tasks it works on, and its
+done, error and waiting messages, five to a page.
+
+A star map of every client, its work and its agents is built but kept out of
+the menu until it has a clear use.
 
 On a phone away from your server, moves are queued and applied when the
 server is back. The top bar always says which state you are in: Live, Stored
 copy, or Queued with a count.
+
+[![Atlas on a laptop: the Missions list on the left and the selected task with its pull requests on the right](docs/images/console-laptop-task.png)](https://lekman.github.io/atlas/?path=/story/pages-console--task-detail-on-a-laptop)
 
 ## Where It Runs
 
@@ -120,8 +134,19 @@ The built page is a single HTML file. You can publish
 `apps/sidebar/dist-console/console.html` as a Claude artifact and keep it open
 in the sidebar beside your chat. In the desktop app the page reads your
 worklist through the same local dashboard server. Declare it as
-`host:dashboard`, with the tools `worklist`, `task_done`, `task_move` and
-`commander_requests`.
+`host:dashboard`, with the tools the page calls. The list is
+`dashboardTools` in `apps/server/src/dashboard-host.ts`.
+
+### In VS Code
+
+The Atlas extension in lekman/ai-toolkit (`packages/vscode-planner`) shows the
+same page in a VS Code sidebar, and **Atlas: Open in Editor** opens it at full
+width in an editor tab. It reads the page from your Obsidian vault. Copy the
+build there with:
+
+```sh
+(cd apps/sidebar && ATLAS_VAULT_SYNC="/path/to/vault/_Dashboard Sync" bun run publish:vault)
+```
 
 ## Privacy
 

@@ -1,6 +1,6 @@
 import { ConsoleIcon } from "../ConsoleIcon";
 import type { RailSide } from "../layout";
-import { sectionNames, sections, type Section } from "../sections";
+import { railSections, sectionNames, type Section } from "../sections";
 
 export interface SectionRailProps {
   /** The section shown now. */
@@ -25,7 +25,7 @@ export interface SectionRailProps {
 
 /**
  * The menu down one screen edge, 64 px wide. The swap button at the top
- * moves it to the other edge, the seven sections sit in the middle where a
+ * moves it to the other edge, the sections sit in the middle where a
  * thumb reaches them, and sound on or off and settings are at the bottom. Every button is at
  * least 44 px high, and each section keeps its word under the icon, so the
  * rail reads without knowing the icons.
@@ -53,7 +53,7 @@ export function SectionRail({
         <ConsoleIcon name="swap" />
       </button>
       <ul className="console-rail-sections">
-        {sections.map((section) => {
+        {railSections.map((section) => {
           const count = counts[section] ?? 0;
           return (
             <li key={section}>

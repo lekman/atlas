@@ -13,7 +13,7 @@ export interface SectionHeadingProps {
 
 /**
  * The heading at the top of every list: its name and the scope button.
- * Picking a system on the map or with this button narrows Radar, Missions,
+ * Picking a system with this button narrows Radar, Missions,
  * Agents, Beam and Log to it, so the button always says which.
  */
 export function SectionHeading({

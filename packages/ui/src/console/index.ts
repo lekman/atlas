@@ -17,6 +17,7 @@ export {
   consoleIcons,
   sectionNames,
   sectionPurposes,
+  railSections,
   sections,
   type ConsoleIconName,
   type Section,
