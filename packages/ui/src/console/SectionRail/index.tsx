@@ -1,5 +1,5 @@
 import { ConsoleIcon } from "../ConsoleIcon";
-import type { RailSide } from "../layout";
+import { nextRailSide, type RailSide } from "../layout";
 import { railSections, sectionNames, type Section } from "../sections";
 
 export interface SectionRailProps {
@@ -13,7 +13,7 @@ export interface SectionRailProps {
   settingsOpen?: boolean;
   /** Called with the section the reader picks. */
   onSelect(section: Section): void;
-  /** Called when the reader moves the rail to the other edge. */
+  /** Called when the reader moves the rail to the next edge: left, right, bottom. */
   onSwap(): void;
   /** Called when the reader opens settings. */
   onSettings(): void;
@@ -24,8 +24,9 @@ export interface SectionRailProps {
 }
 
 /**
- * The menu down one screen edge, 64 px wide. The swap button at the top
- * moves it to the other edge, the sections sit in the middle where a
+ * The menu down one screen edge, 64 px wide, or along the bottom as a tab
+ * bar. The swap button at its start moves it on: left, right, bottom. The
+ * sections sit in the middle where a
  * thumb reaches them, and sound on or off and settings are at the bottom. Every button is at
  * least 44 px high, and each section keeps its word under the icon, so the
  * rail reads without knowing the icons.
@@ -41,13 +42,14 @@ export function SectionRail({
   soundOn = false,
   onSound,
 }: SectionRailProps) {
-  const other = side === "left" ? "right" : "left";
+  const next = nextRailSide(side);
   return (
-    <nav className="console-rail" aria-label="Sections">
+    <nav className="console-rail" aria-label="Sections" data-side={side}>
       <button
         type="button"
         className="console-rail-button console-rail-swap"
-        aria-label={`Move the menu to the ${other} edge`}
+        aria-label={`Move the menu to the ${next} edge`}
+        title={`Move the menu to the ${next} edge`}
         onClick={onSwap}
       >
         <ConsoleIcon name="swap" />

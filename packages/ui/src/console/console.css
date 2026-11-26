@@ -341,6 +341,81 @@
   grid-template-columns: calc(50% + var(--rail) / 2) minmax(0, 1fr);
 }
 
+/*
+ * The menu along the bottom edge: a tab bar under the panes, sections
+ * spread across it, swap, sound and settings narrow at its ends, clear of
+ * a phone's home indicator. Two panes then meet at the middle exactly.
+ */
+.atlas-console[data-rail="bottom"] .console-body {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-areas: "panes" "rail";
+}
+
+.atlas-console[data-rail="bottom"] .console-rail {
+  container: console-tabbar / inline-size;
+  flex-direction: row;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 6px max(4px, env(safe-area-inset-bottom));
+  border-right: 0;
+  border-top: 1px solid var(--line);
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.atlas-console[data-rail="bottom"] .console-rail-sections {
+  flex: 1;
+  flex-direction: row;
+  justify-content: center;
+  margin: 0;
+  min-width: 0;
+}
+
+.atlas-console[data-rail="bottom"] .console-rail-sections > li {
+  flex: 1 1 0;
+  min-width: 44px;
+  max-width: 96px;
+}
+
+.atlas-console[data-rail="bottom"] .console-rail-swap,
+.atlas-console[data-rail="bottom"] .console-rail-sound,
+.atlas-console[data-rail="bottom"] .console-rail-settings {
+  flex: 0 0 40px;
+  width: 40px;
+}
+
+/* A narrow tab bar keeps the icons and drops the words; the names stay for screen readers. */
+@container console-tabbar (max-width: 440px) {
+  .console-rail-sections > li {
+    min-width: 36px;
+  }
+
+  .console-rail-swap,
+  .console-rail-sound,
+  .console-rail-settings {
+    flex-basis: 34px;
+    width: 34px;
+  }
+
+  .console-rail-word {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+}
+
+.atlas-console[data-rail="bottom"] .console-rail-swap svg {
+  transform: rotate(90deg);
+}
+
+.atlas-console[data-layout="split"][data-rail="bottom"] .console-panes {
+  grid-template-columns: 50% minmax(0, 1fr);
+}
+
 .atlas-console[data-layout="wide"] .console-panes {
   grid-template-columns: 400px minmax(0, 1fr);
 }

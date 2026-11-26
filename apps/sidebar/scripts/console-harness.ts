@@ -508,6 +508,28 @@ try {
         .catch(() => false))
     )
       problems.push(`${at}: an open question does not open Beam`);
+    // The swap button moves the menu on: to the next edge, then to the bottom, and back.
+    const railAt = () =>
+      tab.evaluate(() =>
+        document.querySelector(".atlas-console")?.getAttribute("data-rail"),
+      );
+    const start = await railAt();
+    for (let n = 0; n < 3 && (await railAt()) !== "bottom"; n++)
+      await tab.getByRole("button", { name: /^Move the menu to the/ }).click();
+    if ((await railAt()) !== "bottom")
+      problems.push(`${at}: the menu cannot move to the bottom edge`);
+    else {
+      const rail = await tab.locator(".console-rail").boundingBox();
+      const panes = await tab.locator(".console-panes").boundingBox();
+      if (!rail || !panes || rail.y < panes.y + panes.height - 2)
+        problems.push(`${at}: the bottom menu is not under the panes`);
+      if (process.env.SHOTS)
+        await tab.screenshot({
+          path: join(process.env.SHOTS, `rail-bottom-${size.width}.png`),
+        });
+    }
+    for (let n = 0; n < 3 && (await railAt()) !== start; n++)
+      await tab.getByRole("button", { name: /^Move the menu to the/ }).click();
     // Log lists what was finished, with its points.
     await tab.getByRole("button", { name: /^Log/ }).first().click();
     if (

@@ -44,6 +44,11 @@ export const InTheSidebar: Story = {
     await expect(
       canvas.getByRole("group", { name: "Range" }),
     ).toBeInTheDocument();
+    // The swap button moves the menu on: bottom, then left, then back right.
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Move the menu to the bottom edge" }),
+    );
+    await expect(frame.getAttribute("data-rail")).toBe("bottom");
     await userEvent.click(
       canvas.getByRole("button", { name: "Move the menu to the left edge" }),
     );
@@ -106,6 +111,15 @@ export const FoldingPhoneOpenRailRight: Story = {
       .querySelector(".console-pane-list")!
       .getBoundingClientRect();
     await expect(Math.round(list.right - left)).toBe(445);
+    // With the menu at the bottom the panes still meet at the fold.
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Move the menu to the bottom edge" }),
+    );
+    await expect(frame.getAttribute("data-rail")).toBe("bottom");
+    const below = frame
+      .querySelector(".console-pane-list")!
+      .getBoundingClientRect();
+    await expect(Math.round(below.right - left)).toBe(445);
     await userEvent.click(
       canvas.getByRole("button", { name: "Move the menu to the left edge" }),
     );
