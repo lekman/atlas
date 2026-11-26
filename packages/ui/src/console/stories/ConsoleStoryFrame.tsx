@@ -14,7 +14,7 @@ import {
 } from "../../sidebar/stories/worklist";
 import type { WorkItem } from "../../sidebar/worklist/model";
 import { ConsoleFrame } from "../ConsoleFrame";
-import type { RelayState } from "../layout";
+import type { RailSide, RelayState } from "../layout";
 import { MissionsList, taskKey } from "../MissionsList";
 import {
   movesFor,
@@ -70,6 +70,8 @@ export interface ConsoleStoryFrameProps {
   /** A task selected when the story opens, by its ref. */
   selectedKey?: string;
   relay?: RelayState;
+  /** The menu's edge, as Settings would set it; the bottom when left out. */
+  railSide?: RailSide;
 }
 
 /**
@@ -86,6 +88,7 @@ export function ConsoleStoryFrame({
   view: initialView = "list",
   selectedKey: initialSelected,
   relay = { kind: "live" },
+  railSide = "bottom",
 }: ConsoleStoryFrameProps) {
   const [section, setSection] = useState<Section>(initialSection);
   const [items, setItems] = useState<WorkItem[]>(worklistItems);
@@ -220,6 +223,7 @@ export function ConsoleStoryFrame({
     >
       <ConsoleFrame
         initialWidth={width}
+        railSide={railSide}
         fleets={storyFleets}
         fleetId={fleetId}
         score={21}

@@ -4,8 +4,6 @@ import { ConsoleIcon } from "../ConsoleIcon";
 import {
   layoutFor,
   rememberedRailSide,
-  nextRailSide,
-  rememberRailSide,
   type ConsoleLayout,
   type RailSide,
 } from "../layout";
@@ -22,6 +20,8 @@ export interface ConsoleFrameProps extends Omit<TopBarProps, "compact"> {
   counts?: Partial<Record<Section, number>>;
   /** Whether the settings screen fills the panes. */
   settingsOpen?: boolean;
+  /** The menu's edge, as chosen in Settings; the remembered one, or the bottom, when left out. */
+  railSide?: RailSide;
   /** The section's list. */
   list: ReactNode;
   /** The list fills both panes and the detail is not shown, as the Map does. */
@@ -63,6 +63,7 @@ export function ConsoleFrame({
   section,
   counts,
   settingsOpen = false,
+  railSide,
   list,
   wide = false,
   detail,
@@ -80,10 +81,7 @@ export function ConsoleFrame({
   const frame = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(initialWidth);
   const layout: ConsoleLayout = layoutFor(width);
-  const [chosen, setChosen] = useState<
-    Partial<Record<ConsoleLayout, RailSide>>
-  >({});
-  const side = chosen[layout] ?? rememberedRailSide(layout);
+  const side = railSide ?? rememberedRailSide();
 
   useLayoutEffect(() => {
     const element = frame.current;
@@ -96,12 +94,6 @@ export function ConsoleFrame({
     observer.observe(element);
     return () => observer.disconnect();
   }, []);
-
-  const swap = () => {
-    const next: RailSide = nextRailSide(side);
-    rememberRailSide(layout, next);
-    setChosen((current) => ({ ...current, [layout]: next }));
-  };
 
   let panes: ReactNode;
   if (settingsOpen && settings)
@@ -180,7 +172,6 @@ export function ConsoleFrame({
           {...(counts ? { counts } : {})}
           settingsOpen={settingsOpen}
           onSelect={onSelectSection}
-          onSwap={swap}
           onSettings={onSettings}
           soundOn={soundOn}
           {...(onSound ? { onSound } : {})}

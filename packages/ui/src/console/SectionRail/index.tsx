@@ -1,11 +1,11 @@
 import { ConsoleIcon } from "../ConsoleIcon";
-import { nextRailSide, type RailSide } from "../layout";
+import type { RailSide } from "../layout";
 import { railSections, sectionNames, type Section } from "../sections";
 
 export interface SectionRailProps {
   /** The section shown now. */
   current: Section;
-  /** Which screen edge the rail is on, so the swap button can say where it goes. */
+  /** Which screen edge the menu is on. */
   side: RailSide;
   /** A count beside a section, such as the beams waiting. Zero or absent shows none. */
   counts?: Partial<Record<Section, number>>;
@@ -13,8 +13,6 @@ export interface SectionRailProps {
   settingsOpen?: boolean;
   /** Called with the section the reader picks. */
   onSelect(section: Section): void;
-  /** Called when the reader moves the rail to the next edge: left, right, bottom. */
-  onSwap(): void;
   /** Called when the reader opens settings. */
   onSettings(): void;
   /** Whether sound is on, for the sound button above settings. */
@@ -24,12 +22,11 @@ export interface SectionRailProps {
 }
 
 /**
- * The menu down one screen edge, 64 px wide, or along the bottom as a tab
- * bar. The swap button at its start moves it on: left, right, bottom. The
- * sections sit in the middle where a
- * thumb reaches them, and sound on or off and settings are at the bottom. Every button is at
- * least 44 px high, and each section keeps its word under the icon, so the
- * rail reads without knowing the icons.
+ * The menu along the bottom, or down the left or right edge, as chosen in
+ * Settings. The sections sit in the middle where a thumb reaches them, and
+ * sound on or off and settings sit at the end. Every button is at least
+ * 44 px high, and each section keeps its word under the icon where there
+ * is room, so the menu reads without knowing the icons.
  */
 export function SectionRail({
   current,
@@ -37,23 +34,12 @@ export function SectionRail({
   counts = {},
   settingsOpen = false,
   onSelect,
-  onSwap,
   onSettings,
   soundOn = false,
   onSound,
 }: SectionRailProps) {
-  const next = nextRailSide(side);
   return (
     <nav className="console-rail" aria-label="Sections" data-side={side}>
-      <button
-        type="button"
-        className="console-rail-button console-rail-swap"
-        aria-label={`Move the menu to the ${next} edge`}
-        title={`Move the menu to the ${next} edge`}
-        onClick={onSwap}
-      >
-        <ConsoleIcon name="swap" />
-      </button>
       <ul className="console-rail-sections">
         {railSections.map((section) => {
           const count = counts[section] ?? 0;

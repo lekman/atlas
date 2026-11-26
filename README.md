@@ -64,10 +64,11 @@ Atlas lays itself out from the space it is given, so one page serves:
 | A folding phone, open              | The list and the task meet at the fold          |
 | A laptop browser                   | The list at reading width, the task beside it   |
 
-<a href="https://lekman.github.io/atlas/?path=/story/pages-console--in-the-sidebar"><img src="docs/images/console-sidebar.png" width="420" alt="Atlas at sidebar width: one pane with the Missions list and the menu down the right edge"></a>
+<a href="https://lekman.github.io/atlas/?path=/story/pages-console--in-the-sidebar"><img src="docs/images/console-sidebar.png" width="420" alt="Atlas at sidebar width: one pane with the Missions list and the menu along the bottom"></a>
 
-The menu sits on one edge of the screen. The swap button at its top moves it
-to the other edge, and Atlas remembers your choice for each layout.
+The menu sits along the bottom of the screen. In a narrow sidebar it shows
+icons only. **Settings → Menu position** moves it to the left or right edge
+instead, and Atlas remembers your choice on that device.
 
 ## Install
 

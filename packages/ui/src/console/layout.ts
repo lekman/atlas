@@ -32,38 +32,30 @@ export function layoutFor(width: number): ConsoleLayout {
 
 export type RailSide = "left" | "right" | "bottom";
 
-/** Where the swap button moves the menu next: left, then right, then the bottom edge. */
-export function nextRailSide(side: RailSide): RailSide {
-  return side === "left" ? "right" : side === "right" ? "bottom" : "left";
-}
+/** The menu's edges, in the order Settings offers them. */
+export const railSides: readonly RailSide[] = ["left", "right", "bottom"];
 
-/**
- * The rail's side before the reader picks one. One-handed on a narrow
- * screen the thumb is on the right; held open in two hands, the menu sits
- * at the left, before the list it opens.
- */
-export function defaultRailSide(layout: ConsoleLayout): RailSide {
-  return layout === "single" ? "right" : "left";
-}
+/** The menu's edge before the reader picks one in Settings: the bottom, on every layout. */
+export const defaultRailSide: RailSide = "bottom";
 
-const storageKey = (layout: ConsoleLayout) => `atlas-console-rail-${layout}`;
+const storageKey = "atlas-console-rail-side";
 
-/** The side the reader last chose for this layout, or the default. Storage can be blocked. */
-export function rememberedRailSide(layout: ConsoleLayout): RailSide {
+/** The edge the reader chose in Settings, or the bottom. Storage can be blocked. */
+export function rememberedRailSide(): RailSide {
   try {
-    const value = globalThis.localStorage?.getItem(storageKey(layout));
+    const value = globalThis.localStorage?.getItem(storageKey);
     if (value === "left" || value === "right" || value === "bottom")
       return value;
   } catch {
     // A private window or blocked storage: the default is fine.
   }
-  return defaultRailSide(layout);
+  return defaultRailSide;
 }
 
-/** Keeps the reader's choice for this layout. Nothing breaks when it cannot be kept. */
-export function rememberRailSide(layout: ConsoleLayout, side: RailSide): void {
+/** Keeps the reader's choice. Nothing breaks when it cannot be kept. */
+export function rememberRailSide(side: RailSide): void {
   try {
-    globalThis.localStorage?.setItem(storageKey(layout), side);
+    globalThis.localStorage?.setItem(storageKey, side);
   } catch {
     // Not kept; the choice still holds until the page closes.
   }

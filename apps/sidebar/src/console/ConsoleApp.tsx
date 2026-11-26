@@ -20,6 +20,8 @@ import {
   type RadarView,
   MapView,
   MissionsList,
+  rememberedRailSide,
+  rememberRailSide,
   TriagePanel,
   type TriageButtonState,
   type TriageRow,
@@ -410,6 +412,7 @@ export function ConsoleApp({
     return last.answer?.choice === DISMISS_CHOICE ? "Dismissed" : "Answered";
   };
   const [section, setSection] = useState<Section>("missions");
+  const [railSide, setRailSide] = useState(rememberedRailSide);
   // The Map: Atlas's dataset through the dashboard host, read only while
   // the Map is open, every 15 seconds. Not stored: it is large.
   const mapFeed = useFeed(
@@ -937,6 +940,7 @@ export function ConsoleApp({
 
   return (
     <ConsoleFrame
+      railSide={railSide}
       wide={section === "map"}
       fleets={[]}
       fleetId=""
@@ -950,6 +954,11 @@ export function ConsoleApp({
       settingsOpen={settingsOpen}
       settings={
         <ConsoleSettings
+          railSide={railSide}
+          onRailSide={(side) => {
+            setRailSide(side);
+            rememberRailSide(side);
+          }}
           sound={prefs.sound}
           onSound={prefs.setSound}
           onPreview={prefs.preview}

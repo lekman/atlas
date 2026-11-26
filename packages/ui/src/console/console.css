@@ -343,7 +343,7 @@
 
 /*
  * The menu along the bottom edge: a tab bar under the panes, sections
- * spread across it, swap, sound and settings narrow at its ends, clear of
+ * spread across it, sound and settings narrow at its end, clear of
  * a phone's home indicator. Two panes then meet at the middle exactly.
  */
 .atlas-console[data-rail="bottom"] .console-body {
@@ -378,7 +378,6 @@
   max-width: 96px;
 }
 
-.atlas-console[data-rail="bottom"] .console-rail-swap,
 .atlas-console[data-rail="bottom"] .console-rail-sound,
 .atlas-console[data-rail="bottom"] .console-rail-settings {
   flex: 0 0 40px;
@@ -391,7 +390,6 @@
     min-width: 36px;
   }
 
-  .console-rail-swap,
   .console-rail-sound,
   .console-rail-settings {
     flex-basis: 34px;
@@ -406,10 +404,6 @@
     clip: rect(0 0 0 0);
     white-space: nowrap;
   }
-}
-
-.atlas-console[data-rail="bottom"] .console-rail-swap svg {
-  transform: rotate(90deg);
 }
 
 .atlas-console[data-layout="split"][data-rail="bottom"] .console-panes {

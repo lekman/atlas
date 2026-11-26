@@ -30,7 +30,7 @@ export const InTheSidebar: Story = {
     const canvas = within(canvasElement);
     const frame = canvasElement.querySelector(".atlas-console")!;
     await expect(frame.getAttribute("data-layout")).toBe("single");
-    await expect(frame.getAttribute("data-rail")).toBe("right");
+    await expect(frame.getAttribute("data-rail")).toBe("bottom");
     const first = canvas.getByRole("button", {
       name: /^In progress: Cut the depots over to the new scanner API/,
     });
@@ -44,18 +44,10 @@ export const InTheSidebar: Story = {
     await expect(
       canvas.getByRole("group", { name: "Range" }),
     ).toBeInTheDocument();
-    // The swap button moves the menu on: bottom, then left, then back right.
-    await userEvent.click(
-      canvas.getByRole("button", { name: "Move the menu to the bottom edge" }),
-    );
-    await expect(frame.getAttribute("data-rail")).toBe("bottom");
-    await userEvent.click(
-      canvas.getByRole("button", { name: "Move the menu to the left edge" }),
-    );
-    await expect(frame.getAttribute("data-rail")).toBe("left");
-    await userEvent.click(
-      canvas.getByRole("button", { name: "Move the menu to the right edge" }),
-    );
+    // The edge is a setting now: no button in the menu moves it.
+    await expect(
+      canvas.queryByRole("button", { name: /^Move the menu/ }),
+    ).toBeNull();
   },
 };
 
@@ -83,7 +75,7 @@ export const FoldingPhoneClosed: Story = {
  */
 export const FoldingPhoneOpen: Story = {
   name: "Folding Phone Open",
-  args: { width: 890, height: 626 },
+  args: { width: 890, height: 626, railSide: "left" },
   play: async ({ canvasElement }) => {
     const frame = canvasElement.querySelector(".atlas-console")!;
     await expect(frame.getAttribute("data-layout")).toBe("split");
@@ -96,33 +88,33 @@ export const FoldingPhoneOpen: Story = {
   },
 };
 
-/** Open, with the rail moved to the right: the list is now the whole left half. */
+/** Open, with the menu on the right: the list is now the whole left half. */
 export const FoldingPhoneOpenRailRight: Story = {
   name: "Folding Phone Open, Rail Right",
-  args: { width: 890, height: 626 },
+  args: { width: 890, height: 626, railSide: "right" },
   play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
     const frame = canvasElement.querySelector(".atlas-console")!;
-    await userEvent.click(
-      canvas.getByRole("button", { name: "Move the menu to the right edge" }),
-    );
+    await expect(frame.getAttribute("data-rail")).toBe("right");
     const left = frame.getBoundingClientRect().left;
     const list = frame
       .querySelector(".console-pane-list")!
       .getBoundingClientRect();
     await expect(Math.round(list.right - left)).toBe(445);
-    // With the menu at the bottom the panes still meet at the fold.
-    await userEvent.click(
-      canvas.getByRole("button", { name: "Move the menu to the bottom edge" }),
-    );
+  },
+};
+
+/** Open, with the menu along the bottom, the default: the panes meet at the fold. */
+export const FoldingPhoneOpenMenuAtTheBottom: Story = {
+  name: "Folding Phone Open, Menu at the Bottom",
+  args: { width: 890, height: 626 },
+  play: async ({ canvasElement }) => {
+    const frame = canvasElement.querySelector(".atlas-console")!;
     await expect(frame.getAttribute("data-rail")).toBe("bottom");
-    const below = frame
+    const left = frame.getBoundingClientRect().left;
+    const list = frame
       .querySelector(".console-pane-list")!
       .getBoundingClientRect();
-    await expect(Math.round(below.right - left)).toBe(445);
-    await userEvent.click(
-      canvas.getByRole("button", { name: "Move the menu to the left edge" }),
-    );
+    await expect(Math.round(list.right - left)).toBe(445);
   },
 };
 

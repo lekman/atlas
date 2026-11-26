@@ -8,6 +8,8 @@ import {
 import { useId } from "react";
 
 import { SectionHeading } from "../SectionHeading";
+import { railSides, type RailSide } from "../layout";
+import { SegmentedSwitch } from "../SegmentedSwitch";
 
 export interface ConsoleSettingsProps {
   sound: SoundSettings;
@@ -16,7 +18,16 @@ export interface ConsoleSettingsProps {
   onPreview(cue: SoundCue): void;
   /** How fresh the worklist is: "Live", "Synced 08:15", and why. */
   sync: { text: string; title: string; tone?: "normal" | "err" };
+  /** The menu's edge, and a change to it. Leave out to show no menu choice. */
+  railSide?: RailSide;
+  onRailSide?(side: RailSide): void;
 }
+
+const railSideNames: Record<RailSide, string> = {
+  left: "Left",
+  right: "Right",
+  bottom: "Bottom",
+};
 
 const categoryNames: Array<[SoundCategory, string, SoundCue]> = [
   ["message", "Agent to agent", "message"],
@@ -35,8 +46,8 @@ const backgroundChoices: Array<{
 ];
 
 /**
- * The console's settings, as the sidebar keeps them on this device: the
- * sound switches and volume, and the background ambience. The console has
+ * The console's settings, as the sidebar keeps them on this device: where
+ * the menu sits, the sound switches and volume, and the background ambience. The console has
  * one look, so there is no choice of world or lighting. A change applies
  * and is saved at once.
  */
@@ -45,6 +56,8 @@ export function ConsoleSettings({
   onSound,
   onPreview,
   sync,
+  railSide,
+  onRailSide,
 }: ConsoleSettingsProps) {
   const id = useId();
   const set = (patch: Partial<SoundSettings>) =>
@@ -59,6 +72,24 @@ export function ConsoleSettings({
       >
         Worklist: {sync.text}
       </p>
+
+      {railSide && onRailSide ? (
+        <div className="console-settings-group">
+          <h2 className="console-label">Menu</h2>
+          <div className="console-settings-row">
+            <span>Menu position</span>
+            <SegmentedSwitch
+              label="Menu position"
+              options={railSides.map((side) => ({
+                value: side,
+                name: railSideNames[side],
+              }))}
+              value={railSide}
+              onChange={onRailSide}
+            />
+          </div>
+        </div>
+      ) : null}
 
       <fieldset className="console-settings-group">
         <legend className="console-label">Sound</legend>

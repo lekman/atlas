@@ -2,7 +2,9 @@ export { ConsoleFrame, type ConsoleFrameProps } from "./ConsoleFrame";
 export { ConsoleIcon, type ConsoleIconProps } from "./ConsoleIcon";
 export {
   defaultRailSide,
-  nextRailSide,
+  railSides,
+  rememberedRailSide,
+  rememberRailSide,
   layoutFor,
   layouts,
   relayWords,
