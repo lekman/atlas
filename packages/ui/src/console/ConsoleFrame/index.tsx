@@ -4,6 +4,7 @@ import { ConsoleIcon } from "../ConsoleIcon";
 import {
   layoutFor,
   rememberedRailSide,
+  nextRailSide,
   rememberRailSide,
   type ConsoleLayout,
   type RailSide,
@@ -97,7 +98,7 @@ export function ConsoleFrame({
   }, []);
 
   const swap = () => {
-    const next: RailSide = side === "left" ? "right" : "left";
+    const next: RailSide = nextRailSide(side);
     rememberRailSide(layout, next);
     setChosen((current) => ({ ...current, [layout]: next }));
   };

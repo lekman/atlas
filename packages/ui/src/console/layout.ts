@@ -30,7 +30,12 @@ export function layoutFor(width: number): ConsoleLayout {
   return "wide";
 }
 
-export type RailSide = "left" | "right";
+export type RailSide = "left" | "right" | "bottom";
+
+/** Where the swap button moves the menu next: left, then right, then the bottom edge. */
+export function nextRailSide(side: RailSide): RailSide {
+  return side === "left" ? "right" : side === "right" ? "bottom" : "left";
+}
 
 /**
  * The rail's side before the reader picks one. One-handed on a narrow
@@ -47,7 +52,8 @@ const storageKey = (layout: ConsoleLayout) => `atlas-console-rail-${layout}`;
 export function rememberedRailSide(layout: ConsoleLayout): RailSide {
   try {
     const value = globalThis.localStorage?.getItem(storageKey(layout));
-    if (value === "left" || value === "right") return value;
+    if (value === "left" || value === "right" || value === "bottom")
+      return value;
   } catch {
     // A private window or blocked storage: the default is fine.
   }

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "bun:test";
 
 import {
   defaultRailSide,
+  nextRailSide,
   layoutFor,
   rememberedRailSide,
   rememberRailSide,
@@ -73,5 +74,13 @@ describe("remembered rail side", () => {
     });
     expect(rememberedRailSide("single")).toBe("right");
     expect(() => rememberRailSide("single", "left")).not.toThrow();
+  });
+});
+
+describe("nextRailSide", () => {
+  it("moves the menu left, then right, then to the bottom, then back", () => {
+    expect(nextRailSide("left")).toBe("right");
+    expect(nextRailSide("right")).toBe("bottom");
+    expect(nextRailSide("bottom")).toBe("left");
   });
 });
