@@ -1,5 +1,57 @@
 # Changelog
 
+## [0.15.0](https://github.com/lekman/atlas/compare/v0.14.0...v0.15.0) (2026-11-26)
+
+
+### Features
+
+* **beam:** questions asked through Atlas wait in Beam and are answered there ([#151](https://github.com/lekman/atlas/issues/151)) ([9fddd1f](https://github.com/lekman/atlas/commit/9fddd1fa79929fcc64ae3e978a0a5c0a014aed1e))
+* **collector:** show what each agent's session is doing and its context size ([#127](https://github.com/lekman/atlas/issues/127)) ([41c89d5](https://github.com/lekman/atlas/commit/41c89d54e15981e0bec78b1ad954256a9c32bcb9))
+* **console:** agents by system, hide idle, waiting on an open question, Done detail ([#154](https://github.com/lekman/atlas/issues/154)) ([f6a4781](https://github.com/lekman/atlas/commit/f6a4781efcf062e39f3dfd5295d0a92510a50abe))
+* **console:** Agents, with the server in step with Commander's roster ([#147](https://github.com/lekman/atlas/issues/147)) ([1fe75cb](https://github.com/lekman/atlas/commit/1fe75cb04bc44d9c457fc8c9ac947015e63297bb))
+* **console:** Agents' filter in the heading, and a task's agent links to it ([#152](https://github.com/lekman/atlas/issues/152)) ([b1301b7](https://github.com/lekman/atlas/commit/b1301b731ec52b38793ffce636c7e26b7b25b9a4))
+* **console:** an agent's live view and its messages ([#153](https://github.com/lekman/atlas/issues/153)) ([e2c79ee](https://github.com/lekman/atlas/commit/e2c79ee27a16ea8193f2331eef66ea4f7436e4c0))
+* **console:** an agent's messages show five to a page; a settled Waiting hides ([#156](https://github.com/lekman/atlas/issues/156)) ([d08ac13](https://github.com/lekman/atlas/commit/d08ac13931fe42222e75c2a8c2e178ef7ed9a029))
+* **console:** Beam, the asks that wait on you, answered in place ([#143](https://github.com/lekman/atlas/issues/143)) ([592afc5](https://github.com/lekman/atlas/commit/592afc5656733394fa0c25b78354dce7ea6654bc))
+* **console:** edit tasks in place, Radar, Log and Settings ([#141](https://github.com/lekman/atlas/issues/141)) ([7dde683](https://github.com/lekman/atlas/commit/7dde683b6c8792b904da45b38471522b121cb8f1))
+* **console:** hide the Map, order the menu Missions, Beam, Radar, Agents, Shields, Log ([#162](https://github.com/lekman/atlas/issues/162)) ([102004a](https://github.com/lekman/atlas/commit/102004a1d160d18383f9133a5dea138d4098357c))
+* **console:** Missions in the console, by system or by quadrant ([#130](https://github.com/lekman/atlas/issues/130)) ([155f2e4](https://github.com/lekman/atlas/commit/155f2e4dcf09485e3f955891a412988ae6ee5b78))
+* **console:** pick the system Missions shows ([#133](https://github.com/lekman/atlas/issues/133)) ([0257d6a](https://github.com/lekman/atlas/commit/0257d6a05e2d88d3bcc01d499d5fde4800a19bb5))
+* **console:** Shields graphs three times taller ([#138](https://github.com/lekman/atlas/issues/138)) ([f8a2d76](https://github.com/lekman/atlas/commit/f8a2d76855fa9f4de9b4790ec79974c91e490e1e))
+* **console:** Shields, the health of hosts, the relay and integrations ([#135](https://github.com/lekman/atlas/issues/135)) ([f63e62c](https://github.com/lekman/atlas/commit/f63e62c6c267d90bd587caa98013e310d98274a5))
+* **console:** task actions, search and filter, and the full task detail ([#136](https://github.com/lekman/atlas/issues/136)) ([3c9031b](https://github.com/lekman/atlas/commit/3c9031bc2e48b133b2a549e2d903fef6d1645829))
+* **console:** the full-page shell for the sidebar, a folding phone and a laptop ([#129](https://github.com/lekman/atlas/issues/129)) ([b216b82](https://github.com/lekman/atlas/commit/b216b82dd195646a6c317094f424709c70646d39))
+* **console:** the Map tab shows the star map, with a summary card on each tap ([#160](https://github.com/lekman/atlas/issues/160)) ([9febb61](https://github.com/lekman/atlas/commit/9febb61f89d18436f49a9e6a7ac7063289310aef))
+* **console:** the menu can sit along the bottom edge ([#167](https://github.com/lekman/atlas/issues/167)) ([8d44668](https://github.com/lekman/atlas/commit/8d44668f9672e4ab7011d5a341f6f1004fae5556))
+* **console:** the menu sits at the bottom by default; its position is a setting ([#168](https://github.com/lekman/atlas/issues/168)) ([7a7310f](https://github.com/lekman/atlas/commit/7a7310f28121412e29d59289b7429eb9f75f42b6))
+* **dashboard-host:** add the host:dashboard MCP server ([#118](https://github.com/lekman/atlas/issues/118)) ([16bf7ce](https://github.com/lekman/atlas/commit/16bf7ce08e35a3174b103b255198a561b5f1162d))
+* **server:** agents post a Done message when a piece of work finishes ([#155](https://github.com/lekman/atlas/issues/155)) ([3ac702e](https://github.com/lekman/atlas/commit/3ac702e50a20ed227fd0fe484d099e38382f0897))
+* **server:** serve the console at /console beside the sidebar ([#132](https://github.com/lekman/atlas/issues/132)) ([0e2e58a](https://github.com/lekman/atlas/commit/0e2e58a9c73542db7c4b1ead4ce5c735fe7d69e3))
+* **shields:** each host's network, Tailscale device, jobs and ports ([#139](https://github.com/lekman/atlas/issues/139)) ([23ea921](https://github.com/lekman/atlas/commit/23ea921b3027917a7dd8ac94c86301aefa18895d))
+* **sidebar:** build the console as its own page, for a test artifact ([#131](https://github.com/lekman/atlas/issues/131)) ([813d39a](https://github.com/lekman/atlas/commit/813d39a1dc208f7a0757a14d8b29eee3c59a3061))
+* **sidebar:** copy a reference to an ask, and dismiss a redundant one ([#126](https://github.com/lekman/atlas/issues/126)) ([82e6ee8](https://github.com/lekman/atlas/commit/82e6ee8606283ce390e689537fe9af410559c2cb))
+* **sidebar:** go back a second after an answer is sent ([#125](https://github.com/lekman/atlas/issues/125)) ([283480b](https://github.com/lekman/atlas/commit/283480b501e09c691e70cab6a97e9ee0ffaf3ddb))
+* **sidebar:** publish:vault copies the console build into the vault ([#161](https://github.com/lekman/atlas/issues/161)) ([3a98c01](https://github.com/lekman/atlas/commit/3a98c017bf6d7f16943d22bc2f8b1bf20c401b10))
+* the agent live view refreshes every 15 seconds and pulses while the agent works ([#157](https://github.com/lekman/atlas/issues/157)) ([5b8a0a7](https://github.com/lekman/atlas/commit/5b8a0a71d4653528b8719b63d90d62ae35cd45e8))
+* Triage asks Commander for grades and opens a pane to save them ([#158](https://github.com/lekman/atlas/issues/158)) ([db83a26](https://github.com/lekman/atlas/commit/db83a267e9115dc18a6d65cf7f54c72c752204f2))
+
+
+### Bug Fixes
+
+* **beam:** a question of several parts shows and answers every part ([#159](https://github.com/lekman/atlas/issues/159)) ([76b8494](https://github.com/lekman/atlas/commit/76b84943460b844e09e7aa7fdb22cc6d7f9d66dc))
+* **console:** Agents says why it shows none instead of claiming none is online ([#150](https://github.com/lekman/atlas/issues/150)) ([94baff4](https://github.com/lekman/atlas/commit/94baff4e2276f7b2025c1de7907340d168de7f30))
+* **console:** Beam hides answered asks and groups asks by their system ([#144](https://github.com/lekman/atlas/issues/144)) ([617b185](https://github.com/lekman/atlas/commit/617b185c213cf39be181ae8a1e6ea8a5090b8f05))
+* **console:** Beam's answer form keeps still and uses the task detail's actions ([#145](https://github.com/lekman/atlas/issues/145)) ([50b8f06](https://github.com/lekman/atlas/commit/50b8f0647e1fb972ecae992e660b119c562e89a9))
+* **console:** Log says why it is empty instead of reading for ever ([#142](https://github.com/lekman/atlas/issues/142)) ([6e29306](https://github.com/lekman/atlas/commit/6e2930647d490b89f7783ce2e68651cf5f3416be))
+* **console:** task rows align to the top, with one gap under the title ([#148](https://github.com/lekman/atlas/issues/148)) ([3a55867](https://github.com/lekman/atlas/commit/3a558671c07533c80b240acae073596fb38e158f))
+* **dependabot:** Bump @vitejs/plugin-react from 6.2.1 to 6.3.0 ([#122](https://github.com/lekman/atlas/issues/122)) ([2064617](https://github.com/lekman/atlas/commit/2064617145b21a2165ec6706ce2bf843838401dc))
+* **dependabot:** Bump playwright from 1.64.1 to 1.65.1 ([#124](https://github.com/lekman/atlas/issues/124)) ([663ced2](https://github.com/lekman/atlas/commit/663ced209f8a5342d58111e1110003490da19a5f))
+* **dependabot:** Bump the storybook group with 5 updates ([#120](https://github.com/lekman/atlas/issues/120)) ([79d9da2](https://github.com/lekman/atlas/commit/79d9da271a017773dbe0bfc8008964961fe120a2))
+* **dependabot:** Bump turbo from 2.11.10 to 2.11.11 ([#121](https://github.com/lekman/atlas/issues/121)) ([35167af](https://github.com/lekman/atlas/commit/35167af1b6900599f9d5a063acefbc2c9fcb9af2))
+* **dependabot:** Bump vite from 8.3.6 to 8.3.8 ([#123](https://github.com/lekman/atlas/issues/123)) ([cfdeed6](https://github.com/lekman/atlas/commit/cfdeed69d205c5bb4de79da5b8ef99d17ca98996))
+* **server:** the roster sync sets a note only on a new agent ([#149](https://github.com/lekman/atlas/issues/149)) ([3a421d6](https://github.com/lekman/atlas/commit/3a421d6a5fe6fc04078066eb0c0b2056828f9bfb))
+* **sidebar:** publish:vault also writes the transfer note for the other Macs ([#166](https://github.com/lekman/atlas/issues/166)) ([6efd5a3](https://github.com/lekman/atlas/commit/6efd5a3b19f987279e7303747a5ff6ac2cddca55))
+
 ## [0.14.0](https://github.com/lekman/atlas/compare/v0.13.0...v0.14.0) (2026-11-09)
 
 
