@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it } from "bun:test";
 
 import {
   defaultRailSide,
-  nextRailSide,
   layoutFor,
   rememberedRailSide,
   rememberRailSide,
@@ -27,10 +26,8 @@ describe("console layout", () => {
     expect(layoutFor(1440)).toBe("wide");
   });
 
-  it("puts the rail right for a thumb and left for two hands", () => {
-    expect(defaultRailSide("single")).toBe("right");
-    expect(defaultRailSide("split")).toBe("left");
-    expect(defaultRailSide("wide")).toBe("left");
+  it("puts the menu along the bottom until the reader picks an edge", () => {
+    expect(defaultRailSide).toBe("bottom");
   });
 
   it("says the relay state in words", () => {
@@ -49,7 +46,7 @@ describe("remembered rail side", () => {
     });
   });
 
-  it("keeps the choice per layout", () => {
+  it("keeps one choice for every layout", () => {
     const store = new Map<string, string>();
     Object.defineProperty(globalThis, "localStorage", {
       configurable: true,
@@ -58,11 +55,11 @@ describe("remembered rail side", () => {
         setItem: (key: string, value: string) => void store.set(key, value),
       },
     });
-    rememberRailSide("single", "left");
-    expect(rememberedRailSide("single")).toBe("left");
-    expect(rememberedRailSide("split")).toBe("left");
-    rememberRailSide("split", "right");
-    expect(rememberedRailSide("split")).toBe("right");
+    expect(rememberedRailSide()).toBe("bottom");
+    rememberRailSide("left");
+    expect(rememberedRailSide()).toBe("left");
+    rememberRailSide("right");
+    expect(rememberedRailSide()).toBe("right");
   });
 
   it("falls back to the default when storage is blocked", () => {
@@ -72,15 +69,7 @@ describe("remembered rail side", () => {
         throw new Error("blocked");
       },
     });
-    expect(rememberedRailSide("single")).toBe("right");
-    expect(() => rememberRailSide("single", "left")).not.toThrow();
-  });
-});
-
-describe("nextRailSide", () => {
-  it("moves the menu left, then right, then to the bottom, then back", () => {
-    expect(nextRailSide("left")).toBe("right");
-    expect(nextRailSide("right")).toBe("bottom");
-    expect(nextRailSide("bottom")).toBe("left");
+    expect(rememberedRailSide()).toBe("bottom");
+    expect(() => rememberRailSide("left")).not.toThrow();
   });
 });

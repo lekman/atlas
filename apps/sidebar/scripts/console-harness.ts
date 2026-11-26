@@ -508,28 +508,36 @@ try {
         .catch(() => false))
     )
       problems.push(`${at}: an open question does not open Beam`);
-    // The swap button moves the menu on: to the next edge, then to the bottom, and back.
+    // The menu sits along the bottom unless Settings moves it.
     const railAt = () =>
       tab.evaluate(() =>
         document.querySelector(".atlas-console")?.getAttribute("data-rail"),
       );
-    const start = await railAt();
-    for (let n = 0; n < 3 && (await railAt()) !== "bottom"; n++)
-      await tab.getByRole("button", { name: /^Move the menu to the/ }).click();
     if ((await railAt()) !== "bottom")
-      problems.push(`${at}: the menu cannot move to the bottom edge`);
+      problems.push(`${at}: the menu does not start at the bottom`);
     else {
       const rail = await tab.locator(".console-rail").boundingBox();
       const panes = await tab.locator(".console-panes").boundingBox();
       if (!rail || !panes || rail.y < panes.y + panes.height - 2)
         problems.push(`${at}: the bottom menu is not under the panes`);
-      if (process.env.SHOTS)
-        await tab.screenshot({
-          path: join(process.env.SHOTS, `rail-bottom-${size.width}.png`),
-        });
     }
-    for (let n = 0; n < 3 && (await railAt()) !== start; n++)
-      await tab.getByRole("button", { name: /^Move the menu to the/ }).click();
+    if (await tab.getByRole("button", { name: /^Move the menu/ }).count())
+      problems.push(`${at}: the menu still has a swap button`);
+    await tab.getByRole("button", { name: "Settings" }).click();
+    const position = tab.getByRole("group", { name: "Menu position" });
+    await position.getByRole("button", { name: "Left" }).click();
+    if ((await railAt()) !== "left")
+      problems.push(`${at}: Settings does not move the menu to the left`);
+    if (process.env.SHOTS)
+      await tab.screenshot({
+        path: join(process.env.SHOTS, `settings-menu-${size.width}.png`),
+      });
+    await position.getByRole("button", { name: "Bottom" }).click();
+    if ((await railAt()) !== "bottom")
+      problems.push(
+        `${at}: Settings does not move the menu back to the bottom`,
+      );
+    await tab.getByRole("button", { name: "Settings" }).click();
     // Log lists what was finished, with its points.
     await tab.getByRole("button", { name: /^Log/ }).first().click();
     if (
