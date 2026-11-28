@@ -44,6 +44,15 @@ In Beam, a question can have several parts, each with its own choices. In
 Agents, an agent's page shows its live view, the tasks it works on, and its
 done, error and waiting messages, five to a page.
 
+Anthropic's article
+[Building always-on agents](https://claude.com/resources/articles/building-always-on-agents)
+names five parts around an agent that sleeps and wakes. They are an event
+inbox, timers, memory, permissions and an outbox. Atlas is the outbox, because
+it is where questions and status reach you. An answer you give in Beam goes
+back to the agent as a message in its event inbox. The ai-toolkit page
+[Always-On Agents](https://github.com/lekman/ai-toolkit/blob/main/practices/always-on/README.md)
+checks a whole setup against the article.
+
 A star map of every client, its work and its agents is built but kept out of
 the menu until it has a clear use.
 
